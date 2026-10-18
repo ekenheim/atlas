@@ -9,6 +9,7 @@ Read `.claude/skills/atlas-research/SKILL.md`, then `.claude/skills/atlas-resear
 - Belief id: none is given. Choose the Belief as `skeptic.md` step 2 says: the stalest proven Belief (`list_beliefs` lists it first): never examined, then the oldest `examined_through`. If none qualifies, write the report it describes, close the session, and stop.
 - Theme: {{THEME}}
 - As-of time: {{AS_OF}} (the start of this run; pass it to `open_session` unchanged)
+- Actor: pass `actor: atlas-skeptic` to `open_session`
 - Would-invalidate: not given
 - Output folder: {{OUT_DIR}} (create it; write `skeptic-report.md` there)
 - Call bound: {{CALL_BOUND}} (every tool call counts, refusals included)

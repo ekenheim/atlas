@@ -7,10 +7,13 @@
 # The run list is frozen in the image (case, company slug, as-of time, the protocol's question; no
 # key, no outcome, no price). Atlas is asked which entries have been run: an entry is run when
 # Atlas holds an isolated session with the same question, as-of time (as an instant) and seed
-# company. This picks the first entry that is not, and hands it to `run.sh researcher` with
+# company that has recorded at least one tool call. While an isolated session of theme `scorecard`
+# is still open (not closed) and started less than 6 hours ago, this prints
+# {"scorecard":"busy",...} and exits 0 without running anything. Otherwise it picks the first
+# entry not run, and hands it to `run.sh researcher` with
 # ATLAS_AGENT_THEME=scorecard, ATLAS_AGENT_QUESTION, ATLAS_AGENT_SEEDS (the slug),
 # ATLAS_AGENT_AS_OF and ATLAS_AGENT_ISOLATED=true; run.sh opens the session itself. A run that
-# failed after its session opened still counts as run (its session exists) and is flagged by
+# failed after its session recorded a call still counts as run (its session exists) and is flagged by
 # scripts/scorecard.py, not retried. Nothing left: prints {"scorecard":"done"} and exits 0.
 #
 # Environment:
@@ -83,12 +86,32 @@ const get = async (base, path) => {
     if (items.length === 0 || offset >= Number(page.total || 0)) break;
   }
   const isolated = sessions.filter((each) => each && each.isolated === true);
+  // One run at a time: an isolated scorecard session still open (not closed) and started less
+  // than six hours ago is a run in flight, or one that died without closing; either way this
+  // firing waits rather than overlap it (two runs share one subscription window and one pod
+  // log, and a second run read while the first is open is not a clean replay).
+  const sixHours = 6 * 60 * 60 * 1000;
+  const open = isolated.find(
+    (each) =>
+      each.theme === "scorecard" &&
+      !each.finished_at &&
+      Date.now() - Date.parse(each.started_at) < sixHours,
+  );
+  if (open) {
+    process.stdout.write(
+      JSON.stringify({ busy: true, line: { scorecard: "busy", session: open.id, started_at: open.started_at } }) + "\n",
+    );
+    return;
+  }
+  // An entry is run once its isolated session has recorded a tool call: a POST that timed out
+  // after Atlas created the session, with no call after it, has not spent the entry.
+  const ran = isolated.filter((each) => Number(each.tool_calls || 0) >= 1);
   for (const entry of runs) {
     const company = companies.find((each) => each && each.slug === entry.company);
     if (!company) throw new Error("the run list names a company Atlas does not have: " + entry.company);
     const want = Date.parse(entry.as_of);
     if (Number.isNaN(want)) throw new Error("not a time: " + entry.as_of);
-    const done = isolated.some(
+    const done = ran.some(
       (each) =>
         String(each.question || "") === entry.question &&
         Date.parse(each.as_of) === want &&
@@ -111,6 +134,10 @@ picked="$(node -e "$pick_js" "$mcp_url" "$runs_file")"
 # used as an environment value.
 field() { node -e 'const e = JSON.parse(process.argv[1]); process.stdout.write(String(e[process.argv[2]] ?? ""));' "$picked" "$1"; }
 
+if [[ "$(field busy)" == true ]]; then
+  node -e 'process.stdout.write(JSON.stringify(JSON.parse(process.argv[1]).line) + "\n")' "$picked"
+  exit 0
+fi
 if [[ "$(field done)" == true ]]; then
   echo '{"scorecard":"done"}'
   exit 0

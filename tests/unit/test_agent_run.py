@@ -240,6 +240,7 @@ def test_the_researcher_starts_from_the_frontier_and_uses_both_banks(run: Run):
     prompt = run.call("researcher", "--dry-run").stdout.split("prompt:\n", 1)[1]
 
     assert "Start from `next_issue`" in prompt
+    assert "- Actor: pass `actor: atlas-researcher` to `open_session`" in prompt
     assert "`bank: research`" in prompt
     assert "`bank: beliefs`" in prompt
     assert "born `unproven`" in prompt
@@ -316,6 +317,9 @@ def test_an_isolated_run_tells_the_researcher_its_session_is_open_and_to_use_onl
     assert "pass `isolated: true` to `open_session`" not in prompt
     assert "pass it to `open_session`" not in prompt  # the wrapper's as-of line, rewritten
     assert "pass them to `open_session`" not in prompt
+    # The actor the wrapper tells a routine to pass is the session's already (run.sh sets it).
+    assert "to `open_session`" not in prompt
+    assert "the session already has `actor: atlas-researcher`" in prompt
     assert "Your tools are exactly the ones on the Tools line below" in prompt
     assert "facts, never observations" in prompt
     assert "use only what the tools return" in prompt

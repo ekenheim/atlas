@@ -42,9 +42,11 @@ The runs file::
                "result_file": "out/claude-result.json",       # optional (ticket 29b): read for its
                                                   # `permission_denials`, reported; a path from
                                                   # the runs file's folder
-               "started_at": "2026-10-20T05:00:00Z",          # optional, together: run.sh's log
-               "finished_at": "2026-10-20T05:30:00Z"}],       # line; any other session created
-                                                  # inside is flagged and the run not scored
+               "started_at": "2026-10-20T05:00:00Z",          # optional, together; a fallback only:
+               "finished_at": "2026-10-20T05:30:00Z"}],       # the window is the session's own
+                                                  # created time to its close (else its last
+                                                  # tool call), from Atlas; the other sessions
+                                                  # created inside are listed for the lead
      "not_run": [{"case": "raspberry-pi", "reason": "no documents reachable"}]}
 
 The marks file (the reviewers', then the lead's)::
@@ -185,6 +187,23 @@ MISS_CLASS_MEANING = {
 FACT_PRECISION_FLOOR = 0.92
 TRUST_GATE_CEILING = 0.10
 CODE_TOP = 20
+# The twelve Atlas tools an isolated run is allowed (`agent/run.sh`'s `isolated_tools`; a unit test
+# keeps the two the same) and the actor run.sh opens its session with.
+ISOLATED_TOOLS = (
+    "close_session",
+    "companies",
+    "search",
+    "read",
+    "locate",
+    "record_fact",
+    "get_fact",
+    "judge_statement",
+    "relate_facts",
+    "propose_belief",
+    "cite_belief",
+    "recall",
+)
+RESEARCHER_ACTOR = "atlas-researcher"
 
 
 class ScorecardError(ValueError):
@@ -427,14 +446,32 @@ def permission_denials(run: Run, base: Path | None) -> dict[str, Any] | None:
     return {"count": len(denials), "tools": tools}
 
 
-def sessions_in_window(get: Get, run: Run) -> list[dict[str, Any]] | None:
-    """Every OTHER Atlas session created inside the run's window (ticket 29b, N1): the run opens
-    one session, its own, and nothing else may open during it. None when the runs file gives no
-    window, so nothing could be checked."""
-    if run.started_at is None or run.finished_at is None:
+def run_window(run: Run, session: dict[str, Any], trace: list[Any]) -> dict[str, str] | None:
+    """The run's window, from Atlas's own record and not the pod's clock (ticket 29b): it starts
+    when the run's session was created and ends when the session was closed, else at its last
+    recorded tool call. Only a time Atlas lacks is taken from the runs file (`started_at`,
+    `finished_at`, the end a second late because run.sh takes it to the second). None when
+    neither has one."""
+    start = session.get("started_at") or run.started_at
+    end = session.get("finished_at")
+    source = "session closed"
+    if end is None and trace:
+        end = max((str(_object(call, "a tool call")["at"]) for call in trace), key=_instant)
+        source = "last tool call"
+    if end is None and run.finished_at is not None:
+        end = (_instant(run.finished_at) + WINDOW_SLACK).isoformat()
+        source = "runs file"
+    if start is None or end is None:
         return None
-    start = _instant(run.started_at)
-    end = _instant(run.finished_at) + WINDOW_SLACK
+    return {"start": str(start), "end": str(end), "source": source}
+
+
+def sessions_in_window(get: Get, window: dict[str, str], own_id: str) -> list[dict[str, Any]]:
+    """Every OTHER Atlas session created inside the run's window (ticket 29b, N1): the run's
+    session is opened by run.sh, so these are unrelated sessions (another agent's, the lead's), and
+    the lead decides whether any of them touched the run."""
+    start = _instant(window["start"])
+    end = _instant(window["end"])
     found: list[dict[str, Any]] = []
     offset = 0
     while True:
@@ -442,7 +479,7 @@ def sessions_in_window(get: Get, run: Run) -> list[dict[str, Any]] | None:
         items = _list(page.get("items"), "the sessions")
         for item in items:
             session = _object(item, "a session")
-            if str(session["id"]) == run.session_id:
+            if str(session["id"]) == own_id:
                 continue
             if start <= _instant(str(session["started_at"])) <= end:
                 found.append(
@@ -492,6 +529,7 @@ def collect_bundle(get: Get, run: Run, base: Path | None = None) -> dict[str, An
             dates[version] = str(
                 _object(get(f"/source-versions/{version}"), "a version")["available_at"]
             )
+    window = run_window(run, session, trace)
     return {
         "run": run.label,
         "session": session,
@@ -499,7 +537,10 @@ def collect_bundle(get: Get, run: Run, base: Path | None = None) -> dict[str, An
         "beliefs": beliefs,
         "version_dates": dates,
         "permission_denials": permission_denials(run, base),
-        "other_sessions_in_window": sessions_in_window(get, run),
+        "window": window,
+        "other_sessions_in_window": (
+            None if window is None else sessions_in_window(get, window, run.session_id)
+        ),
     }
 
 
@@ -685,15 +726,20 @@ def _others_text(bundle: dict[str, Any]) -> str:
     """The other sessions Atlas created during the run's window, in a line."""
     others = bundle.get("other_sessions_in_window")
     if others is None:
-        return "not checked (the runs file gives no window)"
+        return "not checked: no window (not scored)"
     sessions = [_object(each, "a session") for each in _list(others, "other sessions")]
     if not sessions:
         return "none"
-    names = ", ".join(
-        f"{each['id']} ({'isolated' if each.get('isolated') else 'not isolated'})"
+    return f"{len(sessions)}: {_others_list(sessions)} (the lead decides)"
+
+
+def _others_list(sessions: Sequence[dict[str, Any]]) -> str:
+    """Other sessions by id, actor, theme and whether they were isolated."""
+    return ", ".join(
+        f"{each['id']} (actor {each.get('actor')}, theme {each.get('theme')},"
+        f" {'isolated' if each.get('isolated') else 'not isolated'})"
         for each in sessions
     )
-    return f"{len(sessions)}: {names} (not scored: flag it)"
 
 
 # --- the marks ---------------------------------------------------------------------------------
@@ -725,15 +771,32 @@ def resolve_run(
     case = KEY[run.case]
     beliefs = [str(_object(each, "a Belief")["id"]) for each in _list(bundle["beliefs"], "Beliefs")]
     problems: list[str] = []
+    session = _object(bundle["session"], "the session")
     changed = off_configuration(runs, run)
+    # Atlas's own record of the session, not the runs file's: the model and the actor it was
+    # opened with (run.sh opens it as `atlas-researcher`).
+    frozen_model = runs.frozen.get("agent_model")
+    if frozen_model is not None and session.get("model") != frozen_model:
+        changed.append(f"session model {session.get('model')!r}")
+    if session.get("actor") != RESEARCHER_ACTOR:
+        changed.append(f"session actor {session.get('actor')!r}")
     if changed:
         problems.append(f"another configuration than the frozen one: {', '.join(changed)}")
-    if not _object(bundle["session"], "the session").get("isolated"):
+    if not session.get("isolated"):
         problems.append("the session was not isolated")
-    others = bundle.get("other_sessions_in_window")
-    if others:
-        ids = ", ".join(str(_object(each, "a session")["id"]) for each in others)
-        problems.append(f"{len(others)} other session(s) opened during the run's window: {ids}")
+    # Amendment 2, Validity: no call outside the isolated tool list (`open_session` included: the
+    # runner opened the session, so the agent opening one is a second session).
+    outside = sorted(
+        {
+            str(_object(call, "a tool call")["tool"])
+            for call in _list(bundle["tool_calls"], "tool calls")
+        }
+        - set(ISOLATED_TOOLS)
+    )
+    if outside:
+        problems.append(f"the trace shows tools outside the isolated list: {', '.join(outside)}")
+    if bundle.get("window") is None:
+        problems.append("no window: the session has no start or end time and the runs file none")
     given = adjudication or {}
     decided = {
         str(k): str(v) for k, v in _object(given.get("belief_marks", {}), "belief_marks").items()
@@ -893,6 +956,12 @@ def build_report(
             )
         if case.positive and run.closed_book == "stated":
             flags.append("not discriminating: the closed-book model states it")
+        others = bundles[run.label].get("other_sessions_in_window")
+        if others:
+            flags.append(
+                f"{len(others)} other session(s) opened during the run's window (the lead"
+                f" decides): {', '.join(str(each['id']) for each in others)}"
+            )
         denials = bundles[run.label].get("permission_denials")
         if denials is not None and denials["count"]:
             flags.append(f"permission denials: {_denials_text(denials)}")
@@ -915,6 +984,7 @@ def build_report(
                 "belief_marks": outcome.belief_marks,
                 "tool_calls": trace["calls"],
                 "permission_denials": denials,
+                "window": bundles[run.label].get("window"),
                 "other_sessions_in_window": bundles[run.label].get("other_sessions_in_window"),
                 "flags": flags,
             }
@@ -951,12 +1021,6 @@ def build_report(
         ),
         "decision": decide_build(scored),
         "frozen": runs.frozen,
-        # Runs whose window the runs file did not give: no other session could be looked for.
-        "window_unchecked": [
-            run.label
-            for run in runs.runs
-            if bundles[run.label].get("other_sessions_in_window") is None
-        ],
     }
 
 
@@ -1023,13 +1087,17 @@ def render_report(result: dict[str, Any]) -> str:
                 else "no hit"
             )
             lines.append(f"- {KEY[case_id].name}: {text}")
-    if result["window_unchecked"]:
-        unchecked = ", ".join(result["window_unchecked"])
-        lines += [
-            "",
-            "Concurrent sessions were not looked for in these runs, which have no"
-            f" `started_at`/`finished_at` in the runs file: {unchecked}.",
-        ]
+    during = [row for row in result["runs"] if row["other_sessions_in_window"]]
+    lines += [
+        "",
+        "## Other sessions during a run (the lead decides; not a reason to drop a run alone)",
+        "",
+    ]
+    lines += [
+        f"- {row['run']} ({row['window']['start']} to {row['window']['end']}, from"
+        f" {row['window']['source']}): {_others_list(row['other_sessions_in_window'])}"
+        for row in during
+    ] or ["- none"]
     lines += ["", "## Not run or missing", ""]
     gaps = [each for each in result["coverage"] if each["status"] != "run"]
     lines += [

@@ -39,7 +39,7 @@ static() {
   step "agents: runner syntax, every tool a routine prompt names is on the MCP server, run.sh --dry-run"
   # The scheduled agents' prompts and runner (atlas-beliefs ticket 17); needs bash and node,
   # which both runners have. The full pytest in `suite` runs these again.
-  for script in agent/run.sh scripts/agent-image-smoke.sh; do bash -n "$script"; done
+  for script in agent/run.sh agent/scorecard-run.sh scripts/agent-image-smoke.sh; do bash -n "$script"; done
   uv run pytest tests/unit/test_agent_routines.py tests/unit/test_agent_run.py -q
 
   step "frontend: install, lint, types, unit tests, API client is current"

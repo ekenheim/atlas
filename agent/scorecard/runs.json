@@ -48,7 +48,7 @@
     "question": "As of 2025-11-30, does anything constrain supply in POET's market, who holds it, and what would relieve it?"
   },
   {
-    "case": "axt-calibration",
+    "case": "axt",
     "company": "axt",
     "as_of": "2025-08-31T23:59:59+00:00",
     "question": "As of 2025-08-31, does anything constrain supply in AXT's market, who holds it, and what would relieve it?"

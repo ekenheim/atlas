@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -151,8 +152,17 @@ def session_for(entry: dict[str, str], *, isolated: bool = True, **change: Any) 
         "as_of": entry["as_of"].replace("+00:00", "Z"),
         "seed_company_ids": [f"id-{entry['company']}"],
         "isolated": isolated,
+        "theme": "scorecard",
+        "started_at": "2026-10-01T05:00:00Z",  # long ago, and closed: never a run in flight
+        "finished_at": "2026-10-01T05:30:00Z",
+        "tool_calls": 5,
     }
     return session | change
+
+
+def hours_ago(hours: float) -> str:
+    moment = datetime.now(UTC) - timedelta(hours=hours)
+    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # --- the run list ------------------------------------------------------------------------------
@@ -168,7 +178,7 @@ def test_the_run_list_is_the_nine_runs_in_order_with_the_protocols_question() ->
         ("snap", "snap", "2025-08-31"),
         ("sandisk", "sandisk", "2025-08-31"),
         ("poet", "poet-technologies", "2025-11-30"),
-        ("axt-calibration", "axt", "2025-08-31"),
+        ("axt", "axt", "2025-08-31"),
     ]
     names = {
         "iren": "IREN",
@@ -200,7 +210,7 @@ def test_the_run_list_agrees_with_the_scorecards_key() -> None:
     sys.modules["scorecard_key"] = module
     spec.loader.exec_module(module)
     for entry in ENTRIES:
-        case = module.KEY[entry["case"].removesuffix("-calibration")]
+        case = module.KEY[entry["case"]]
         assert case.slug == entry["company"]
         assert entry["as_of"][:10] in case.as_of_dates
         company = case.name.split(" (")[0]
@@ -309,6 +319,71 @@ def test_it_reads_every_page_of_the_session_list(card: Scorecard) -> None:
 
     assert [p["question"] for p in card.posted()] == [ENTRIES[1]["question"]]
     assert sum(1 for each in card.asked() if each.startswith("GET /api/v1/sessions")) == 2
+
+
+@needs_bash
+def test_an_entry_is_run_only_once_its_session_has_recorded_a_tool_call(card: Scorecard) -> None:
+    # A POST that timed out after Atlas created the session, and a run that died before its first
+    # call, left a session with no call: that does not spend the entry.
+    url = card.atlas(sessions=[session_for(ENTRIES[0], tool_calls=0)])
+
+    card.call(ATLAS_MCP_URL=url)
+
+    assert [p["question"] for p in card.posted()] == [ENTRIES[0]["question"]]
+
+
+@needs_bash
+def test_it_waits_while_a_scorecard_session_is_open_and_recent(card: Scorecard) -> None:
+    open_now = session_for(
+        ENTRIES[0], started_at=hours_ago(1), finished_at=None, id="in-flight", tool_calls=3
+    )
+    url = card.atlas(sessions=[open_now])
+
+    result = card.call(ATLAS_MCP_URL=url)
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {
+        "scorecard": "busy",
+        "session": "in-flight",
+        "started_at": open_now["started_at"],
+    }
+    assert not card.stub_was_called()
+    assert card.posted() == []
+
+
+@needs_bash
+def test_it_waits_for_an_open_session_with_no_call_too(card: Scorecard) -> None:
+    url = card.atlas(
+        sessions=[
+            session_for(ENTRIES[0], started_at=hours_ago(5.5), finished_at=None, tool_calls=0)
+        ]
+    )
+
+    result = card.call(ATLAS_MCP_URL=url)
+
+    assert json.loads(result.stdout)["scorecard"] == "busy"
+    assert not card.stub_was_called()
+
+
+@needs_bash
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"started_at": hours_ago(7), "finished_at": None},  # open, but older than six hours
+        {"started_at": hours_ago(1), "finished_at": hours_ago(0.5)},  # closed
+        {"started_at": hours_ago(1), "finished_at": None, "isolated": False},
+        {"started_at": hours_ago(1), "finished_at": None, "theme": "photonics"},
+    ],
+)
+def test_it_does_not_wait_for_a_session_that_is_old_closed_not_isolated_or_not_the_scorecards(
+    card: Scorecard, change: dict[str, Any]
+) -> None:
+    url = card.atlas(sessions=[session_for(ENTRIES[0]) | change])
+
+    result = card.call(ATLAS_MCP_URL=url)
+
+    assert result.returncode == 0, result.stderr
+    assert len(card.posted()) == 1  # it ran an entry: busy only for an open, recent, isolated one
 
 
 # --- what it refuses ---------------------------------------------------------------------------

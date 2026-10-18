@@ -8,6 +8,7 @@ Read `.claude/skills/atlas-research/SKILL.md`, then `.claude/skills/atlas-resear
 
 - Theme: {{THEME}}
 - As-of time: {{AS_OF}} (the start of this run; pass it to `open_session` unchanged)
+- Actor: pass `actor: atlas-scout` to `open_session`
 - Seed companies: none given (the whole theme)
 - Output folder: {{OUT_DIR}} (create it; write `scout-report.md` there)
 - Call bound: {{CALL_BOUND}} (every tool call counts, refusals included)

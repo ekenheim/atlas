@@ -16,6 +16,7 @@ import copy
 import importlib.util
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -167,7 +168,14 @@ def test_a_run_is_read_as_the_session_its_own_beliefs_its_trace_and_its_document
     # Its two Beliefs; the other session's Belief of the same theme is not read.
     assert [b["statement"][:12] for b in bundle["beliefs"]] == ["Zephyr cut w", "Zephyr repor"]
     assert all(b["produced_by"] == run.session_id for b in bundle["beliefs"])
-    assert [c["tool"] for c in bundle["tool_calls"]][:3] == ["open_session", "prior_work", "search"]
+    assert [c["tool"] for c in bundle["tool_calls"]][:3] == ["companies", "get_fact", "search"]
+    # The window is Atlas's own: the session's created time to its close.
+    assert bundle["window"] == {
+        "start": "2026-10-20T05:00:30Z",
+        "end": "2026-10-20T05:30:00Z",
+        "source": "session closed",
+    }
+    assert bundle["other_sessions_in_window"] == []
     # A cited document's date comes with its citation; the 10-Q only a Fact quotes is asked for.
     assert bundle["version_dates"] == {
         "00000003-0000-4000-8000-000000000001": "2025-01-30T21:05:00Z",
@@ -592,16 +600,6 @@ WINDOW = {"started_at": "2026-10-20T05:00:00Z", "finished_at": "2026-10-20T05:30
 INSIDE = "00000008-0000-4000-8000-000000000004"  # created 05:10:00, not isolated
 
 
-def get_with_sessions(path: str, **params: Any) -> Any:
-    """The recorded GETs and the sessions list, paged as Atlas pages it."""
-    if path != "/sessions":
-        return get(path, **params)
-    page = copy.deepcopy(SESSIONS)
-    start = params.get("offset", 0)
-    page["items"] = page["items"][start : start + params.get("limit", 50)]
-    return page
-
-
 def first_run_with(**change: Any) -> tuple[Any, Any]:
     document = copy.deepcopy(RUNS)
     document["runs"][0].update(change)
@@ -690,78 +688,270 @@ def test_a_session_that_is_not_isolated_is_marked_not_scored_on_the_sheet_and_th
     assert result["positive_hits"] == "0 of 3"
 
 
-def test_another_session_opened_inside_the_runs_window_is_found_and_the_run_is_not_scored() -> None:
-    runs, run = first_run_with(**WINDOW)
+OWN = RUNS["runs"][0]["session_id"]
 
-    bundle = sc.collect_bundle(get_with_sessions, run)
+
+def get_patched(
+    *,
+    session: dict[str, Any] | None = None,
+    trace: list[dict[str, Any]] | None = None,
+    sessions: dict[str, Any] | None = None,
+) -> Callable[..., Any]:
+    """The recorded answers, with the first run's session fields, its tool trace or the sessions
+    list changed (the sessions list is paged as Atlas pages it)."""
+    changed = copy.deepcopy(API)
+    changed[f"/sessions/{OWN}"].update(session or {})
+    if trace is not None:
+        changed[f"/sessions/{OWN}/tool-calls"] = trace
+    if sessions is not None:
+        changed["/sessions"] = sessions
+
+    def answer(path: str, **params: Any) -> Any:
+        page: Any = copy.deepcopy(changed[path])
+        if "items" in page:  # a page (a trace is a list)
+            start = params.get("offset", 0)
+            page["items"] = page["items"][start : start + params.get("limit", 50)]
+        return page
+
+    return answer
+
+
+def with_others() -> Callable[..., Any]:
+    """The first run's window holds `INSIDE`, another session, as well as its own."""
+    return get_patched(sessions=SESSIONS)
+
+
+def test_another_session_in_the_runs_window_is_listed_for_the_lead_and_the_run_stays_scored() -> (
+    None
+):
+    runs = sc.parse_runs(RUNS)
+    run = runs.runs[0]
+    fetch = with_others()
+
+    bundle = sc.collect_bundle(fetch, run)
 
     # Its own session is not another; the ones before and after the window are outside it.
     assert [each["id"] for each in bundle["other_sessions_in_window"]] == [INSIDE]
     other = bundle["other_sessions_in_window"][0]
-    assert (other["isolated"], other["actor"]) == (False, "claude-session")
-    outcome = sc.resolve_run(run, runs, bundle, MARKS["marks"], None)
-    assert outcome.not_scored == f"1 other session(s) opened during the run's window: {INSIDE}"
+    assert (other["isolated"], other["actor"], other["theme"]) == (
+        False,
+        "claude-session",
+        "photonics",
+    )
+    # Listed, not a reason to drop the run: the agent cannot open a session, so this is unrelated.
+    assert sc.resolve_run(run, runs, bundle, MARKS["marks"], None).not_scored is None
     sheet = sc.review_sheet(run, bundle)
-    assert f"Other sessions opened during the run: 1: {INSIDE}" in sheet
-    assert "(not isolated) (not scored: flag it)" in sheet
-    all_bundles = {each.label: sc.collect_bundle(get_with_sessions, each) for each in runs.runs}
-    result = sc.build_report(runs, all_bundles, MARKS["marks"], MARKS["adjudications"])
+    assert f"Other sessions opened during the run: 1: {INSIDE} (actor claude-session," in sheet
+    assert "theme photonics, not isolated) (the lead decides)" in sheet
+    result = sc.build_report(
+        runs,
+        {each.label: sc.collect_bundle(fetch, each) for each in runs.runs},
+        MARKS["marks"],
+        MARKS["adjudications"],
+    )
     feb = row(result, "sandisk@2025-02-28")
-    assert feb["raw"] is None
-    assert any(flag.startswith("not scored: 1 other session(s)") for flag in feb["flags"])
-    assert feb["other_sessions_in_window"][0]["id"] == INSIDE
+    assert feb["raw"] == "hit"
+    assert any(
+        flag.startswith("1 other session(s) opened during the run's window (the lead decides)")
+        for flag in feb["flags"]
+    )
+    text = sc.render_report(result)
+    assert "## Other sessions during a run" in text
+    window = "2026-10-20T05:00:30Z to 2026-10-20T05:30:00Z, from session closed"
+    assert f"- sandisk@2025-02-28 ({window}): {INSIDE} (actor claude-session" in text
 
 
-def test_a_window_with_no_other_session_leaves_the_run_scored() -> None:
-    quiet = {"started_at": "2026-10-20T05:00:00Z", "finished_at": "2026-10-20T05:05:00Z"}
-    runs, run = first_run_with(**quiet)
+def test_a_window_with_no_other_session_says_none() -> None:
+    fetch = get_patched(session={"finished_at": "2026-10-20T05:05:00Z"}, sessions=SESSIONS)
+    runs = sc.parse_runs(RUNS)
 
-    bundle = sc.collect_bundle(get_with_sessions, run)
+    bundle = sc.collect_bundle(fetch, runs.runs[0])
 
     assert bundle["other_sessions_in_window"] == []
-    assert sc.resolve_run(run, runs, bundle, MARKS["marks"], None).not_scored is None
-    assert "Other sessions opened during the run: none" in sc.review_sheet(run, bundle)
+    assert "Other sessions opened during the run: none" in sc.review_sheet(runs.runs[0], bundle)
+    assert "- none" in sc.render_report(report()).split("## Other sessions during a run")[1]
 
 
 def test_the_sessions_list_is_read_to_its_end() -> None:
     seen: list[int] = []
+    inner = with_others()
 
-    def get_small_pages(path: str, **params: Any) -> Any:
+    def small_pages(path: str, **params: Any) -> Any:
         if path == "/sessions":
             seen.append(params["offset"])
-            return get_with_sessions(path, **(params | {"limit": 2}))
-        return get(path, **params)
+            return inner(path, **(params | {"limit": 2}))
+        return inner(path, **params)
 
-    _, run = first_run_with(**WINDOW)
+    window = {"start": "2026-10-20T04:00:00Z", "end": "2026-10-20T06:00:00Z"}
 
-    found = sc.sessions_in_window(get_small_pages, run)
+    found = sc.sessions_in_window(small_pages, window, OWN)
 
-    assert found is not None and [each["id"] for each in found] == [INSIDE]
-    assert seen == [0, 2]  # the session in the window is on the first page; the rest are read
+    assert [each["id"] for each in found] == [
+        "00000008-0000-4000-8000-000000000005",
+        INSIDE,
+        "00000008-0000-4000-8000-000000000002",
+    ]
+    assert seen == [0, 2]  # four sessions at two a page
 
 
-def test_the_window_ends_a_second_late_because_the_runner_rounds_it_down() -> None:
-    # run.sh takes `finished_at` to the second, so a session opened in the next one is in.
+def test_the_window_is_atlas_s_own_the_session_s_close_else_its_last_call_else_the_runs_file() -> (
+    None
+):
+    run = sc.parse_runs(RUNS).runs[0]
+    session = API[f"/sessions/{OWN}"]
+    trace = API[f"/sessions/{OWN}/tool-calls"]
+
+    closed = sc.run_window(run, session, trace)
+    open_ = sc.run_window(run, {**session, "finished_at": None}, trace)
+    bare = sc.run_window(run, {**session, "finished_at": None}, [])
+
+    assert closed == {
+        "start": "2026-10-20T05:00:30Z",
+        "end": "2026-10-20T05:30:00Z",
+        "source": "session closed",
+    }
+    assert open_ == {
+        "start": "2026-10-20T05:00:30Z",
+        "end": "2026-10-20T05:09:00Z",  # the last recorded tool call
+        "source": "last tool call",
+    }
+    assert bare is None  # nothing in Atlas, nothing in the runs file
+    # The runs file is only a fallback, and its end is a second late (run.sh rounds it down).
+    _, with_file = first_run_with(**WINDOW)
+    fallback = sc.run_window(with_file, {**session, "finished_at": None}, [])
+    assert fallback == {
+        "start": "2026-10-20T05:00:30Z",
+        "end": "2026-10-20T05:30:01+00:00",
+        "source": "runs file",
+    }
+    # Atlas's times win over the runs file's.
+    assert sc.run_window(with_file, session, trace) == closed
+    no_start = sc.run_window(with_file, {**session, "started_at": None}, trace)
+    assert no_start is not None and no_start["start"] == "2026-10-20T05:00:00Z"
+
+
+def test_the_runs_file_window_ends_a_second_late_because_the_runner_rounds_it_down() -> None:
+    session = {**API[f"/sessions/{OWN}"], "finished_at": None, "started_at": None}
+
     def ids(finished_at: str) -> list[str]:
         _, run = first_run_with(started_at="2026-10-20T04:00:00Z", finished_at=finished_at)
-        found: list[dict[str, Any]] = sc.sessions_in_window(get_with_sessions, run) or []
-        return [each["id"] for each in found]
+        window = sc.run_window(run, session, [])
+        assert window is not None
+        return [each["id"] for each in sc.sessions_in_window(with_others(), window, OWN)]
 
     assert INSIDE in ids("2026-10-20T05:10:00Z")
     assert INSIDE in ids("2026-10-20T05:09:59Z")  # 05:10:00 is within the second's slack
     assert INSIDE not in ids("2026-10-20T05:09:58Z")
 
 
-def test_a_run_without_a_window_is_reported_as_not_checked_for_concurrent_sessions() -> None:
-    result = report()
+def test_a_run_with_no_window_is_a_scoring_problem_not_a_footnote() -> None:
+    runs = sc.parse_runs(RUNS)
+    run = runs.runs[0]
+    fetch = get_patched(session={"started_at": None, "finished_at": None}, trace=[])
 
-    assert row(result, "sandisk@2025-02-28")["other_sessions_in_window"] is None
-    assert "sandisk@2025-02-28" in result["window_unchecked"]
-    assert "Concurrent sessions were not looked for in these runs" in sc.render_report(result)
-    runs, windowed = first_run_with(**WINDOW)
-    all_bundles = {each.label: sc.collect_bundle(get_with_sessions, each) for each in runs.runs}
-    found = sc.build_report(runs, all_bundles, MARKS["marks"], MARKS["adjudications"])
-    assert windowed.label not in found["window_unchecked"]
+    bundle = sc.collect_bundle(fetch, run)
+    outcome = sc.resolve_run(run, runs, bundle, MARKS["marks"], None)
+
+    assert bundle["window"] is None and bundle["other_sessions_in_window"] is None
+    assert outcome.not_scored == (
+        "no window: the session has no start or end time and the runs file none"
+    )
+    assert "not checked: no window (not scored)" in sc.review_sheet(run, bundle)
+    result = sc.build_report(
+        runs,
+        {
+            each.label: (bundle if each is run else sc.collect_bundle(get, each))
+            for each in runs.runs
+        },
+        MARKS["marks"],
+        MARKS["adjudications"],
+    )
+    feb = row(result, "sandisk@2025-02-28")
+    assert feb["raw"] is None
+    assert any(flag.startswith("not scored: no window") for flag in feb["flags"])
+    assert result["positive_hits"] == "0 of 3"
+
+
+def call(tool: str, outcome: str = "ok", at: str = "2026-10-20T05:20:00Z") -> dict[str, Any]:
+    return {
+        "id": "00000007-0000-4000-8000-0000000000ff",
+        "tool": tool,
+        "arguments": {},
+        "outcome": outcome,
+        "reason": None if outcome == "ok" else "isolated_session",
+        "at": at,
+    }
+
+
+def test_a_trace_with_a_tool_outside_the_twelve_makes_the_run_not_scored() -> None:
+    runs = sc.parse_runs(RUNS)
+    run = runs.runs[0]
+    trace = [
+        *API[f"/sessions/{OWN}/tool-calls"],
+        call("open_session"),
+        call("prior_work", "refused"),
+    ]
+
+    bundle = sc.collect_bundle(get_patched(trace=trace), run)
+    outcome = sc.resolve_run(run, runs, bundle, MARKS["marks"], None)
+
+    assert outcome.not_scored == (
+        "the trace shows tools outside the isolated list: open_session, prior_work"
+    )
+    result = sc.build_report(
+        runs,
+        {each.label: sc.collect_bundle(get_patched(trace=trace), each) for each in runs.runs[:1]}
+        | {each.label: sc.collect_bundle(get, each) for each in runs.runs[1:]},
+        MARKS["marks"],
+        MARKS["adjudications"],
+    )
+    feb = row(result, "sandisk@2025-02-28")
+    assert feb["raw"] is None
+    assert any("outside the isolated list: open_session, prior_work" in f for f in feb["flags"])
+    # A refused call to an isolated tool is still inside the list; the fixtures' traces are clean.
+    clean = [*API[f"/sessions/{OWN}/tool-calls"], call("recall", "refused")]
+    bundle = sc.collect_bundle(get_patched(trace=clean), run)
+    assert sc.resolve_run(run, runs, bundle, MARKS["marks"], None).not_scored is None
+
+
+def test_the_scorecards_twelve_tools_are_the_runners() -> None:
+    import re
+
+    text = (REPO / "agent" / "run.sh").read_text(encoding="utf-8")
+    match = re.search(r'^isolated_tools="([a-z_ ]+)"$', text, re.MULTILINE)
+    assert match is not None
+    assert list(sc.ISOLATED_TOOLS) == match.group(1).split()
+    assert len(sc.ISOLATED_TOOLS) == 12 and "open_session" not in sc.ISOLATED_TOOLS
+
+
+@pytest.mark.parametrize(
+    ("session", "wording"),
+    [
+        ({"model": "opus"}, "session model 'opus'"),
+        ({"model": None}, "session model None"),
+        ({"actor": "claude-session"}, "session actor 'claude-session'"),
+        (
+            {"model": "claude-fable-5-1", "actor": "atlas-scout"},
+            "session model 'claude-fable-5-1', session actor 'atlas-scout'",
+        ),
+    ],
+)
+def test_the_session_s_model_and_actor_in_atlas_must_be_the_frozen_ones(
+    session: dict[str, Any], wording: str
+) -> None:
+    runs = sc.parse_runs(RUNS)
+    run = runs.runs[0]
+
+    bundle = sc.collect_bundle(get_patched(session=session), run)
+    outcome = sc.resolve_run(run, runs, bundle, MARKS["marks"], None)
+
+    assert outcome.not_scored == f"another configuration than the frozen one: {wording}"
+    # The frozen configuration's model is the runs file's, so the fixtures' sessions pass.
+    assert runs.frozen["agent_model"] == "claude-opus-5-5"
+    assert (
+        sc.resolve_run(run, runs, sc.collect_bundle(get, run), MARKS["marks"], None).not_scored
+        is None
+    )
 
 
 @pytest.mark.parametrize(
