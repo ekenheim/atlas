@@ -1,0 +1,52 @@
+# A test universe, not production's: a theme that names its own layers as free slugs (Chokepoint
+# Watch W6a). Invented companies; their CIKs are not real filers' and nothing here is fetched.
+version: 1
+name: free-layers-test
+
+companies:
+  acme-actuators:
+    legal_name: Acme Actuators Inc.
+    display_name: Acme Actuators
+    cik: "0009000001"
+    country: US
+    layer: actuators
+    source_path: sec
+  gearbox-works:
+    legal_name: Gearbox Works Ltd.
+    display_name: Gearbox Works
+    cik: "0009000002"
+    country: JP
+    layer: reducers
+    source_path: sec
+  volt-motors:
+    legal_name: Volt Motors Corp.
+    display_name: Volt Motors
+    cik: "0009000003"
+    country: DE
+    layer: motors
+    source_path: sec
+  integrator-one:
+    legal_name: Integrator One Inc.
+    display_name: Integrator One
+    cik: "0009000004"
+    country: US
+    source_path: sec
+
+themes:
+  robotics-test:
+    title: Robot joints (test theme)
+    description: A theme that is not photonics, with layers of its own.
+    layers:
+      - name: actuators
+        covers: linear and rotary actuators for robot joints
+      - name: reducers
+        covers: harmonic and planetary reducers
+      - name: motors
+        covers: frameless torque motors
+      - name: sensors
+        covers: encoders and force-torque sensors (no company yet)
+    companies:
+      - acme-actuators
+      - gearbox-works
+      - volt-motors
+      - integrator-one

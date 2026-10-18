@@ -378,6 +378,28 @@ def test_the_isolated_prompt_names_every_tool_that_is_off_the_list(run: Run):
     } <= set(named)
 
 
+def test_the_isolated_researchers_dry_run_is_what_it_was_in_0_6_14(run: Run):
+    # The frozen surface (ticket 29; Chokepoint Watch): the scorecard's isolated sessions see
+    # exactly what they saw in v0.6.14. The expected text is that release's dry run, command and
+    # prompt, with the run's temp folder as <tmp> and the checkout's own path line left out.
+    recorded = (
+        ROOT / "tests" / "fixtures" / "agent" / "isolated-researcher-dry-run-v0.6.14.txt"
+    ).read_bytes()
+    expected = recorded.decode("utf-8").replace("
+", "
+")
+
+    result = scorecard_run(run, "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    lines = [
+        line
+        for line in result.stdout.replace("\r\n", "\n").split("\n")
+        if not line.startswith("working directory:")
+    ]
+    assert "\n".join(lines).replace(posix(run.tmp), "<tmp>") == expected
+
+
 def test_a_question_without_isolation_still_uses_prior_work_and_both_banks(run: Run):
     result = scorecard_run(run, "--dry-run", ATLAS_AGENT_ISOLATED="false")
 
