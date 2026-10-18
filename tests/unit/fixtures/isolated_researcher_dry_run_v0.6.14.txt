@@ -4,7 +4,7 @@ seeds: sandisk
 isolated: true
 session: run.sh would open it before claude starts (POST http://atlas.development.svc.cluster.local:8000/api/v1/sessions, isolated, theme scorecard, actor atlas-researcher); the prompt shows a placeholder for its id
 command: claude -p <prompt> --mcp-config <tmp>/atlas-mcp.json --strict-mcp-config --tools Read,Write,Edit,Glob --allowedTools mcp__atlas__close_session mcp__atlas__companies mcp__atlas__search mcp__atlas__read mcp__atlas__locate mcp__atlas__record_fact mcp__atlas__get_fact mcp__atlas__judge_statement mcp__atlas__relate_facts mcp__atlas__propose_belief mcp__atlas__cite_belief mcp__atlas__recall Read Write Edit Glob --add-dir <tmp>/out --model claude-opus-5-5 --max-turns 230 --output-format json
-working directory: /c/Users/ekenh/atlas/.claude/worktrees/agent-af9b6d82320c2404b
+working directory: <cwd>
 mcp config (<tmp>/atlas-mcp.json): {"mcpServers":{"atlas":{"type":"http","url":"http://atlas.development.svc.cluster.local:8000/mcp"}}}
 CLAUDE_CODE_OAUTH_TOKEN: set
 prompt:

@@ -55,6 +55,15 @@ _GEOGRAPHY = re.compile(
     re.I,
 )
 _NUMBERS = re.compile(rf"({_NUMBER})\s*%")
+# A table row of the customer note: "Customer A<tab>26.6<tab>%<tab>15.4<tab>%" (the parse keeps a
+# table's cells on one line, tab-separated). Only under a revenue heading, not a receivables one.
+_ROW = re.compile(
+    r"^[ \t]*(?:customers?|distributors?|resellers?|clients?|oems?)\s+(?:[A-Z]|\d{1,2})\b[^\n]*$",
+    re.I | re.M,
+)
+_REVENUE_WORD = re.compile(r"\b(?:revenues?|sales)\b", re.I)
+_RECEIVABLES_WORD = re.compile(r"\breceivables?\b", re.I)
+_ROW_CONTEXT = 1200
 
 _GOING_CONCERN = re.compile(
     r"substantial\s+doubt\s+(?:about|regarding|as\s+to|concerning|over)\s+"
@@ -131,10 +140,16 @@ def _boundaries(text: str, low: int, high: int) -> Iterator[re.Match[str]]:
 
 
 def customer_concentration(text: str) -> list[ConcentrationMatch]:
-    """The sentences that say a customer "accounted for" N% of revenue, in text order; the
-    percentages of one sentence are one match. A sentence must name a customer (or a
-    distributor, reseller, OEM, "sales to ...") and not a region or country."""
+    """The sentences that say a customer "accounted for" N% of revenue, in text order, and the
+    rows of a table that give customers' percentages ("Customer A  26.6 %  15.4 %"); the
+    percentages of one sentence or row are one match. A sentence must name a customer (or a
+    distributor, reseller, OEM, "sales to ...") and not a region or country; a row must follow
+    a mention of revenue or sales with no mention of receivables after it."""
     found: dict[tuple[int, int], list[Decimal]] = {}
+    for row in _ROW.finditer(text):
+        numbers = [Decimal(each) for each in _NUMBERS.findall(row.group())]
+        if numbers and _revenue_table(text, row.start()):
+            found.setdefault((row.start(), row.end()), []).extend(numbers)
     for pattern in (_ACCOUNTED, _DERIVED):
         for match in pattern.finditer(text):
             span = sentence_span(text, match.start(), match.end())
@@ -148,6 +163,15 @@ def customer_concentration(text: str) -> list[ConcentrationMatch]:
         for (start, end), numbers in sorted(found.items())
         if any(Decimal(0) <= each <= Decimal(100) for each in numbers)
     ]
+
+
+def _revenue_table(text: str, position: int) -> bool:
+    """Whether the rows at `position` follow a revenue (or sales) heading, not a receivables
+    one: the last such word before them, within a page, is not "receivable"."""
+    context = text[max(0, position - _ROW_CONTEXT) : position]
+    revenue = [m.start() for m in _REVENUE_WORD.finditer(context)]
+    receivables = [m.start() for m in _RECEIVABLES_WORD.finditer(context)]
+    return bool(revenue) and (not receivables or max(revenue) > max(receivables))
 
 
 def going_concern(text: str) -> list[GoingConcernMatch]:

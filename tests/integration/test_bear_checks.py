@@ -175,6 +175,27 @@ def test_dilution_and_net_cash_from_the_recorded_lumentum_companyfacts(atlas: Be
     }
 
 
+def test_customer_concentration_reads_the_customer_table_of_the_recorded_lumentum_10k(
+    atlas: BearAtlas,
+) -> None:
+    atlas.ingest("lumentum")
+
+    answer = atlas.checks("lumentum")["customer_concentration"]
+
+    # The 10-K's customer note: "Customer A 26.6 % 15.4 % 18.9 %" (fiscal 2026, 2025, 2024) and
+    # "Customer B 15.0 % 16.0 % 11.4 %" under "net revenue from a single end customer which
+    # represented 10% or more of our total net revenue". The 79.2% of revenue outside the United
+    # States of the next paragraph is geography, not a customer.
+    assert answer["status"] == "flag"
+    assert answer["value"]["max_percent"] == 26.6
+    (source,) = answer["sources"]  # only the row at or above 25%
+    assert source["quote"] == "Customer A	26.6	%	15.4	%	18.9	%"
+    assert source["form_type"] == "10-K"
+    text = atlas.parsed(source["source_version_id"])
+    assert text[source["char_start"] : source["char_end"]] == source["quote"]
+    assert "79.2" not in json.dumps(answer["value"])
+
+
 def test_a_check_without_its_data_is_unknown_never_clear(atlas: BearAtlas) -> None:
     atlas.ingest("lumentum")
 
@@ -249,7 +270,7 @@ def test_xbrl_checks_read_only_what_was_public_by_the_as_of_time(atlas: BearAtla
     assert after["net_cash"]["status"] == "clear"
     # The 10-K's text is not read before it is public.
     assert before["customer_concentration"]["status"] == "unknown"
-    assert after["customer_concentration"]["status"] == "clear"
+    assert after["customer_concentration"]["status"] == "flag"
     assert before["going_concern"]["value"]["document"]["form"] == "10-Q"
     assert after["going_concern"]["value"]["document"]["form"] == "10-K"
     # Every source of the earlier answer was public by then.

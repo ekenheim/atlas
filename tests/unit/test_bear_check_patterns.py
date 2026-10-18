@@ -163,3 +163,40 @@ def test_a_sentence_that_only_imagines_the_doubt_is_marked_hedged():
 
 def test_a_text_without_the_phrase_has_no_match():
     assert going_concern(f"{FILLER} Substantial doubt is not discussed here.") == []
+
+
+CUSTOMER_TABLE = (
+    "During fiscal years 2026, 2025, and 2024, net revenue from a single end customer which"
+    " represented 10% or more of our total net revenue of the applicable fiscal year is"
+    " summarized in the table below:\n"
+    "Years Ended\n"
+    "June 27, 2026\tJune 28, 2025\tJune 29, 2024\n"
+    "Customer A\t26.6\t%\t15.4\t%\t18.9\t%\n"
+    "Customer B\t15.0\t%\t16.0\t%\t11.4\t%\n"
+    "International Operations\n"
+)
+
+
+def test_the_rows_of_a_customer_revenue_table_are_concentration_too():
+    text = f"{FILLER}\n{CUSTOMER_TABLE}"
+
+    matches = customer_concentration(text)
+
+    assert [each.sentence for each in matches] == [
+        "Customer A\t26.6\t%\t15.4\t%\t18.9\t%",
+        "Customer B\t15.0\t%\t16.0\t%\t11.4\t%",
+    ]
+    assert [each.maximum for each in matches] == [Decimal("26.6"), Decimal("16.0")]
+    first = matches[0]
+    assert text[first.char_start : first.char_end] == first.sentence
+
+
+def test_a_table_of_receivables_or_without_a_revenue_heading_is_not_revenue_concentration():
+    receivables = (
+        "Customers who represented 10% or more of accounts receivable were as follows:\n"
+        "Customer A\t31.0\t%\t12.0\t%\n"
+    )
+    nothing = "Our largest holders are listed below.\nCustomer A\t40\t%\n"
+
+    assert customer_concentration(f"{FILLER}\n{receivables}") == []
+    assert customer_concentration(f"{FILLER}\n{nothing}") == []

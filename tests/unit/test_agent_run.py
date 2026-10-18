@@ -397,7 +397,14 @@ def test_the_isolated_researchers_dry_run_is_what_it_was_in_v0_6_14(run: Run):
     result = scorecard_run(run, "--dry-run")
 
     assert result.returncode == 0, result.stderr
-    shown = result.stdout.replace(run.tmp.as_posix(), "<tmp>").replace(ROOT.as_posix(), "<root>")
+    # Where it ran is not part of the surface: the scratch folder and the working directory
+    # (run.sh prints `pwd`, in bash's form of the path) are masked.
+    shown = re.sub(
+        r"^working directory: .*$",
+        "working directory: <cwd>",
+        result.stdout.replace(run.tmp.as_posix(), "<tmp>"),
+        flags=re.MULTILINE,
+    )
     recorded = ROOT / "tests" / "unit" / "fixtures" / "isolated_researcher_dry_run_v0.6.14.txt"
     assert shown == recorded.read_text(encoding="utf-8")
     assert "bear_checks" not in shown
