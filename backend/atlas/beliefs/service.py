@@ -683,11 +683,19 @@ class Beliefs:
         with self._engine.begin() as connection:
             before = self._lock_active(connection, belief_id)
             session = connection.execute(
-                text("SELECT as_of, kind, actor FROM research_session WHERE id = :id"),
+                text("SELECT as_of, kind, actor, isolated FROM research_session WHERE id = :id"),
                 {"id": request.session_id},
             ).one_or_none()
             if session is None:
                 raise BeliefRefused("unknown_session", "the research session does not exist")
+            if session.isolated:
+                # An isolated session (ticket 29a) reads no Belief, so it tests none: the
+                # examination would write `last_examined_*` on a Belief other sessions sort by.
+                raise BeliefRefused(
+                    "isolated_session",
+                    "an isolated session (the early-call scorecard) reads no earlier Belief,"
+                    " so it examines none",
+                )
             if session.kind != "claude":
                 raise BeliefRefused(
                     "session_not_claude", "only a research session of a Claude examines a Belief"

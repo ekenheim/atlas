@@ -312,17 +312,38 @@ def test_an_isolated_sessions_belief_cannot_be_judged_so_it_makes_no_call(atlas:
     assert count(atlas, calls, id=control) == 1
 
 
+def test_an_isolated_session_cannot_examine_a_belief_at_the_route_either(atlas: Atlas) -> None:
+    plain = atlas.open()
+    isolated = atlas.open(isolated=True)
+    fact = atlas.api.post("/api/v1/facts", json=atlas.fact_body(plain["id"]))
+    belief = believe(atlas, plain["id"], fact.json()["fact"]["id"])
+    path = f"/api/v1/beliefs/{belief}/examine"
+
+    refused = atlas.api.post(path, json={"session_id": isolated["id"], "outcome": "nothing_new"})
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["error"]["code"] == "isolated_session"
+    assert count(atlas, "SELECT count(*) FROM belief_examination") == 0
+    assert atlas.get(f"/api/v1/beliefs/{belief}")["last_examined_at"] is None
+    # A session that is not isolated examines it as before.
+    done = atlas.api.post(path, json={"session_id": plain["id"], "outcome": "nothing_new"})
+    assert done.status_code == 200, done.text
+    assert count(atlas, "SELECT count(*) FROM belief_examination") == 1
+
+
 def test_a_sessions_tool_calls_are_listed_in_order_and_an_unknown_session_is_not_found(
     atlas: Atlas,
 ) -> None:
     opened = atlas.open()
     assert atlas.get(f"/api/v1/sessions/{opened['id']}/tool-calls") == []
-    with atlas.engine.begin() as connection:
-        for tool, outcome, reason, arguments in (
-            ("search", "ok", None, '{"company": "lumentum", "q": "laser capacity"}'),
-            ("read", "refused", "available_after_as_of", '{"start": 0, "end": 900}'),
-            ("record_fact", "error", "internal_error", "{}"),
-        ):
+    for tool, outcome, reason, arguments in (
+        ("search", "ok", None, '{"company": "lumentum", "q": "laser capacity"}'),
+        ("read", "refused", "available_after_as_of", '{"start": 0, "end": 900}'),
+        ("record_fact", "error", "internal_error", "{}"),
+    ):
+        # One transaction a call, as the MCP server records them: within one, `now()` is the
+        # same for every row and the order would fall to the random id.
+        with atlas.engine.begin() as connection:
             connection.execute(
                 text(
                     "INSERT INTO session_tool_call (id, session_id, tool, arguments, outcome,"

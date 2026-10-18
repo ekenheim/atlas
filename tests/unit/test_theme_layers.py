@@ -197,3 +197,23 @@ def test_a_company_s_retain_item_carries_only_its_own_themes() -> None:
         assert [tag for tag in tags if tag.startswith("theme:")] == [f"theme:{theme}"]
         assert observation_scopes(tags) == [[f"theme:{theme}"]]
         assert [t.theme_id for t in triage_themes(version_of(slug), universe)] == [theme]
+
+
+def test_sandisk_in_two_themes_carries_both_theme_tags_and_scopes() -> None:
+    # The one company in two themes (ticket 29a): memory-packaging's and the scorecard's.
+    universe = load_universe(THEMES)
+
+    tags = version_tags(version_of("sandisk"), universe)
+
+    assert sorted(tag for tag in tags if tag.startswith("theme:")) == [
+        "theme:memory-packaging",
+        "theme:scorecard",
+    ]
+    assert sorted(observation_scopes(tags) or []) == [
+        ["theme:memory-packaging"],
+        ["theme:scorecard"],
+    ]
+    assert sorted(t.theme_id for t in triage_themes(version_of("sandisk"), universe)) == [
+        "memory-packaging",
+        "scorecard",
+    ]

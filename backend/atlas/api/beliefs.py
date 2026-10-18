@@ -8,7 +8,8 @@
   `belief_beyond_quotes`, the `detail` holds the judge's `beyond`, `kinds` and `reason`; 503
   `judge_unavailable` when no verdict could be given: call again later) (ticket 23)
 - `POST /beliefs/{id}/cite`, `/judge` (an author's judgement; clears open flags and notices),
-  `/supersede`. A Belief proposed by an **isolated** session (ticket 29a, the early-call
+  `/supersede`. An **isolated** session (ticket 29a) cannot examine a Belief (422
+  `isolated_session`). A Belief proposed by an isolated session (ticket 29a, the early-call
   scorecard) is never judged: `/judge` is 409 `isolated_session_belief`, so it makes no call and
   never reaches the conclusions bank
 - `POST /beliefs/{id}/examine` (`{session_id, outcome, note?, actor?}`; ticket 26): a session tested
