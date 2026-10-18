@@ -581,3 +581,208 @@ def test_the_per_run_table_shows_the_pooled_percentile_the_runs_file_gave() -> N
     assert "| iren@2025-03-31 |" in text
     assert "| not in top 20 | 41% |" in text
     assert "- FP: 1 (a supply constraint the company holds, found on a negative" in text
+
+
+# --- ticket 29b: permission denials and the signs that a run left isolation -------------------
+
+SESSIONS: dict[str, Any] = json.loads((FIXTURES / "sessions.json").read_text(encoding="utf-8"))
+DENIED = str(FIXTURES / "claude-result-denied.json")
+CLEAN = str(FIXTURES / "claude-result-clean.json")
+WINDOW = {"started_at": "2026-10-20T05:00:00Z", "finished_at": "2026-10-20T05:30:00Z"}
+INSIDE = "00000008-0000-4000-8000-000000000004"  # created 05:10:00, not isolated
+
+
+def get_with_sessions(path: str, **params: Any) -> Any:
+    """The recorded GETs and the sessions list, paged as Atlas pages it."""
+    if path != "/sessions":
+        return get(path, **params)
+    page = copy.deepcopy(SESSIONS)
+    start = params.get("offset", 0)
+    page["items"] = page["items"][start : start + params.get("limit", 50)]
+    return page
+
+
+def first_run_with(**change: Any) -> tuple[Any, Any]:
+    document = copy.deepcopy(RUNS)
+    document["runs"][0].update(change)
+    runs = sc.parse_runs(document)
+    return runs, runs.runs[0]
+
+
+def test_the_permission_denials_of_a_runs_result_are_counted_by_tool() -> None:
+    _, denied = first_run_with(result_file=DENIED)
+    _, clean = first_run_with(result_file=CLEAN)
+    _, unnamed = first_run_with()
+
+    assert sc.permission_denials(denied, None) == {"count": 3, "tools": ["Bash", "WebSearch"]}
+    assert sc.permission_denials(clean, None) == {"count": 0, "tools": []}
+    assert sc.permission_denials(unnamed, None) is None
+
+
+def test_a_relative_result_file_is_read_from_the_runs_files_folder() -> None:
+    _, run = first_run_with(result_file="claude-result-denied.json")
+
+    found = sc.permission_denials(run, FIXTURES)
+
+    assert found == {"count": 3, "tools": ["Bash", "WebSearch"]}
+
+
+def test_a_result_without_the_key_does_not_say_and_one_that_cannot_be_read_is_an_error(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "bare.json").write_text('{"type": "result"}', encoding="utf-8")
+    (tmp_path / "broken.json").write_text("not json", encoding="utf-8")
+    _, bare = first_run_with(result_file=str(tmp_path / "bare.json"))
+    _, broken = first_run_with(result_file=str(tmp_path / "broken.json"))
+    _, missing = first_run_with(result_file=str(tmp_path / "gone.json"))
+
+    assert sc.permission_denials(bare, None) == {"count": None, "tools": []}
+    with pytest.raises(sc.ScorecardError, match="cannot read the result file"):
+        sc.permission_denials(broken, None)
+    with pytest.raises(sc.ScorecardError, match="cannot read the result file"):
+        sc.permission_denials(missing, None)
+
+
+def test_the_sheet_and_the_report_name_the_permission_denials_and_their_tools() -> None:
+    runs, denied = first_run_with(result_file=DENIED)
+    sheet = sc.review_sheet(denied, sc.collect_bundle(get, denied))
+    result = sc.build_report(runs, bundles(runs), MARKS["marks"], MARKS["adjudications"])
+
+    assert "- Permission denials: 3 (Bash, WebSearch)" in sheet
+    feb = row(result, "sandisk@2025-02-28")
+    assert feb["permission_denials"] == {"count": 3, "tools": ["Bash", "WebSearch"]}
+    assert "permission denials: 3 (Bash, WebSearch)" in feb["flags"]
+    # Reported, not a reason to leave the run unscored.
+    assert feb["raw"] == "hit"
+    text = sc.render_report(result)
+    assert "Permission denials |" in text and "| 3 (Bash, WebSearch) |" in text
+    # No denial, no flag; a run with no result file says nothing, and the sheet says so.
+    runs, clean = first_run_with(result_file=CLEAN)
+    fine = sc.build_report(runs, bundles(runs), MARKS["marks"], MARKS["adjudications"])
+    assert row(fine, "sandisk@2025-02-28")["permission_denials"] == {"count": 0, "tools": []}
+    assert row(fine, "sandisk@2025-02-28")["flags"] == []
+    assert "- Permission denials: 0\n" in sc.review_sheet(clean, sc.collect_bundle(get, clean))
+    unnamed = sc.parse_runs(RUNS).runs[0]
+    sheet = sc.review_sheet(unnamed, sc.collect_bundle(get, unnamed))
+    assert "- Permission denials: not recorded" in sheet
+    assert row(report(), "sandisk@2025-02-28")["permission_denials"] is None
+
+
+def test_a_session_that_is_not_isolated_is_marked_not_scored_on_the_sheet_and_the_report() -> None:
+    loose = copy.deepcopy(API)
+    loose[f"/sessions/{RUNS['runs'][0]['session_id']}"]["isolated"] = False
+
+    def get_loose(path: str, **params: Any) -> Any:
+        answer = loose[path]
+        return copy.deepcopy(answer) if not params.get("offset") else {**answer, "items": []}
+
+    runs = sc.parse_runs(RUNS)
+    run = runs.runs[0]
+    bundle = sc.collect_bundle(get_loose, run)
+    outcome = sc.resolve_run(run, runs, bundle, MARKS["marks"], None)
+
+    assert "Isolated session: NO (not scored: flag it)" in sc.review_sheet(run, bundle)
+    assert outcome.not_scored == "the session was not isolated"
+    all_bundles = {each.label: sc.collect_bundle(get_loose, each) for each in runs.runs}
+    result = sc.build_report(runs, all_bundles, MARKS["marks"], MARKS["adjudications"])
+    assert row(result, "sandisk@2025-02-28")["raw"] is None
+    assert "not scored: the session was not isolated" in row(result, "sandisk@2025-02-28")["flags"]
+    assert result["positive_hits"] == "0 of 3"
+
+
+def test_another_session_opened_inside_the_runs_window_is_found_and_the_run_is_not_scored() -> None:
+    runs, run = first_run_with(**WINDOW)
+
+    bundle = sc.collect_bundle(get_with_sessions, run)
+
+    # Its own session is not another; the ones before and after the window are outside it.
+    assert [each["id"] for each in bundle["other_sessions_in_window"]] == [INSIDE]
+    other = bundle["other_sessions_in_window"][0]
+    assert (other["isolated"], other["actor"]) == (False, "claude-session")
+    outcome = sc.resolve_run(run, runs, bundle, MARKS["marks"], None)
+    assert outcome.not_scored == f"1 other session(s) opened during the run's window: {INSIDE}"
+    sheet = sc.review_sheet(run, bundle)
+    assert f"Other sessions opened during the run: 1: {INSIDE}" in sheet
+    assert "(not isolated) (not scored: flag it)" in sheet
+    all_bundles = {each.label: sc.collect_bundle(get_with_sessions, each) for each in runs.runs}
+    result = sc.build_report(runs, all_bundles, MARKS["marks"], MARKS["adjudications"])
+    feb = row(result, "sandisk@2025-02-28")
+    assert feb["raw"] is None
+    assert any(flag.startswith("not scored: 1 other session(s)") for flag in feb["flags"])
+    assert feb["other_sessions_in_window"][0]["id"] == INSIDE
+
+
+def test_a_window_with_no_other_session_leaves_the_run_scored() -> None:
+    quiet = {"started_at": "2026-10-20T05:00:00Z", "finished_at": "2026-10-20T05:05:00Z"}
+    runs, run = first_run_with(**quiet)
+
+    bundle = sc.collect_bundle(get_with_sessions, run)
+
+    assert bundle["other_sessions_in_window"] == []
+    assert sc.resolve_run(run, runs, bundle, MARKS["marks"], None).not_scored is None
+    assert "Other sessions opened during the run: none" in sc.review_sheet(run, bundle)
+
+
+def test_the_sessions_list_is_read_to_its_end() -> None:
+    seen: list[int] = []
+
+    def get_small_pages(path: str, **params: Any) -> Any:
+        if path == "/sessions":
+            seen.append(params["offset"])
+            return get_with_sessions(path, **(params | {"limit": 2}))
+        return get(path, **params)
+
+    _, run = first_run_with(**WINDOW)
+
+    found = sc.sessions_in_window(get_small_pages, run)
+
+    assert found is not None and [each["id"] for each in found] == [INSIDE]
+    assert seen == [0, 2]  # the session in the window is on the first page; the rest are read
+
+
+def test_the_window_ends_a_second_late_because_the_runner_rounds_it_down() -> None:
+    # run.sh takes `finished_at` to the second, so a session opened in the next one is in.
+    def ids(finished_at: str) -> list[str]:
+        _, run = first_run_with(started_at="2026-10-20T04:00:00Z", finished_at=finished_at)
+        found: list[dict[str, Any]] = sc.sessions_in_window(get_with_sessions, run) or []
+        return [each["id"] for each in found]
+
+    assert INSIDE in ids("2026-10-20T05:10:00Z")
+    assert INSIDE in ids("2026-10-20T05:09:59Z")  # 05:10:00 is within the second's slack
+    assert INSIDE not in ids("2026-10-20T05:09:58Z")
+
+
+def test_a_run_without_a_window_is_reported_as_not_checked_for_concurrent_sessions() -> None:
+    result = report()
+
+    assert row(result, "sandisk@2025-02-28")["other_sessions_in_window"] is None
+    assert "sandisk@2025-02-28" in result["window_unchecked"]
+    assert "Concurrent sessions were not looked for in these runs" in sc.render_report(result)
+    runs, windowed = first_run_with(**WINDOW)
+    all_bundles = {each.label: sc.collect_bundle(get_with_sessions, each) for each in runs.runs}
+    found = sc.build_report(runs, all_bundles, MARKS["marks"], MARKS["adjudications"])
+    assert windowed.label not in found["window_unchecked"]
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"started_at": "2026-10-20T05:00:00Z"}, "come together"),
+        ({"finished_at": "2026-10-20T05:00:00Z"}, "come together"),
+        (
+            {"started_at": "2026-10-20T05:30:00Z", "finished_at": "2026-10-20T05:00:00Z"},
+            "finished_at is before started_at",
+        ),
+        ({"started_at": "soon", "finished_at": "later"}, "is not an ISO time"),
+        ({"started_at": "2026-10-20T05:00:00", "finished_at": "2026-10-20T05:30:00"}, "no offset"),
+        ({"result_file": ""}, "non-empty string"),
+    ],
+)
+def test_a_window_or_result_file_that_does_not_fit_is_refused(
+    change: dict[str, Any], message: str
+) -> None:
+    document = copy.deepcopy(RUNS)
+    document["runs"][0].update(change)
+
+    with pytest.raises(sc.ScorecardError, match=message):
+        sc.parse_runs(document)

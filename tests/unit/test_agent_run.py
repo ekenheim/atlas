@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -131,6 +132,63 @@ def run(tmp_path: Path) -> Run:
     return Run(tmp_path)
 
 
+COMPANIES = [{"slug": "sandisk", "id": "id-sandisk"}, {"slug": "iren", "id": "id-iren"}]
+
+
+class FakeAtlas:
+    """`tests/fakes/atlas_http.py` as a subprocess (the test process opens no socket): the
+    companies, sessions and session POST run.sh talks to when it opens an isolated session."""
+
+    def __init__(self, tmp_path: Path, **config: Any) -> None:
+        config = {"companies": COMPANIES, "post_id": "opened-by-run-sh"} | config
+        self.posts = tmp_path / "posts.jsonl"
+        self.requests = tmp_path / "posts.jsonl.requests"
+        (tmp_path / "atlas-config.json").write_text(json.dumps(config), encoding="utf-8")
+        self.process = subprocess.Popen(
+            [
+                sys.executable,
+                "-u",
+                str(ROOT / "tests" / "fakes" / "atlas_http.py"),
+                str(tmp_path / "atlas-config.json"),
+                str(self.posts),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        assert self.process.stdout is not None
+        port = re.search(r"port (\d+)", self.process.stdout.readline())
+        assert port is not None
+        self.mcp_url = f"http://127.0.0.1:{port.group(1)}/mcp"
+
+    def posted(self) -> list[dict[str, Any]]:
+        if not self.posts.exists():
+            return []
+        return [json.loads(line) for line in self.posts.read_text(encoding="utf-8").splitlines()]
+
+    def asked(self) -> list[str]:
+        if not self.requests.exists():
+            return []
+        return self.requests.read_text(encoding="utf-8").splitlines()
+
+    def stop(self) -> None:
+        self.process.terminate()
+        self.process.wait(timeout=10)
+
+
+@pytest.fixture
+def atlas(tmp_path: Path) -> Iterator[Callable[..., FakeAtlas]]:
+    started: list[FakeAtlas] = []
+
+    def start(**config: Any) -> FakeAtlas:
+        started.append(FakeAtlas(tmp_path, **config))
+        return started[-1]
+
+    yield start
+    for each in started:
+        each.stop()
+
+
 def everything_printed_or_written(result: subprocess.CompletedProcess[str], run: Run) -> str:
     text = result.stdout + result.stderr
     for path in run.tmp.rglob("*"):
@@ -188,7 +246,6 @@ def test_the_researcher_starts_from_the_frontier_and_uses_both_banks(run: Run):
 
 
 ISOLATED_TOOLS = [
-    "open_session",
     "close_session",
     "companies",
     "search",
@@ -233,7 +290,7 @@ def test_a_given_question_and_seeds_replace_next_issue_in_the_dry_run(run: Run):
     prompt = result.stdout.split("prompt:\n", 1)[1]
     # The question verbatim (braces and an ampersand intact), the seeds as slugs, no frontier.
     assert f"do not call `next_issue`): {SCORECARD_QUESTION}" in prompt
-    assert "Seed companies: sandisk (slugs; pass them to `open_session` as `seeds`)." in prompt
+    assert "Seed companies: sandisk (slugs; already the session's seeds)." in prompt
     assert "Start from `next_issue`" not in prompt
     assert "Theme: scorecard" in prompt
     assert "2025-02-28T00:00:00+00:00" in prompt
@@ -247,10 +304,18 @@ def test_several_seeds_are_listed_in_the_prompt(run: Run):
     assert "Seed companies: iren, etoro (slugs;" in prompt
 
 
-def test_an_isolated_run_tells_the_researcher_to_open_an_isolated_session(run: Run):
+def test_an_isolated_run_tells_the_researcher_its_session_is_open_and_to_use_only_its_tools(
+    run: Run,
+):
     prompt = scorecard_run(run, "--dry-run").stdout.split("prompt:\n", 1)[1]
 
-    assert "pass `isolated: true` to `open_session`" in prompt
+    assert "its Atlas session is already open" in prompt
+    assert "Pass that `session_id` to every tool call" in prompt
+    assert "Do not call `open_session`" in prompt
+    assert "call `close_session` with your card" in prompt
+    assert "pass `isolated: true` to `open_session`" not in prompt
+    assert "pass it to `open_session`" not in prompt  # the wrapper's as-of line, rewritten
+    assert "pass them to `open_session`" not in prompt
     assert "Your tools are exactly the ones on the Tools line below" in prompt
     assert "facts, never observations" in prompt
     assert "use only what the tools return" in prompt
@@ -262,8 +327,51 @@ def test_an_isolated_run_tells_the_researcher_to_open_an_isolated_session(run: R
     assert "{{" not in prompt.replace("{{not a placeholder}}", "")
     # The Tools line is the allow-list, not the researcher's whole set.
     assert f"\nTools: {', '.join(ISOLATED_TOOLS)}\n" in prompt
-    for refused in ("prior_work", "examine_belief", "list_beliefs", "next_issue", "open_issue"):
+    for refused in (
+        "open_session",
+        "prior_work",
+        "examine_belief",
+        "list_beliefs",
+        "next_issue",
+        "open_issue",
+    ):
         assert refused not in prompt.split("\nTools: ", 1)[1].split("\n", 1)[0]
+
+
+def test_the_isolated_prompt_names_every_tool_that_is_off_the_list(run: Run):
+    # The Tools line and the named list together are the server's tools, none twice: a tool the
+    # server gains is on neither, and this test fails until someone decides where it goes.
+    from atlas.mcp.server import McpServer
+
+    prompt = scorecard_run(run, "--dry-run").stdout.split("prompt:\n", 1)[1]
+    recall = next(line for line in prompt.splitlines() if line.startswith("- Recall:"))
+    named = re.findall(r"`([a-z_]+)`", recall.split("are not available to you", 1)[1])
+    on_list = prompt.split("\nTools: ", 1)[1].split("\n", 1)[0].split(", ")
+    server = {each["name"] for each in McpServer.tool_list()}
+
+    assert on_list == ISOLATED_TOOLS
+    assert len(named) == len(set(named))
+    assert not set(named) & set(on_list)
+    assert set(named) | set(on_list) == server, sorted(server ^ (set(named) | set(on_list)))
+    # The sixteen the lead named, whatever else the server lists.
+    assert {
+        "open_session",
+        "supersede_belief",
+        "examine_belief",
+        "list_beliefs",
+        "get_belief",
+        "prior_work",
+        "open_issue",
+        "narrow_issue",
+        "complete_issue",
+        "next_issue",
+        "list_issues",
+        "draft_hypothesis",
+        "get_hypothesis",
+        "signal_leads",
+        "upcoming_reports",
+        "newest_documents",
+    } <= set(named)
 
 
 def test_a_question_without_isolation_still_uses_prior_work_and_both_banks(run: Run):
@@ -285,15 +393,139 @@ def test_the_default_dry_run_shows_no_question_seeds_or_isolation(run: Run):
     assert "isolated: false" in result.stdout
 
 
-def test_a_real_run_hands_claude_the_question_in_its_prompt(run: Run):
-    result = scorecard_run(run, ATLAS_MCP_URL="http://127.0.0.1:9/mcp")
+def test_an_isolated_run_opens_its_session_before_claude_and_gives_claude_its_id(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    fake = atlas()
+
+    result = scorecard_run(run, ATLAS_MCP_URL=fake.mcp_url)
 
     assert result.returncode == 0, result.stderr
+    # One POST, from run.sh, before claude: isolated, the run's theme, question, seeds (slugs
+    # looked up to ids), as-of time and model, and an actor naming the agent.
+    assert fake.posted() == [
+        {
+            "question": SCORECARD_QUESTION,
+            "theme": "scorecard",
+            "seed_company_ids": ["id-sandisk"],
+            "as_of": "2025-02-28T00:00:00+00:00",
+            "model": "claude-opus-5-5",
+            "actor": "atlas-researcher",
+            "isolated": True,
+        }
+    ]
     args = run.stub_args()
     assert args[args.index("--model") + 1] == "claude-opus-5-5"
     prompt = "\n".join(args)
     assert SCORECARD_QUESTION in prompt
-    assert "pass `isolated: true` to `open_session`" in prompt
+    assert "its `session_id` is opened-by-run-sh." in prompt
+    assert "<the Atlas session id" not in prompt
+    assert "pass `isolated: true` to `open_session`" not in prompt
+    # The log line names that session directly, and says when the run started and finished.
+    summary = json.loads(result.stdout.splitlines()[0])
+    assert summary["atlas_session_id"] == "opened-by-run-sh"
+    assert summary["ok"] is True
+    assert summary["started_at"] <= summary["finished_at"]
+    assert len(result.stdout.splitlines()) == 1
+
+
+def test_an_isolated_run_names_its_session_without_matching_by_question_or_date(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    # Another session shares the run's as-of time, question and seeds: no matching is done.
+    lookalike = {
+        "id": "lookalike",
+        "as_of": "2025-02-28T00:00:00Z",
+        "question": SCORECARD_QUESTION,
+        "seed_company_ids": ["id-sandisk"],
+        "actor": "atlas-researcher",
+    }
+    fake = atlas(sessions=[lookalike])
+
+    result = scorecard_run(run, ATLAS_MCP_URL=fake.mcp_url)
+
+    assert json.loads(result.stdout.splitlines()[0])["atlas_session_id"] == "opened-by-run-sh"
+    assert "GET /api/v1/sessions?limit=50" not in fake.asked()
+
+
+def test_an_isolated_run_whose_session_cannot_be_opened_fails_without_calling_claude(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    fake = atlas(post_status=500)
+
+    result = scorecard_run(run, ATLAS_MCP_URL=fake.mcp_url)
+
+    assert result.returncode == 1
+    assert not run.stub_was_called()
+    lines = result.stdout.splitlines()
+    assert len(lines) == 1
+    summary = json.loads(lines[0])
+    assert summary["ok"] is False and summary["agent"] == "researcher"
+    assert summary["atlas_session_id"] is None
+    assert "answered 500" in summary["reason"]
+    assert summary["started_at"] <= summary["finished_at"]
+    assert "could not open the isolated Atlas session" in result.stderr
+    assert TOKEN not in result.stdout + result.stderr
+
+
+def test_an_isolated_run_with_no_atlas_to_ask_fails_without_calling_claude(run: Run):
+    # Nothing listens on the discard port.
+    result = scorecard_run(run, ATLAS_MCP_URL="http://127.0.0.1:9/mcp")
+
+    assert result.returncode == 1
+    assert not run.stub_was_called()
+    summary = json.loads(result.stdout)
+    assert summary["ok"] is False
+    assert "Atlas is unreachable" in summary["reason"]
+
+
+def test_an_isolated_run_with_an_unknown_seed_fails_before_it_posts_anything(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    fake = atlas()
+
+    result = scorecard_run(run, ATLAS_MCP_URL=fake.mcp_url, ATLAS_AGENT_SEEDS="sandisk,nobody")
+
+    assert result.returncode == 1
+    assert not run.stub_was_called()
+    assert "unknown seed company: nobody" in json.loads(result.stdout)["reason"]
+    assert fake.posted() == []
+
+
+def test_an_isolated_run_refuses_a_session_atlas_did_not_open_isolated(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    fake = atlas(post_isolated=False)
+
+    result = scorecard_run(run, ATLAS_MCP_URL=fake.mcp_url)
+
+    assert result.returncode == 1
+    assert not run.stub_was_called()
+    assert "not isolated" in json.loads(result.stdout)["reason"]
+
+
+def test_an_isolated_run_needs_the_question(run: Run):
+    result = run.call("researcher", "--dry-run", ATLAS_AGENT_ISOLATED="true")
+
+    assert result.returncode == 2
+    assert "ATLAS_AGENT_ISOLATED needs ATLAS_AGENT_QUESTION" in result.stderr
+
+
+def test_an_isolated_dry_run_makes_no_network_call_and_shows_a_placeholder(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    fake = atlas()
+
+    result = scorecard_run(run, "--dry-run", ATLAS_MCP_URL=fake.mcp_url)
+
+    assert result.returncode == 0, result.stderr
+    assert fake.asked() == [] and fake.posted() == []
+    assert not run.stub_was_called()
+    assert "session: run.sh would open it before claude starts" in result.stdout
+    assert "isolated, theme scorecard, actor atlas-researcher" in result.stdout
+    prompt = result.stdout.split("prompt:\n", 1)[1]
+    assert "its `session_id` is <the Atlas session id: run.sh opens it before you start>." in prompt
+    assert list(run.tmp.iterdir()) == []
 
 
 @pytest.mark.parametrize(
@@ -426,11 +658,17 @@ def test_a_run_calls_claude_once_and_prints_one_summary_line(run: Run):
         "cost_usd": 0.5,
         "duration_ms": 1234,
         "wall_s": summary["wall_s"],
+        "started_at": summary["started_at"],
+        "finished_at": summary["finished_at"],
         "subtype": "success",
         "is_error": False,
         "result": "all done",
     }
     assert isinstance(summary["wall_s"], int)
+    utc = r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ"
+    assert re.fullmatch(utc, summary["started_at"])
+    assert re.fullmatch(utc, summary["finished_at"])
+    assert summary["started_at"] <= summary["finished_at"]
 
     args = run.stub_args()
     assert args[0] == "-p"
@@ -512,13 +750,22 @@ def test_an_isolated_run_allows_only_the_listed_atlas_tools(run: Run):
     assert f" --allowedTools {allowed} Read Write Edit Glob " in command + " "
     # Not the whole server, and none of the Belief, Issue or prior-work tools by name.
     assert " mcp__atlas " not in command and "mcp__atlas__*" not in command
-    for refused in ("prior_work", "list_beliefs", "get_belief", "next_issue", "open_issue"):
+    for refused in (
+        "open_session",
+        "prior_work",
+        "list_beliefs",
+        "get_belief",
+        "next_issue",
+        "open_issue",
+    ):
         assert f"mcp__atlas__{refused}" not in command
     assert " --tools Read,Write,Edit,Glob" in command
 
 
-def test_a_real_isolated_run_hands_claude_the_same_allow_list(run: Run):
-    result = scorecard_run(run, ATLAS_MCP_URL="http://127.0.0.1:9/mcp")
+def test_a_real_isolated_run_hands_claude_the_same_allow_list(
+    run: Run, atlas: Callable[..., FakeAtlas]
+):
+    result = scorecard_run(run, ATLAS_MCP_URL=atlas().mcp_url)
 
     assert result.returncode == 0, result.stderr
     args = run.stub_args()
@@ -601,6 +848,7 @@ def test_a_scorecard_run_finds_its_session_by_question_and_seeds_not_by_date_alo
             ATLAS_AGENT_AS_OF=as_of.replace("Z", "+00:00"),
             ATLAS_AGENT_QUESTION=question,
             ATLAS_AGENT_SEEDS="iren",
+            ATLAS_AGENT_ISOLATED="false",  # an isolated run names its own session, no matching
         )
         no_seeds = scorecard_run(
             run,
@@ -608,6 +856,7 @@ def test_a_scorecard_run_finds_its_session_by_question_and_seeds_not_by_date_alo
             ATLAS_AGENT_AS_OF=as_of.replace("Z", "+00:00"),
             ATLAS_AGENT_QUESTION="a question no session asked",
             ATLAS_AGENT_SEEDS="iren",
+            ATLAS_AGENT_ISOLATED="false",
         )
     finally:
         server.terminate()

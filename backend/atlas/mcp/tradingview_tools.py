@@ -47,6 +47,7 @@ class UpcomingReportsArgs(Bound):
     UpcomingReportsArgs,
 )
 async def upcoming_reports(ctx: Ctx, args: UpcomingReportsArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("upcoming_reports")
     window = timedelta(days=args.window_days)
     theme = args.theme or ctx.bound.theme
     answer = await ctx.api.get(

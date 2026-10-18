@@ -1807,6 +1807,46 @@ def test_an_isolated_session_leaves_no_issue_and_is_refused_the_issue_tools(mcp:
         )
 
 
+def test_an_isolated_session_is_refused_the_leads_the_calendar_and_the_document_list(
+    mcp: Mcp,
+) -> None:
+    # A second layer behind the runner's tool list (ticket 29b, L2): the archive-signal leads, the
+    # reporting calendar and the newest-documents list are the agents' view of the archive.
+    isolated = mcp.open(LATER, isolated=True)
+    plain = mcp.open(LATER)
+
+    for tool in ("signal_leads", "upcoming_reports", "newest_documents"):
+        refused = mcp.refused(tool, "isolated_session", session_id=isolated)
+        assert "isolated session" in refused["message"]
+        mcp.ok(tool, session_id=plain)  # a session that is not isolated is answered as before
+
+    assert [(tool, outcome, reason) for tool, outcome, reason in mcp.calls(isolated)[1:]] == [
+        ("signal_leads", "refused", "isolated_session"),
+        ("upcoming_reports", "refused", "isolated_session"),
+        ("newest_documents", "refused", "isolated_session"),
+    ]
+
+
+def test_an_isolated_session_supersedes_its_own_unproven_belief_and_nothing_is_retained(
+    mcp: Mcp,
+) -> None:
+    # Ticket 29b, L3: superseding is not judging. The old Belief is replaced, and neither it nor
+    # its replacement is enqueued for the conclusions bank (`retain_belief`).
+    isolated = mcp.open(BEFORE_10K, isolated=True)
+    _, old = believe(mcp, isolated, URL_10Q, SHARES_QUOTE, "Lumentum had 77.8 million shares.")
+    _, newer = believe(mcp, isolated, URL_EX991, REVENUE_QUOTE, "Lumentum reported $1.01B revenue.")
+    retains = scalar(mcp, "SELECT count(*) FROM job WHERE kind = 'retain_belief'")
+
+    mcp.ok("supersede_belief", session_id=isolated, belief_id=old, by=[newer], reason="newer")
+
+    superseded = mcp.get(f"/api/v1/beliefs/{old}")
+    assert superseded["status"] == "superseded"
+    assert superseded["judgement"]["judgement"] == "unproven"
+    assert mcp.get(f"/api/v1/beliefs/{newer}")["status"] == "active"
+    assert scalar(mcp, "SELECT count(*) FROM job WHERE kind = 'retain_belief'") == retains == 0
+    assert scalar(mcp, "SELECT count(*) FROM belief_memory_replacement") == 0
+
+
 def test_an_isolated_session_uses_only_the_facts_it_recorded(mcp: Mcp, llm: FakeLiteLLM) -> None:
     other = mcp.open(BEFORE_10K)
     stranger = record(mcp, other, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT)["fact_id"]
