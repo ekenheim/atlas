@@ -30,6 +30,13 @@ place:
   records that the session tested a Belief; a supporting Fact from a newer document shows on a
   proven Belief as a `belief_confirmed` notice, never as a change of its judgement.
 
+- **An isolated session starts from nothing** (ticket 29a, the early-call scorecard;
+  `open_session` with `isolated: true`): the routes give it no prior work and never match a Fact
+  it records with a standing one, `recall` with `bank: beliefs` is refused here
+  (`isolated_session`, as are `list_beliefs`, `get_belief` and `examine_belief` in
+  `atlas.mcp.agents`), and its Beliefs can never be judged (the judge route's
+  `isolated_session_belief`). Atlas enforces it; the session's prompt only says so.
+
 A tool returns text only with the span it is in (`read`: the window and its offsets; `search`:
 passages with theirs); Memory's `recall` is labelled an index, never Evidence.
 """
@@ -70,6 +77,7 @@ class SessionRow:
     theme: str
     as_of: datetime
     seed_company_ids: tuple[uuid.UUID, ...] = ()
+    isolated: bool = False  # opened `isolated` (ticket 29a): see `Ctx.refuse_isolated`
 
 
 @dataclass
@@ -94,6 +102,17 @@ class Ctx:
     def as_of_iso(self) -> str:
         """The session's as-of time as UTC with a `Z`, as the routes write times."""
         return iso(self.bound.as_of)
+
+    def refuse_isolated(self, what: str) -> None:
+        """Refuse `what` in an isolated session (ticket 29a, the early-call scorecard): the
+        session starts from nothing and may not read what later sessions concluded, whatever
+        its prompt says. The refusal is recorded on the session like any other."""
+        if self.bound.isolated:
+            raise Refusal(
+                "isolated_session",
+                f"{what} is refused in an isolated session: it starts from nothing and sees no"
+                " earlier conclusion. Research from the archive (search, read, record_fact).",
+            )
 
     async def companies(self, role: str = "researched") -> list[dict[str, Any]]:
         if role != "researched":
@@ -216,12 +235,22 @@ class OpenSessionArgs(Args):
     seeds: list[str] = Field(default_factory=list[str], description="seed company slugs")
     model: str | None = Field(default=None, description="the model doing the research")
     actor: str | None = None
+    isolated: bool = Field(
+        default=False,
+        description="an isolated session starts from nothing and leaves nothing for others: no"
+        " prior_work, no Fact reuse, no recall of the conclusions bank, no list_beliefs or"
+        " get_belief, and its Beliefs are never judged. For replays (the early-call scorecard)",
+    )
 
 
 @tool(
     "open_session",
     "Open a research session. Returns its id: pass it as `session_id` to every other tool."
-    " The as-of time fixed here is the session's for good.",
+    " The as-of time fixed here is the session's for good. `isolated: true` opens an isolated"
+    " session (a replay of a past date): `prior_work` is empty, a Fact is never matched with a"
+    " standing one, `recall` of the conclusions bank (`bank: beliefs`), `list_beliefs`,"
+    " `get_belief` and `examine_belief` are refused (`isolated_session`), and its Beliefs are"
+    " never judged.",
     OpenSessionArgs,
     session="none",
 )
@@ -236,11 +265,13 @@ async def open_session(ctx: Ctx, args: OpenSessionArgs) -> dict[str, Any]:
             "kind": "claude",
             "model": args.model,
             "actor": args.actor,
+            "isolated": args.isolated,
         },
     )
     return {
         "opened": True,
         "session_id": opened["id"],
+        "isolated": opened["isolated"],
         "as_of": opened["as_of"],
         "theme": opened["theme"],
         "question": opened["question"],
@@ -912,6 +943,8 @@ class RecallArgs(Bound):
     RecallArgs,
 )
 async def recall(ctx: Ctx, args: RecallArgs) -> dict[str, Any]:
+    if args.bank == "beliefs":
+        ctx.refuse_isolated("recall of the conclusions bank")
     scope: dict[str, Any] = {"theme_ids": [args.theme or ctx.bound.theme]}
     if args.companies:
         scope["company_ids"] = await ctx.company_ids(args.companies)

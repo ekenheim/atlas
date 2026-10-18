@@ -183,3 +183,170 @@ def test_a_fact_for_an_unknown_session_or_a_session_with_an_unknown_seed_is_refu
     assert fact.json()["error"]["code"] == "unknown_session"
     assert seed.status_code == 422
     assert seed.json()["error"]["code"] == "unknown_company"
+
+
+# --- isolated sessions (ticket 29a, the early-call scorecard) ---
+
+AS_OF = "2026-09-30T00:00:00Z"
+
+
+def prior_work(atlas: Atlas, asker: str | None) -> dict[str, Any]:
+    extra = {} if asker is None else {"exclude_session_id": asker}
+    return atlas.get("/api/v1/research/prior-work", theme="photonics", as_of=AS_OF, **extra)
+
+
+def count(atlas: Atlas, sql: str, **params: Any) -> int:
+    with atlas.engine.connect() as connection:
+        return connection.execute(text(sql), params).scalar_one()
+
+
+def believe(atlas: Atlas, session: str, fact_id: str) -> str:
+    response = atlas.api.post(
+        "/api/v1/beliefs",
+        json={
+            "statement": "Lumentum reported $1.01 billion of fourth-quarter revenue.",
+            "theme": "photonics",
+            "step": "capture",
+            "company_ids": [atlas.company_id()],
+            "as_of": AS_OF,
+            "session_id": session,
+            "citations": [
+                {"kind": "fact", "ref_id": fact_id, "valence": 1.0, "weight": "load_bearing"}
+            ],
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+def test_a_session_is_isolated_only_when_opened_so(atlas: Atlas) -> None:
+    plain = atlas.open()
+    isolated = atlas.open(isolated=True)
+
+    assert (plain["isolated"], isolated["isolated"]) == (False, True)
+    listed = {s["id"]: s["isolated"] for s in atlas.get("/api/v1/sessions")["items"]}
+    assert listed == {plain["id"]: False, isolated["id"]: True}
+    assert atlas.get(f"/api/v1/sessions/{isolated['id']}")["isolated"] is True
+
+
+def test_an_isolated_session_is_given_no_prior_work(atlas: Atlas) -> None:
+    earlier = atlas.open()
+    recorded = atlas.api.post("/api/v1/facts", json=atlas.fact_body(earlier["id"]))
+    assert recorded.status_code == 201, recorded.text
+    isolated = atlas.open(isolated=True)
+    plain = atlas.open()
+
+    work = prior_work(atlas, isolated["id"])
+
+    assert work["isolated"] is True
+    for part in ("facts", "beliefs", "documents_read", "sessions", "issues"):
+        assert work[part] == {"total": 0, "shown": 0, "beyond": 0, "items": []}, part
+    assert work["latest_session_as_of"] is None and work["hidden_sessions"] == 0
+    assert (work["theme"], work["as_of"]) == ("photonics", "2026-09-30T00:00:00Z")
+    # Anyone else is given what Atlas holds, as before: the isolated session leaves no mark
+    # on that either (it has recorded nothing), and without a session nothing changes.
+    for asker in (plain["id"], None):
+        other = prior_work(atlas, asker)
+        assert other["isolated"] is False
+        assert other["facts"]["total"] == 1
+
+
+def test_an_isolated_session_records_a_new_fact_where_a_standing_one_holds_the_span(
+    atlas: Atlas,
+) -> None:
+    earlier = atlas.open()
+    original = atlas.api.post("/api/v1/facts", json=atlas.fact_body(earlier["id"]))
+    assert original.status_code == 201, original.text
+    isolated = atlas.open(isolated=True)
+    plain = atlas.open()
+
+    again = atlas.api.post("/api/v1/facts", json=atlas.fact_body(isolated["id"]))
+
+    # The same span, step, status and statement: a plain session is given the Fact back (200),
+    # an isolated one records its own (201), naming no earlier Fact.
+    assert again.status_code == 201, again.text
+    assert again.json()["reused"] is False
+    fact = again.json()["fact"]
+    assert fact["id"] != original.json()["fact"]["id"]
+    assert fact["session_id"] == isolated["id"]
+    assert fact["same_span_as"] is None
+    assert atlas.get(f"/api/v1/sessions/{isolated['id']}")["facts"] == 1
+    assert atlas.get(f"/api/v1/sessions/{isolated['id']}")["facts_reused"] == 0
+    assert count(atlas, "SELECT count(*) FROM session_fact_reuse") == 0
+    assert atlas.get("/api/v1/facts")["total"] == 2
+    # A second isolated record of the same span is a third Fact, not the second one reused.
+    second = atlas.api.post("/api/v1/facts", json=atlas.fact_body(isolated["id"]))
+    assert second.status_code == 201 and second.json()["reused"] is False
+    assert atlas.get("/api/v1/facts")["total"] == 3
+    # A plain session behaves as before: the first Fact comes back.
+    reused = atlas.api.post("/api/v1/facts", json=atlas.fact_body(plain["id"]))
+    assert reused.status_code == 200 and reused.json()["reused"] is True
+    assert reused.json()["fact"]["id"] == original.json()["fact"]["id"]
+
+
+def test_an_isolated_sessions_belief_cannot_be_judged_so_it_makes_no_call(atlas: Atlas) -> None:
+    isolated = atlas.open(isolated=True)
+    plain = atlas.open()
+    kept = atlas.api.post("/api/v1/facts", json=atlas.fact_body(isolated["id"]))
+    belief = believe(atlas, isolated["id"], kept.json()["fact"]["id"])
+    control = believe(atlas, plain["id"], kept.json()["fact"]["id"])
+    judge = {"actor": "lead", "judgement": "proven", "confidence": 0.8, "reason": "tested"}
+    born = len(atlas.get(f"/api/v1/beliefs/{belief}")["history"])
+    events = count(atlas, "SELECT count(*) FROM audit_event")
+    retains = count(atlas, "SELECT count(*) FROM job WHERE kind = 'retain_belief'")
+
+    refused = atlas.api.post(f"/api/v1/beliefs/{belief}/judge", json=judge)
+
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["error"]["code"] == "isolated_session_belief"
+    held = atlas.get(f"/api/v1/beliefs/{belief}")
+    assert held["judgement"]["judgement"] == "unproven" and len(held["history"]) == born
+    # Nothing was written: no judgement row beyond the born one, no call, no retain, no audit.
+    calls = "SELECT count(*) FROM call_record WHERE origin = 'belief' AND origin_id = :id"
+    assert count(atlas, calls, id=belief) == 0
+    assert count(atlas, "SELECT count(*) FROM job WHERE kind = 'retain_belief'") == retains
+    assert count(atlas, "SELECT count(*) FROM audit_event") == events
+    # A Belief of a plain session is judged as before, and makes its call.
+    proven = atlas.api.post(f"/api/v1/beliefs/{control}/judge", json=judge)
+    assert proven.status_code == 200, proven.text
+    assert count(atlas, calls, id=control) == 1
+
+
+def test_a_sessions_tool_calls_are_listed_in_order_and_an_unknown_session_is_not_found(
+    atlas: Atlas,
+) -> None:
+    opened = atlas.open()
+    assert atlas.get(f"/api/v1/sessions/{opened['id']}/tool-calls") == []
+    with atlas.engine.begin() as connection:
+        for tool, outcome, reason, arguments in (
+            ("search", "ok", None, '{"company": "lumentum", "q": "laser capacity"}'),
+            ("read", "refused", "available_after_as_of", '{"start": 0, "end": 900}'),
+            ("record_fact", "error", "internal_error", "{}"),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO session_tool_call (id, session_id, tool, arguments, outcome,"
+                    " reason) VALUES (gen_random_uuid(), :session, :tool,"
+                    " CAST(:arguments AS jsonb), :outcome, :reason)"
+                ),
+                {
+                    "session": opened["id"],
+                    "tool": tool,
+                    "arguments": arguments,
+                    "outcome": outcome,
+                    "reason": reason,
+                },
+            )
+
+    calls = atlas.get(f"/api/v1/sessions/{opened['id']}/tool-calls")
+
+    assert [(c["tool"], c["outcome"], c["reason"]) for c in calls] == [
+        ("search", "ok", None),
+        ("read", "refused", "available_after_as_of"),
+        ("record_fact", "error", "internal_error"),
+    ]
+    assert calls[0]["arguments"] == {"company": "lumentum", "q": "laser capacity"}
+    assert calls[0]["at"] <= calls[1]["at"] <= calls[2]["at"]
+    assert all({"id", "tool", "arguments", "outcome", "reason", "at"} == set(c) for c in calls)
+    assert atlas.get(f"/api/v1/sessions/{opened['id']}")["tool_calls"] == 3
+    assert atlas.api.get(f"/api/v1/sessions/{NO_SUCH_ID}/tool-calls").status_code == 404

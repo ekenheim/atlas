@@ -74,7 +74,7 @@ def _session_row(engine: Engine, session_id: uuid.UUID) -> tuple[SessionRow, boo
     with engine.connect() as connection:
         row = connection.execute(
             text(
-                "SELECT id, question, theme, as_of, kind, finished_at, seed_company_ids"
+                "SELECT id, question, theme, as_of, kind, finished_at, seed_company_ids, isolated"
                 " FROM research_session WHERE id = :id"
             ),
             {"id": session_id},
@@ -87,6 +87,7 @@ def _session_row(engine: Engine, session_id: uuid.UUID) -> tuple[SessionRow, boo
         theme=row.theme,
         as_of=row.as_of,
         seed_company_ids=tuple(row.seed_company_ids),
+        isolated=row.isolated,
     )
     return session, row.kind == "claude" and row.finished_at is None
 

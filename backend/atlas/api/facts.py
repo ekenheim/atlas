@@ -14,7 +14,10 @@
   `reused: true`, no row is made, the session records the reuse (`facts_reused`) and the judge is
   not asked. Any other statement is recorded (201), judged like any session Fact and names the
   earlier Fact (`same_span_as`): a correction is always recordable beside the Fact it corrects.
-  Every other check runs first, so a reuse never hides a refusal
+  Every other check runs first, so a reuse never hides a refusal. In an **isolated** session
+  (ticket 29a, the early-call scorecard) there is no reuse and no `same_span_as`: a span a standing
+  Fact already holds is recorded as a new Fact, judged as usual, so the session cannot be handed
+  the work of a session that chose with hindsight and leaves its own to none
 - a Fact recorded with a `session_id` (every Fact, under `ATLAS_FACT_STATEMENT_JUDGE=always`)
   has its statement judged against its own quote, source title and date after those checks
   (ticket 23; `atlas.judging`): misstated is 422 `statement_beyond_quote` (the error's `detail`
@@ -56,6 +59,7 @@ from atlas.facts import (
 from atlas.facts.periods import FiscalYearEnd
 from atlas.financials.calendar import fiscal_year_end
 from atlas.judging import Judges, fact_question, fact_refusal, judge_fact
+from atlas.sessions import session_is_isolated
 from atlas.settings import Settings
 
 Paged = Annotated[Pagination, Depends(pagination)]
@@ -133,7 +137,9 @@ def facts_router(engine: Engine, archive: Archive, actor: Actor, settings: Setti
                 value = service.check(
                     request, document_date=document_date, fiscal_year_end=year_end
                 )
-            if request.session_id is not None:
+            with engine.connect() as connection:
+                isolated = session_is_isolated(connection, request.session_id)
+            if request.session_id is not None and not isolated:
                 decision = service.decide_reuse(request)
                 if decision.kind == "reuse" and decision.fact_id is not None:
                     response.status_code = 200

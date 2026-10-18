@@ -40,6 +40,14 @@ class SessionOpen(BaseModel):
     kind: Literal["claude"] = "claude"
     model: str | None = None
     actor: str | None = Field(default=None, description="who researches; default: the caller")
+    isolated: bool = Field(
+        default=False,
+        description="an isolated session starts from nothing and leaves nothing for others"
+        " (the early-call scorecard, ticket 29a): `prior_work` returns nothing to it, a Fact it"
+        " records is never matched with a standing one, `recall` of the conclusions bank,"
+        " `list_beliefs` and `get_belief` are refused, and a Belief it proposed can never be"
+        " judged. Atlas enforces it; it is fixed when the session opens",
+    )
 
 
 class SessionClose(BaseModel):
@@ -65,6 +73,11 @@ class SessionSummary(BaseModel):
     started_at: datetime
     finished_at: datetime | None
     usage: dict[str, JsonValue]
+    isolated: bool = Field(
+        default=False,
+        description="opened isolated (ticket 29a): no prior work, no Fact reuse, no conclusions"
+        " bank, its Beliefs never judged",
+    )
     facts: int = Field(description="the Facts recorded in it")
     tool_calls: int = Field(
         description="the calls it made through the Atlas MCP server, as Atlas counted them"
@@ -85,7 +98,7 @@ class ResearchSession(SessionSummary):
 
 _SUMMARY = """
     SELECT s.id, s.question, s.theme, s.seed_company_ids, s.as_of, s.kind, s.model, s.actor,
-           s.investigation_id, s.started_at, s.finished_at, s.usage,
+           s.investigation_id, s.started_at, s.finished_at, s.usage, s.isolated,
            (SELECT count(*) FROM fact f WHERE f.session_id = s.id
                OR (s.investigation_id IS NOT NULL AND f.investigation_id = s.investigation_id)
            ) AS facts,
@@ -109,6 +122,7 @@ def _summary(row: Any) -> SessionSummary:
         started_at=row.started_at,
         finished_at=row.finished_at,
         usage=row.usage,
+        isolated=row.isolated,
         facts=row.facts,
         tool_calls=row.tool_calls,
         facts_reused=row.facts_reused,
@@ -153,6 +167,57 @@ def get_session(connection: Connection, session_id: uuid.UUID) -> ResearchSessio
     )
     return ResearchSession(
         **summary.model_dump(), card=extra.card, card_markdown=extra.card_markdown, fact_items=items
+    )
+
+
+class ToolCall(BaseModel):
+    """One call a session made through the Atlas MCP server, as Atlas recorded it."""
+
+    id: uuid.UUID
+    tool: str
+    arguments: dict[str, JsonValue] = Field(description="the arguments as received")
+    outcome: Literal["ok", "refused", "error"]
+    reason: str | None = Field(description="the refusal's or error's code")
+    at: datetime
+
+
+def list_tool_calls(connection: Connection, session_id: uuid.UUID) -> list[ToolCall] | None:
+    """The session's recorded tool calls, in the order they were made (`session_tool_call`,
+    insert-only); None when there is no such session. For classifying a scorecard run's misses
+    (ticket 29a): what it searched, read and recorded, and what Atlas refused it."""
+    if not connection.execute(
+        text("SELECT EXISTS (SELECT FROM research_session WHERE id = :id)"), {"id": session_id}
+    ).scalar_one():
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT id, tool, arguments, outcome, reason, created_at FROM session_tool_call"
+            " WHERE session_id = :id ORDER BY created_at, id"
+        ),
+        {"id": session_id},
+    ).all()
+    return [
+        ToolCall(
+            id=row.id,
+            tool=row.tool,
+            arguments=row.arguments,
+            outcome=row.outcome,
+            reason=row.reason,
+            at=row.created_at,
+        )
+        for row in rows
+    ]
+
+
+def session_is_isolated(connection: Connection, session_id: uuid.UUID | None) -> bool:
+    """Whether the session was opened isolated (ticket 29a). No session, or an unknown one,
+    is not isolated: the callers that matter name a session they have checked."""
+    if session_id is None:
+        return False
+    return bool(
+        connection.execute(
+            text("SELECT isolated FROM research_session WHERE id = :id"), {"id": session_id}
+        ).scalar_one_or_none()
     )
 
 
@@ -260,8 +325,8 @@ class Sessions:
             connection.execute(
                 text(
                     "INSERT INTO research_session (id, question, theme, seed_company_ids, as_of,"
-                    " kind, model, actor) VALUES (:id, :question, :theme, :seeds, :as_of, :kind,"
-                    " :model, :actor)"
+                    " kind, model, actor, isolated) VALUES (:id, :question, :theme, :seeds, :as_of,"
+                    " :kind, :model, :actor, :isolated)"
                 ),
                 {
                     "id": session_id,
@@ -272,6 +337,7 @@ class Sessions:
                     "kind": request.kind,
                     "model": request.model,
                     "actor": request.actor or self._actor.name,
+                    "isolated": request.isolated,
                 },
             )
             row = connection.execute(

@@ -483,6 +483,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/tool-calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tool Calls */
+        get: operations["tool_calls_api_v1_sessions__session_id__tool_calls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/close": {
         parameters: {
             query?: never;
@@ -8312,6 +8329,12 @@ export interface components {
              * @description earlier sessions with an as-of time after this one
              */
             hidden_sessions: number;
+            /**
+             * Isolated
+             * @description the asking session is isolated (ticket 29a): nothing is listed, whatever Atlas holds
+             * @default false
+             */
+            isolated: boolean;
             facts: components["schemas"]["Capped_PriorFact_"];
             beliefs: components["schemas"]["Capped_PriorBelief_"];
             documents_read: components["schemas"]["Capped_DocumentRead_"];
@@ -9703,6 +9726,12 @@ export interface components {
                 [key: string]: components["schemas"]["JsonValue"];
             };
             /**
+             * Isolated
+             * @description opened isolated (ticket 29a): no prior work, no Fact reuse, no conclusions bank, its Beliefs never judged
+             * @default false
+             */
+            isolated: boolean;
+            /**
              * Facts
              * @description the Facts recorded in it
              */
@@ -10380,6 +10409,12 @@ export interface components {
              * @description who researches; default: the caller
              */
             actor?: string | null;
+            /**
+             * Isolated
+             * @description an isolated session starts from nothing and leaves nothing for others (the early-call scorecard, ticket 29a): `prior_work` returns nothing to it, a Fact it records is never matched with a standing one, `recall` of the conclusions bank, `list_beliefs` and `get_belief` are refused, and a Belief it proposed can never be judged. Atlas enforces it; it is fixed when the session opens
+             * @default false
+             */
+            isolated: boolean;
         };
         /** SessionSummary */
         SessionSummary: {
@@ -10417,6 +10452,12 @@ export interface components {
             usage: {
                 [key: string]: components["schemas"]["JsonValue"];
             };
+            /**
+             * Isolated
+             * @description opened isolated (ticket 29a): no prior work, no Fact reuse, no conclusions bank, its Beliefs never judged
+             * @default false
+             */
+            isolated: boolean;
             /**
              * Facts
              * @description the Facts recorded in it
@@ -11267,6 +11308,41 @@ export interface components {
         };
         /** @enum {string} */
         Tier: "exact" | "corroborated" | "candidate" | "conflict" | "unresolved";
+        /**
+         * ToolCall
+         * @description One call a session made through the Atlas MCP server, as Atlas recorded it.
+         */
+        ToolCall: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Tool */
+            tool: string;
+            /**
+             * Arguments
+             * @description the arguments as received
+             */
+            arguments: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "ok" | "refused" | "error";
+            /**
+             * Reason
+             * @description the refusal's or error's code
+             */
+            reason: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
         /** TransitionRequest */
         TransitionRequest: {
             /**
@@ -13022,6 +13098,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResearchSession"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    tool_calls_api_v1_sessions__session_id__tool_calls_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToolCall"][];
                 };
             };
             /** @description Not Found */

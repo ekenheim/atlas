@@ -186,6 +186,130 @@ def test_the_researcher_starts_from_the_frontier_and_uses_both_banks(run: Run):
     assert "born `unproven`" in prompt
 
 
+SCORECARD_QUESTION = (
+    "As of 2025-02-28, does anything constrain supply in SanDisk's market, who holds it, and"
+    " what would relieve it? {{not a placeholder}} & more"
+)
+
+
+def scorecard_run(run: Run, *args: str, **env: str) -> subprocess.CompletedProcess[str]:
+    settings = {
+        "ATLAS_AGENT_THEME": "scorecard",
+        "ATLAS_AGENT_AS_OF": "2025-02-28T00:00:00+00:00",
+        "ATLAS_AGENT_MODEL": "claude-opus-5-5",
+        "ATLAS_AGENT_QUESTION": SCORECARD_QUESTION,
+        "ATLAS_AGENT_SEEDS": "sandisk",
+        "ATLAS_AGENT_ISOLATED": "true",
+    }
+    return run.call("researcher", *args, **(settings | env))
+
+
+def test_a_given_question_and_seeds_replace_next_issue_in_the_dry_run(run: Run):
+    result = scorecard_run(run, "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    assert f"question: {SCORECARD_QUESTION}" in result.stdout
+    assert "seeds: sandisk" in result.stdout
+    assert "isolated: true" in result.stdout
+    assert " --model claude-opus-5-5" in result.stdout  # the exact ID, not an alias
+    prompt = result.stdout.split("prompt:\n", 1)[1]
+    # The question verbatim (braces and an ampersand intact), the seeds as slugs, no frontier.
+    assert f"do not call `next_issue`): {SCORECARD_QUESTION}" in prompt
+    assert "Seed companies: sandisk (slugs; pass them to `open_session` as `seeds`)." in prompt
+    assert "Start from `next_issue`" not in prompt
+    assert "Theme: scorecard" in prompt
+    assert "2025-02-28T00:00:00+00:00" in prompt
+
+
+def test_several_seeds_are_listed_in_the_prompt(run: Run):
+    prompt = scorecard_run(run, "--dry-run", ATLAS_AGENT_SEEDS="iren,etoro").stdout.split(
+        "prompt:\n", 1
+    )[1]
+
+    assert "Seed companies: iren, etoro (slugs;" in prompt
+
+
+def test_an_isolated_run_tells_the_researcher_to_open_an_isolated_session(run: Run):
+    prompt = scorecard_run(run, "--dry-run").stdout.split("prompt:\n", 1)[1]
+
+    assert "pass `isolated: true` to `open_session`" in prompt
+    assert "Do not call `prior_work` or `examine_belief`" in prompt
+    assert "Atlas refuses `recall` with `bank: beliefs`, `list_beliefs`, `get_belief`" in prompt
+    assert "use only what the tools return" in prompt
+    assert "Atlas will never judge it" in prompt
+    # The standing rules stay: nothing judged, nothing published.
+    assert "You set no judgement" in prompt
+    assert "You publish nothing" in prompt
+    assert "{{" not in prompt.replace("{{not a placeholder}}", "")
+    assert re.search(r"^Tools: open_session, ", prompt, re.MULTILINE)
+
+
+def test_a_question_without_isolation_still_uses_prior_work_and_both_banks(run: Run):
+    result = scorecard_run(run, "--dry-run", ATLAS_AGENT_ISOLATED="false")
+
+    prompt = result.stdout.split("prompt:\n", 1)[1]
+    assert "isolated: false" in result.stdout
+    assert "do not call `next_issue`" in prompt
+    assert "call `prior_work`" in prompt
+    assert "`bank: beliefs` is in use" in prompt
+    assert "isolated: true" not in prompt
+
+
+def test_the_default_dry_run_shows_no_question_seeds_or_isolation(run: Run):
+    result = run.call("researcher", "--dry-run")
+
+    assert "question: none (next_issue)" in result.stdout
+    assert "seeds: none" in result.stdout
+    assert "isolated: false" in result.stdout
+
+
+def test_a_real_run_hands_claude_the_question_in_its_prompt(run: Run):
+    result = scorecard_run(run, ATLAS_MCP_URL="http://127.0.0.1:9/mcp")
+
+    assert result.returncode == 0, result.stderr
+    args = run.stub_args()
+    assert args[args.index("--model") + 1] == "claude-opus-5-5"
+    prompt = "\n".join(args)
+    assert SCORECARD_QUESTION in prompt
+    assert "pass `isolated: true` to `open_session`" in prompt
+
+
+@pytest.mark.parametrize(
+    "setting",
+    [
+        {"ATLAS_AGENT_ISOLATED": "yes"},
+        {"ATLAS_AGENT_SEEDS": "SanDisk"},
+        {"ATLAS_AGENT_SEEDS": "sandisk,"},
+        {"ATLAS_AGENT_SEEDS": "sandisk; rm -rf /"},
+        {"ATLAS_AGENT_QUESTION": "two\nlines"},
+        {"ATLAS_AGENT_QUESTION": "x" * 1001},
+    ],
+)
+def test_a_scorecard_setting_that_does_not_fit_is_refused(run: Run, setting: dict[str, str]):
+    result = scorecard_run(run, "--dry-run", **setting)
+
+    assert result.returncode == 2
+    assert "run.sh:" in result.stderr
+    assert not run.stub_was_called()
+
+
+def test_seeds_without_a_question_are_refused(run: Run):
+    result = run.call("researcher", "--dry-run", ATLAS_AGENT_SEEDS="sandisk")
+
+    assert result.returncode == 2
+    assert "ATLAS_AGENT_SEEDS needs ATLAS_AGENT_QUESTION" in result.stderr
+
+
+@pytest.mark.parametrize("agent", ["scout", "skeptic"])
+def test_the_question_seeds_and_isolation_are_the_researcher_s_alone(run: Run, agent: str):
+    result = run.call(agent, "--dry-run", ATLAS_AGENT_QUESTION="Is anything short?")
+
+    assert result.returncode == 2
+    assert "are the researcher's" in result.stderr
+    isolated = run.call(agent, "--dry-run", ATLAS_AGENT_ISOLATED="true")
+    assert isolated.returncode == 2
+
+
 def test_the_skeptic_is_given_no_belief(run: Run):
     prompt = run.call("skeptic", "--dry-run").stdout.split("prompt:\n", 1)[1]
 

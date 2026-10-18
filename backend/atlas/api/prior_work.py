@@ -10,6 +10,10 @@ the documents earlier sessions read (with those sessions' as-of times), the earl
 the open Issues that touch them. Nothing public after `as_of` is shown. With no `company_ids` the
 theme's researched companies are asked about. 422 `unknown_theme` (checked whether or not
 companies are named) / `unknown_company`.
+
+An `exclude_session_id` that names an **isolated** session (ticket 29a, the early-call scorecard)
+is answered with nothing at all (`isolated: true`, every list empty): Atlas enforces it here, so
+a session cannot be handed what later sessions chose with hindsight whatever its prompt says.
 """
 
 import uuid
@@ -24,7 +28,8 @@ from sqlalchemy import Engine, text
 from atlas.api.common import INVALID, error_response
 from atlas.companies import Universe, company_id_for, extend_universe
 from atlas.facts import FactStep
-from atlas.prior_work import DEFAULT_LIMIT, MAX_LIMIT, PriorWork, prior_work
+from atlas.prior_work import DEFAULT_LIMIT, MAX_LIMIT, PriorWork, no_prior_work, prior_work
+from atlas.sessions import session_is_isolated
 
 
 def prior_work_router(engine: Engine, universe: Callable[[], Universe]) -> APIRouter:
@@ -58,6 +63,17 @@ def prior_work_router(engine: Engine, universe: Callable[[], Universe]) -> APIRo
                 for slug in config.themes[theme].companies
             ]
         with engine.connect() as connection:
+            if session_is_isolated(connection, exclude_session_id):
+                slugs = {
+                    row.id: row.slug
+                    for row in connection.execute(text("SELECT id, slug FROM company"))
+                }
+                return no_prior_work(
+                    theme=theme,
+                    as_of=as_of,
+                    company_slugs=[slugs[each] for each in asked if each in slugs],
+                    steps=list(dict.fromkeys(steps or [])),
+                )
             return prior_work(
                 connection,
                 theme=theme,

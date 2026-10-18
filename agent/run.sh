@@ -14,6 +14,14 @@
 #   ATLAS_AGENT_MAX_TURNS     the turn bound (default per agent)
 #   ATLAS_AGENT_CALL_BOUND    the tool-call bound the prompt gives (default per agent)
 #   ATLAS_AGENT_AS_OF         the as-of time, ISO with offset (default: now, UTC)
+#   ATLAS_AGENT_QUESTION      (researcher only) the question, verbatim: overrides `next_issue`
+#   ATLAS_AGENT_SEEDS         (researcher only) seed company slugs, comma-separated; needs the
+#                             question
+#   ATLAS_AGENT_ISOLATED      (researcher only) `true`: the prompt has the Researcher open an
+#                             isolated session (`open_session` with `isolated: true`; Atlas
+#                             enforces it); default false. The early-call scorecard's runs
+#                             (ticket 29): the lead passes all three and the exact model ID in
+#                             ATLAS_AGENT_MODEL
 #   ATLAS_AGENT_TMP           the writable directory (default /tmp): the output folder is
 #                             $ATLAS_AGENT_TMP/out, the MCP config $ATLAS_AGENT_TMP/atlas-mcp.json
 #
@@ -77,6 +85,9 @@ tmp_dir="${ATLAS_AGENT_TMP:-/tmp}"
 out_dir="$tmp_dir/out"
 mcp_config="$tmp_dir/atlas-mcp.json"
 as_of="${ATLAS_AGENT_AS_OF:-$(date -u +%Y-%m-%dT%H:%M:%S+00:00)}"
+question="${ATLAS_AGENT_QUESTION:-}"
+seeds="${ATLAS_AGENT_SEEDS:-}"
+isolated="${ATLAS_AGENT_ISOLATED:-false}"
 
 # What goes into the prompt and the JSON file is checked, not escaped.
 url_re='^https?://[^[:space:]"\\]+$'
@@ -91,6 +102,24 @@ model_re='^[][A-Za-z0-9._:-]+$'
 [[ "$as_of" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([+-][0-9]{2}:[0-9]{2}|Z)$ ]] \
   || die "ATLAS_AGENT_AS_OF is not an ISO time with an offset: $as_of"
 
+# The question goes into the prompt as text (never a shell word or JSON), so it is checked for
+# length and for control characters; seeds and the isolation flag must fit what they name.
+[[ "$isolated" == true || "$isolated" == false ]] || die "ATLAS_AGENT_ISOLATED is not true or false: $isolated"
+if [[ -n "$question" || -n "$seeds" || "$isolated" == true ]]; then
+  [[ "$agent" == researcher ]] \
+    || die "ATLAS_AGENT_QUESTION, ATLAS_AGENT_SEEDS and ATLAS_AGENT_ISOLATED are the researcher's"
+fi
+if [[ -n "$seeds" ]]; then
+  [[ -n "$question" ]] || die "ATLAS_AGENT_SEEDS needs ATLAS_AGENT_QUESTION"
+  seeds_re='^[a-z0-9][a-z0-9-]*(,[a-z0-9][a-z0-9-]*)*$'
+  [[ "$seeds" =~ $seeds_re ]] || die "ATLAS_AGENT_SEEDS is not comma-separated company slugs: $seeds"
+fi
+if [[ -n "$question" ]]; then
+  [[ ${#question} -le 1000 ]] || die "ATLAS_AGENT_QUESTION is over 1,000 characters"
+  control_re='[[:cntrl:]]'
+  [[ ! "$question" =~ $control_re ]] || die "ATLAS_AGENT_QUESTION has a control character or a newline"
+fi
+
 prompt_file="$here/prompts/$agent.md"
 [[ -f "$prompt_file" ]] || die "no prompt for $agent: $prompt_file"
 prompt="$(cat "$prompt_file")"
@@ -98,7 +127,37 @@ prompt="${prompt//'{{THEME}}'/$theme}"
 prompt="${prompt//'{{AS_OF}}'/$as_of}"
 prompt="${prompt//'{{OUT_DIR}}'/$out_dir}"
 prompt="${prompt//'{{CALL_BOUND}}'/$call_bound}"
-[[ "$prompt" != *'{{'* ]] || die "the $agent prompt has a placeholder nothing fills"
+
+# The researcher's inputs (a wrapper without these placeholders is unchanged): the frontier's
+# question by default; the lead's question and seeds when given; an isolated session when asked.
+# The check for a placeholder nothing fills runs before the question is put in, so a question
+# that happens to hold braces is no placeholder; the question is quoted in the replacement so a
+# `&` in it is no back-reference.
+question_block="Question: none is given. Start from \`next_issue\` (\`theme\`: $theme): Atlas's frontier. Use the title of the Issue it returns as the question, verbatim. If it returns no Issue, write \`researcher-report.md\` in the output folder saying so, open no session, and stop."
+seeds_block="Seed companies: the companies the Issue names (slugs); if it names none, choose at most three with \`companies\` by the layer the question names."
+start_block="Start: after \`open_session\`, call \`prior_work\` and follow \`SKILL.md\`'s \"Start from what Atlas holds\": spend your calls on documents public after its \`latest_session_as_of\` and on the gaps earlier sessions named, and cite an existing Fact rather than recording its span again. Call \`examine_belief\` for a Belief you tested."
+recall_block="Recall: allowed. \`recall\` with \`bank: research\` is an index to find sections to \`read\`, never evidence. \`recall\` with \`bank: beliefs\` is in use: it returns earlier sessions' judged conclusions and the Facts they rest on; test one against what you read and never cite it."
+isolation_block=""
+if [[ -n "$question" ]]; then
+  question_block="Question (given by the lead; use it verbatim and do not call \`next_issue\`): {{QUESTION_TEXT}}"
+  if [[ -n "$seeds" ]]; then
+    seeds_block="Seed companies: ${seeds//,/, } (slugs; pass them to \`open_session\` as \`seeds\`)."
+  else
+    seeds_block="Seed companies: none are given; choose at most three with \`companies\` by the layer the question names."
+  fi
+fi
+if [[ "$isolated" == true ]]; then
+  start_block="Start: this is an isolated session (a replay of a past date), so pass \`isolated: true\` to \`open_session\`. Atlas gives an isolated session no prior work (\`prior_work\` answers empty) and records a Fact for every span you quote, so research from the archive: \`search\`, \`read\`, \`locate\`, \`record_fact\`. Do not call \`prior_work\` or \`examine_belief\`."
+  recall_block="Recall: allowed for \`bank: research\` only, an index to find sections to \`read\`, never evidence. Atlas refuses \`recall\` with \`bank: beliefs\`, \`list_beliefs\`, \`get_belief\` and \`examine_belief\` (\`isolated_session\`): do not call them."
+  isolation_block="- Knowledge: use only what the tools return. Do not use anything you know about the company, its market, its prices or the years after the as-of time from outside this session; a statement no Fact you recorded carries is not scored. Every Belief you propose is a proposal for the lead to read, and Atlas will never judge it."
+fi
+prompt="${prompt//'{{QUESTION_INPUT}}'/$question_block}"
+prompt="${prompt//'{{SEEDS_INPUT}}'/$seeds_block}"
+prompt="${prompt//'{{START_INPUT}}'/$start_block}"
+prompt="${prompt//'{{RECALL_INPUT}}'/$recall_block}"
+prompt="${prompt//'{{ISOLATION_INPUT}}'/$isolation_block}"
+[[ "${prompt//'{{QUESTION_TEXT}}'/}" != *'{{'* ]] || die "the $agent prompt has a placeholder nothing fills"
+prompt="${prompt//'{{QUESTION_TEXT}}'/"$question"}"
 
 mcp_json="{\"mcpServers\":{\"atlas\":{\"type\":\"http\",\"url\":\"$mcp_url\"}}}"
 
@@ -130,6 +189,9 @@ quote() {
 
 if [[ "$dry_run" == 1 ]]; then
   printf 'agent: %s\n' "$agent"
+  printf 'question: %s\n' "${question:-none (next_issue)}"
+  printf 'seeds: %s\n' "${seeds:-none}"
+  printf 'isolated: %s\n' "$isolated"
   printf 'command:'
   for word in "${cmd[@]}"; do
     if [[ "$word" == "$prompt" ]]; then printf ' <prompt>'; else printf ' %s' "$(quote "$word")"; fi

@@ -605,6 +605,21 @@ class Beliefs:
     def judge(self, belief_id: uuid.UUID, request: BeliefJudge) -> Belief:
         with self._engine.begin() as connection:
             before = self._lock_active(connection, belief_id)
+            if connection.execute(
+                text(
+                    "SELECT s.isolated FROM belief b"
+                    " JOIN research_session s ON s.id = b.produced_by WHERE b.id = :id"
+                ),
+                {"id": belief_id},
+            ).scalar_one_or_none():
+                # An isolated session's Belief (ticket 29a, the scorecard) is never judged, so it
+                # makes no call (`belief_call`) and never reaches the conclusions bank
+                # (`enqueue_retain_belief`): refused before any row is written.
+                raise BeliefRefused(
+                    "isolated_session_belief",
+                    "the Belief was proposed by an isolated session (the early-call scorecard):"
+                    " it can never be judged, so it makes no call and is never retained",
+                )
             judgement_id = uuid.uuid4()
             judged_at: datetime = connection.execute(
                 text(

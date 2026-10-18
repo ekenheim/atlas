@@ -1534,3 +1534,170 @@ def test_a_supporting_fact_from_a_newer_document_notices_a_proven_belief(
     assert cleared["open_notices"] == 0
     assert cleared["notices"][0]["cleared_by"] == cleared["history"][-1]["id"]
     assert mcp.get(f"/api/v1/beliefs/{other_belief}")["open_notices"] == 1
+
+
+# --- isolated sessions (ticket 29a, the early-call scorecard) ---
+
+
+def scalar(mcp: Mcp, sql: str, **params: Any) -> int:
+    with mcp.engine.connect() as connection:
+        return connection.execute(text(sql), params).scalar_one()
+
+
+def test_open_session_takes_isolated_and_says_so(mcp: Mcp) -> None:
+    listed = {
+        each["name"]: each["inputSchema"]
+        for each in mcp.rpc("tools/list").json()["result"]["tools"]
+    }
+    assert listed["open_session"]["properties"]["isolated"]["type"] == "boolean"
+    assert "isolated" not in listed["open_session"].get("required", [])
+
+    plain = mcp.ok("open_session", question=QUESTION, as_of=LATER)
+    isolated = mcp.ok("open_session", question=QUESTION, as_of=LATER, isolated=True)
+
+    assert (plain["isolated"], isolated["isolated"]) == (False, True)
+    assert mcp.get(f"/api/v1/sessions/{plain['session_id']}")["isolated"] is False
+    assert mcp.get(f"/api/v1/sessions/{isolated['session_id']}")["isolated"] is True
+
+
+def test_an_isolated_session_is_given_no_prior_work(mcp: Mcp) -> None:
+    early = mcp.open(BEFORE_10K)
+    revenue = record(mcp, early, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT, step="capture")
+    belief = mcp.ok(
+        "propose_belief",
+        session_id=early,
+        statement="Lumentum reported $1.01 billion in revenue.",
+        step="capture",
+        companies=["lumentum"],
+        citations=[{"fact_id": revenue["fact_id"], "how": 1, "weight": "load_bearing"}],
+    )["id"]
+    judge_proven(mcp, belief)
+    isolated = mcp.open(LATER, isolated=True)
+    plain = mcp.open(LATER)
+
+    work = mcp.ok("prior_work", session_id=isolated)  # the session's seeds: Lumentum
+
+    assert work["isolated"] is True and "isolated" in work["note"]
+    for part in ("facts", "beliefs", "documents_read", "sessions", "issues"):
+        assert work[part] == {"total": 0, "shown": 0, "beyond": 0, "items": []}, part
+    assert work["latest_session_as_of"] is None
+    # A session that is not isolated is given what Atlas holds.
+    seen = mcp.ok("prior_work", session_id=plain)
+    assert seen["isolated"] is False and "isolated" not in seen["note"]
+    assert (seen["facts"]["total"], seen["beliefs"]["total"]) == (1, 1)
+
+
+def test_an_isolated_session_records_every_span_as_a_new_fact(mcp: Mcp) -> None:
+    first = mcp.open(BEFORE_10K)
+    original = record(mcp, first, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT)
+    isolated = mcp.open(LATER, isolated=True)
+
+    again = record(mcp, isolated, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT)
+
+    assert again["recorded"] is True and not again.get("reused")
+    assert again["fact_id"] != original["fact_id"] and "same_span_as" not in again
+    assert mcp.get("/api/v1/facts")["total"] == 2
+    session = mcp.get(f"/api/v1/sessions/{isolated}")
+    assert (session["facts"], session["facts_reused"]) == (1, 0)
+    # The same again, and a differing statement: new Facts too, and none names another's span.
+    third = record(mcp, isolated, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT)
+    other = record(mcp, isolated, URL_EX991, REVENUE_QUOTE, "Revenue was $1.01 billion.")
+    assert third["recorded"] is True and other["recorded"] is True
+    assert "same_span_as" not in third and "same_span_as" not in other
+    assert mcp.get("/api/v1/facts")["total"] == 4
+    # A session that is not isolated is still given the first Fact back.
+    plain = mcp.open(LATER)
+    back = record(mcp, plain, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT)
+    assert back["reused"] is True and back["fact_id"] == original["fact_id"]
+
+
+def test_an_isolated_session_is_refused_the_conclusions(mcp: Mcp) -> None:
+    early = mcp.open(BEFORE_10K)
+    _, belief = believe(
+        mcp, early, URL_EX991, REVENUE_QUOTE, "Lumentum reported $1.01 billion in revenue."
+    )
+    judge_proven(mcp, belief)
+    isolated = mcp.open(LATER, isolated=True)
+
+    asks: list[tuple[str, dict[str, Any]]] = [
+        ("recall", {"query": "laser capacity", "bank": "beliefs"}),
+        ("list_beliefs", {}),
+        ("get_belief", {"belief_id": belief}),
+        ("examine_belief", {"belief_id": belief, "outcome": "nothing_new"}),
+    ]
+    for tool, arguments in asks:
+        refused = mcp.refused(tool, "isolated_session", session_id=isolated, **arguments)
+        assert "isolated session" in refused["message"]
+
+    # The archive's own tools and the research bank's recall stay open to it.
+    assert mcp.ok("recall", session_id=isolated, query="laser capacity")["bank"] == "research"
+    found = mcp.ok("search", session_id=isolated, company="lumentum", q="revenue")
+    assert found["hits"]
+    # Atlas counted each refusal on the session, with the code.
+    assert [(tool, outcome, reason) for tool, outcome, reason in mcp.calls(isolated)[1:]] == [
+        ("recall", "refused", "isolated_session"),
+        ("list_beliefs", "refused", "isolated_session"),
+        ("get_belief", "refused", "isolated_session"),
+        ("examine_belief", "refused", "isolated_session"),
+        ("recall", "ok", None),
+        ("search", "ok", None),
+    ]
+    # A session that is not isolated reads them as before.
+    plain = mcp.open(LATER)
+    assert mcp.ok("list_beliefs", session_id=plain)["total"] == 1
+    assert mcp.ok("get_belief", session_id=plain, belief_id=belief)["id"] == belief
+    nothing = mcp.ok("examine_belief", session_id=plain, belief_id=belief, outcome="nothing_new")
+    assert nothing["examined"] is True
+
+
+def test_an_isolated_sessions_belief_is_proposed_unproven_and_never_judged(mcp: Mcp) -> None:
+    isolated = mcp.open(BEFORE_10K, isolated=True)
+    plain = mcp.open(BEFORE_10K)
+    _, own = believe(mcp, isolated, URL_EX991, REVENUE_QUOTE, "Lumentum reported $1.01B revenue.")
+    _, control = believe(mcp, plain, URL_10Q, SHARES_QUOTE, "Lumentum had 77.8 million shares.")
+    judge = {"actor": "lead", "judgement": "proven", "confidence": 0.8, "reason": "tested"}
+    retains = scalar(mcp, "SELECT count(*) FROM job WHERE kind = 'retain_belief'")
+    events = scalar(mcp, "SELECT count(*) FROM audit_event")
+    born = len(mcp.get(f"/api/v1/beliefs/{own}")["history"])
+
+    refused = mcp.api.post(f"/api/v1/beliefs/{own}/judge", json=judge)
+
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["error"]["code"] == "isolated_session_belief"
+    held = mcp.get(f"/api/v1/beliefs/{own}")
+    assert held["judgement"]["judgement"] == "unproven" and len(held["history"]) == born
+    calls = "SELECT count(*) FROM call_record WHERE origin = 'belief' AND origin_id = :id"
+    assert scalar(mcp, calls, id=own) == 0  # no call is made
+    assert scalar(mcp, "SELECT count(*) FROM job WHERE kind = 'retain_belief'") == retains
+    assert scalar(mcp, "SELECT count(*) FROM audit_event") == events
+    # Every other write on it still works (cite, supersede are not judgements), and a Belief of
+    # a session that is not isolated is judged and makes its call.
+    proven = mcp.api.post(f"/api/v1/beliefs/{control}/judge", json=judge)
+    assert proven.status_code == 200, proven.text
+    assert scalar(mcp, calls, id=control) == 1
+
+
+def test_the_tool_trace_lists_a_sessions_calls_in_order(mcp: Mcp) -> None:
+    session = mcp.open(BEFORE_10K, isolated=True)
+    mcp.ok("search", session_id=session, company="lumentum", q="revenue")
+    mcp.refused("list_beliefs", "isolated_session", session_id=session)
+    mcp.refused(
+        "read",
+        "available_after_as_of",
+        session_id=session,
+        version_id=mcp.version(URL_10K),
+        start=0,
+        end=100,
+    )
+
+    trace = mcp.get(f"/api/v1/sessions/{session}/tool-calls")
+
+    assert [(call["tool"], call["outcome"], call["reason"]) for call in trace] == [
+        ("open_session", "ok", None),
+        ("search", "ok", None),
+        ("list_beliefs", "refused", "isolated_session"),
+        ("read", "refused", "available_after_as_of"),
+    ]
+    assert trace[1]["arguments"] == {"session_id": session, "company": "lumentum", "q": "revenue"}
+    assert [call["at"] for call in trace] == sorted(call["at"] for call in trace)
+    assert mcp.get(f"/api/v1/sessions/{session}")["tool_calls"] == 4

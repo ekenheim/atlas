@@ -1,7 +1,7 @@
 # 29: The early-call scorecard
 
 Type: task (with a build part, 29a)
-Status: ready-for-agent (29a); the runs are the lead's
+Status: in-review (29a); the runs are the lead's
 Blocked by: 20a (SanDisk's documents), 29a
 
 ## Why

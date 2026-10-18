@@ -12,6 +12,9 @@ the as-of time taken from the session's row, each a projection of an existing ro
   Issues, all bounded by the session's as-of time.
 - `examine_belief`: `POST /beliefs/{id}/examine`: record that this session tested a Belief
   (`confirmed`, `qualified`, `contradicted`, `nothing_new`); sets no judgement.
+- `list_beliefs`, `get_belief` and `examine_belief` are refused in an **isolated** session
+  (`isolated_session`, ticket 29a: `Ctx.refuse_isolated`), and `prior_work` is answered empty by
+  the route.
 - `get_belief`: `GET /beliefs/{id}`; a Belief after the session's time is refused
   (`belief_after_as_of`). What the later work added to it is left out: a citation of a document
   public after the session's time, a flag raised by such a citation, and a supersession link to a
@@ -179,6 +182,7 @@ class ListBeliefsArgs(Bound):
     ListBeliefsArgs,
 )
 async def list_beliefs(ctx: Ctx, args: ListBeliefsArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("list_beliefs")
     company = await ctx.company_id(args.company) if args.company else None
     visible: list[dict[str, Any]] = []
     hidden = scanned = 0
@@ -241,6 +245,7 @@ class GetBeliefArgs(Bound):
     GetBeliefArgs,
 )
 async def get_belief(ctx: Ctx, args: GetBeliefArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("get_belief")
     found = await ctx.api.get(f"/beliefs/{args.belief_id}")
     if datetime.fromisoformat(found["as_of"]) > ctx.as_of:
         raise Refusal(
@@ -326,6 +331,7 @@ class ExamineBeliefArgs(Bound):
     ExamineBeliefArgs,
 )
 async def examine_belief(ctx: Ctx, args: ExamineBeliefArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("examine_belief")
     examined = await ctx.api.post(
         f"/beliefs/{args.belief_id}/examine",
         {"session_id": str(args.session_id), "outcome": args.outcome, "note": args.note},
@@ -353,6 +359,12 @@ PRIOR_WORK_NOTE = (
 )
 
 
+ISOLATED_NOTE = (
+    "This session is isolated (a replay of a past date): Atlas gives it no prior work, whatever it"
+    " holds. Research from the archive: search, read, record_fact."
+)
+
+
 class PriorWorkArgs(Bound):
     companies: list[str] = Field(
         default_factory=list[str],
@@ -376,7 +388,8 @@ class PriorWorkArgs(Bound):
     " as-of time raised), the documents read in earlier sessions with"
     " those sessions' as-of times (`latest_session_as_of`: what is public after it is new to"
     " Atlas), the earlier sessions with the open questions their cards named, and the open Issues"
-    " that touch the companies or steps. Your own session's work is left out.",
+    " that touch the companies or steps. Your own session's work is left out. An isolated session"
+    " (`open_session` with `isolated: true`) is given nothing.",
     PriorWorkArgs,
 )
 async def prior_work(ctx: Ctx, args: PriorWorkArgs) -> dict[str, Any]:
@@ -395,7 +408,7 @@ async def prior_work(ctx: Ctx, args: PriorWorkArgs) -> dict[str, Any]:
         exclude_session_id=str(session.id),
         limit=args.limit,
     )
-    return {**answer, "note": PRIOR_WORK_NOTE}
+    return {**answer, "note": ISOLATED_NOTE if answer.get("isolated") else PRIOR_WORK_NOTE}
 
 
 # --- issues --------------------------------------------------------------------------------

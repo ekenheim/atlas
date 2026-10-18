@@ -252,7 +252,7 @@ def insert_candidate(atlas: ExplorerAtlas, theme: str, name: str, cik: str) -> N
 
 def test_themes_list_each_theme_with_its_coverage(atlas: ExplorerAtlas) -> None:
     themes = {t["id"]: t for t in atlas.get("/api/v1/themes")}
-    assert sorted(themes) == ["memory-packaging", "photonics"]
+    assert sorted(themes) == ["memory-packaging", "photonics", "scorecard"]
     unseeded = themes["photonics"]
     assert unseeded["id"] == "photonics"
     assert unseeded["title"] == "Photonics for AI data centers"

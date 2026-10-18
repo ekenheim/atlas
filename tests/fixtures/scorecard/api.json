@@ -1,0 +1,1045 @@
+{
+  "/sessions/00000001-0000-4000-8000-000000000001": {
+    "id": "00000001-0000-4000-8000-000000000001",
+    "question": "As of date, does anything constrain supply?",
+    "theme": "scorecard",
+    "seed_company_ids": [
+      "00000006-0000-4000-8000-000000000001"
+    ],
+    "as_of": "2025-02-28T00:00:00Z",
+    "kind": "claude",
+    "model": "claude-opus-5-5",
+    "actor": "atlas-researcher",
+    "isolated": true,
+    "facts": 3,
+    "tool_calls": 9,
+    "fact_items": [
+      {
+        "id": "00000004-0000-4000-8000-000000000001",
+        "session_id": "00000001-0000-4000-8000-000000000001",
+        "step": "constraint",
+        "status": "in_effect",
+        "statement": "Zephyr cut wafer starts this quarter.",
+        "assertion": {
+          "source_version_id": "00000003-0000-4000-8000-000000000001",
+          "quote": "we reduced wafer starts in the quarter to keep supply in balance",
+          "span_start": 100,
+          "span_end": 164
+        }
+      },
+      {
+        "id": "00000004-0000-4000-8000-000000000002",
+        "session_id": "00000001-0000-4000-8000-000000000001",
+        "step": "demand_vs_supply",
+        "status": "in_effect",
+        "statement": "Zephyr expects demand to outpace supply.",
+        "assertion": {
+          "source_version_id": "00000003-0000-4000-8000-000000000002",
+          "quote": "we expect bit demand to exceed bit supply through the year",
+          "span_start": 100,
+          "span_end": 158
+        }
+      },
+      {
+        "id": "00000004-0000-4000-8000-000000000003",
+        "session_id": "00000001-0000-4000-8000-000000000001",
+        "step": "capture",
+        "status": "in_effect",
+        "statement": "Zephyr reported revenue.",
+        "assertion": {
+          "source_version_id": "00000003-0000-4000-8000-000000000001",
+          "quote": "net revenue for the quarter was 1.9 billion dollars",
+          "span_start": 100,
+          "span_end": 151
+        }
+      }
+    ],
+    "card": null
+  },
+  "/sessions/00000001-0000-4000-8000-000000000002": {
+    "id": "00000001-0000-4000-8000-000000000002",
+    "question": "As of date, does anything constrain supply?",
+    "theme": "scorecard",
+    "seed_company_ids": [
+      "00000006-0000-4000-8000-000000000001"
+    ],
+    "as_of": "2025-05-31T00:00:00Z",
+    "kind": "claude",
+    "model": "claude-opus-5-5",
+    "actor": "atlas-researcher",
+    "isolated": true,
+    "facts": 1,
+    "tool_calls": 4,
+    "fact_items": [
+      {
+        "id": "00000004-0000-4000-8000-000000000004",
+        "session_id": "00000001-0000-4000-8000-000000000002",
+        "step": "capture",
+        "status": "in_effect",
+        "statement": "Zephyr raised prices.",
+        "assertion": {
+          "source_version_id": "00000003-0000-4000-8000-000000000003",
+          "quote": "we announced a price increase effective next month",
+          "span_start": 100,
+          "span_end": 150
+        }
+      }
+    ],
+    "card": null
+  },
+  "/sessions/00000001-0000-4000-8000-000000000003": {
+    "id": "00000001-0000-4000-8000-000000000003",
+    "question": "As of date, does anything constrain supply?",
+    "theme": "scorecard",
+    "seed_company_ids": [
+      "00000006-0000-4000-8000-000000000001"
+    ],
+    "as_of": "2025-03-31T00:00:00Z",
+    "kind": "claude",
+    "model": "claude-opus-5-5",
+    "actor": "atlas-researcher",
+    "isolated": true,
+    "facts": 1,
+    "tool_calls": 3,
+    "fact_items": [
+      {
+        "id": "00000004-0000-4000-8000-000000000005",
+        "session_id": "00000001-0000-4000-8000-000000000003",
+        "step": "context",
+        "status": "in_effect",
+        "statement": "Aurora is building a data centre.",
+        "assertion": {
+          "source_version_id": "00000003-0000-4000-8000-000000000004",
+          "quote": "we are developing a campus with a secured power connection",
+          "span_start": 100,
+          "span_end": 158
+        }
+      }
+    ],
+    "card": null
+  },
+  "/sessions/00000001-0000-4000-8000-000000000004": {
+    "id": "00000001-0000-4000-8000-000000000004",
+    "question": "As of date, does anything constrain supply?",
+    "theme": "scorecard",
+    "seed_company_ids": [
+      "00000006-0000-4000-8000-000000000001"
+    ],
+    "as_of": "2025-05-31T00:00:00Z",
+    "kind": "claude",
+    "model": "claude-opus-5-5",
+    "actor": "atlas-researcher",
+    "isolated": true,
+    "facts": 0,
+    "tool_calls": 3,
+    "fact_items": [],
+    "card": null
+  },
+  "/sessions/00000001-0000-4000-8000-000000000005": {
+    "id": "00000001-0000-4000-8000-000000000005",
+    "question": "As of date, does anything constrain supply?",
+    "theme": "scorecard",
+    "seed_company_ids": [
+      "00000006-0000-4000-8000-000000000001"
+    ],
+    "as_of": "2025-08-31T00:00:00Z",
+    "kind": "claude",
+    "model": "claude-opus-5-5",
+    "actor": "atlas-researcher",
+    "isolated": true,
+    "facts": 1,
+    "tool_calls": 3,
+    "fact_items": [
+      {
+        "id": "00000004-0000-4000-8000-000000000006",
+        "session_id": "00000001-0000-4000-8000-000000000005",
+        "step": "demand_vs_supply",
+        "status": "in_effect",
+        "statement": "Pixelwave says inventory outgrew demand.",
+        "assertion": {
+          "source_version_id": "00000003-0000-4000-8000-000000000005",
+          "quote": "ad impressions available grew faster than advertiser demand",
+          "span_start": 100,
+          "span_end": 159
+        }
+      }
+    ],
+    "card": null
+  },
+  "/sessions/00000001-0000-4000-8000-000000000006": {
+    "id": "00000001-0000-4000-8000-000000000006",
+    "question": "As of date, does anything constrain supply?",
+    "theme": "scorecard",
+    "seed_company_ids": [
+      "00000006-0000-4000-8000-000000000001"
+    ],
+    "as_of": "2025-09-30T00:00:00Z",
+    "kind": "claude",
+    "model": "claude-opus-5-5",
+    "actor": "atlas-researcher",
+    "isolated": true,
+    "facts": 0,
+    "tool_calls": 2,
+    "fact_items": [],
+    "card": null
+  },
+  "/sessions/00000001-0000-4000-8000-000000000007": {
+    "id": "00000001-0000-4000-8000-000000000007",
+    "question": "As of date, does anything constrain supply?",
+    "theme": "scorecard",
+    "seed_company_ids": [
+      "00000006-0000-4000-8000-000000000001"
+    ],
+    "as_of": "2025-08-31T00:00:00Z",
+    "kind": "claude",
+    "model": "claude-opus-5-5",
+    "actor": "atlas-researcher",
+    "isolated": true,
+    "facts": 1,
+    "tool_calls": 3,
+    "fact_items": [
+      {
+        "id": "00000004-0000-4000-8000-000000000007",
+        "session_id": "00000001-0000-4000-8000-000000000007",
+        "step": "constraint",
+        "status": "in_effect",
+        "statement": "Ironwood supplies two substrate grades.",
+        "assertion": {
+          "source_version_id": "00000003-0000-4000-8000-000000000006",
+          "quote": "we are one of two suppliers of the material",
+          "span_start": 100,
+          "span_end": 143
+        }
+      }
+    ],
+    "card": null
+  },
+  "/sessions/00000001-0000-4000-8000-000000000001/tool-calls": [
+    {
+      "id": "00000007-0000-4000-8000-000000000001",
+      "tool": "open_session",
+      "arguments": {
+        "question": "q",
+        "as_of": "2025-02-28T00:00:00Z",
+        "isolated": true
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:01:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000002",
+      "tool": "prior_work",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000001"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:02:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000003",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000001",
+        "company": "sandisk",
+        "q": "wafer starts supply"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:03:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000004",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000001",
+        "company": "sandisk",
+        "q": "price increase"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:04:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000005",
+      "tool": "read",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000001",
+        "version_id": "00000003-0000-4000-8000-000000000001",
+        "start": 0,
+        "end": 4000
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:05:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000006",
+      "tool": "read",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000001",
+        "version_id": "00000003-0000-4000-8000-000000000002",
+        "start": 0,
+        "end": 4000
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:06:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000007",
+      "tool": "list_beliefs",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000001"
+      },
+      "outcome": "refused",
+      "reason": "isolated_session",
+      "at": "2026-10-20T05:07:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000008",
+      "tool": "record_fact",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000001",
+        "version_id": "00000003-0000-4000-8000-000000000001",
+        "step": "constraint"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:08:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000009",
+      "tool": "propose_belief",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000001",
+        "step": "constraint"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:09:00Z"
+    }
+  ],
+  "/sessions/00000001-0000-4000-8000-000000000002/tool-calls": [
+    {
+      "id": "00000007-0000-4000-8000-000000000001",
+      "tool": "open_session",
+      "arguments": {
+        "question": "q",
+        "isolated": true
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:01:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000002",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000002",
+        "company": "x",
+        "q": "query 2"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:02:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000003",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000002",
+        "company": "x",
+        "q": "query 3"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:03:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000004",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000002",
+        "company": "x",
+        "q": "query 4"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:04:00Z"
+    }
+  ],
+  "/sessions/00000001-0000-4000-8000-000000000003/tool-calls": [
+    {
+      "id": "00000007-0000-4000-8000-000000000001",
+      "tool": "open_session",
+      "arguments": {
+        "question": "q",
+        "isolated": true
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:01:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000002",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000003",
+        "company": "x",
+        "q": "query 2"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:02:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000003",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000003",
+        "company": "x",
+        "q": "query 3"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:03:00Z"
+    }
+  ],
+  "/sessions/00000001-0000-4000-8000-000000000004/tool-calls": [
+    {
+      "id": "00000007-0000-4000-8000-000000000001",
+      "tool": "open_session",
+      "arguments": {
+        "question": "q",
+        "isolated": true
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:01:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000002",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000004",
+        "company": "x",
+        "q": "query 2"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:02:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000003",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000004",
+        "company": "x",
+        "q": "query 3"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:03:00Z"
+    }
+  ],
+  "/sessions/00000001-0000-4000-8000-000000000005/tool-calls": [
+    {
+      "id": "00000007-0000-4000-8000-000000000001",
+      "tool": "open_session",
+      "arguments": {
+        "question": "q",
+        "isolated": true
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:01:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000002",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000005",
+        "company": "x",
+        "q": "query 2"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:02:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000003",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000005",
+        "company": "x",
+        "q": "query 3"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:03:00Z"
+    }
+  ],
+  "/sessions/00000001-0000-4000-8000-000000000006/tool-calls": [
+    {
+      "id": "00000007-0000-4000-8000-000000000001",
+      "tool": "open_session",
+      "arguments": {
+        "question": "q",
+        "isolated": true
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:01:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000002",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000006",
+        "company": "x",
+        "q": "query 2"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:02:00Z"
+    }
+  ],
+  "/sessions/00000001-0000-4000-8000-000000000007/tool-calls": [
+    {
+      "id": "00000007-0000-4000-8000-000000000001",
+      "tool": "open_session",
+      "arguments": {
+        "question": "q",
+        "isolated": true
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:01:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000002",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000007",
+        "company": "x",
+        "q": "query 2"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:02:00Z"
+    },
+    {
+      "id": "00000007-0000-4000-8000-000000000003",
+      "tool": "search",
+      "arguments": {
+        "session_id": "00000001-0000-4000-8000-000000000007",
+        "company": "x",
+        "q": "query 3"
+      },
+      "outcome": "ok",
+      "reason": null,
+      "at": "2026-10-20T05:03:00Z"
+    }
+  ],
+  "/beliefs": {
+    "items": [
+      {
+        "id": "00000002-0000-4000-8000-000000000001",
+        "statement": "Zephyr cut wafer starts to keep supply in balance while profitable.",
+        "theme": "scorecard",
+        "step": "constraint",
+        "as_of": "2025-01-01T00:00:00Z",
+        "status": "active",
+        "companies": [
+          {
+            "id": "00000006-0000-4000-8000-000000000001",
+            "slug": "x",
+            "display_name": "Zephyr Flash"
+          }
+        ],
+        "judgement": {
+          "judgement": "unproven",
+          "confidence": 0,
+          "actor": "claude",
+          "reason": "proposed"
+        },
+        "produced_by": "00000001-0000-4000-8000-000000000001"
+      },
+      {
+        "id": "00000002-0000-4000-8000-000000000002",
+        "statement": "Zephyr reported 1.9 billion dollars of revenue for the quarter.",
+        "theme": "scorecard",
+        "step": "capture",
+        "as_of": "2025-01-01T00:00:00Z",
+        "status": "active",
+        "companies": [
+          {
+            "id": "00000006-0000-4000-8000-000000000001",
+            "slug": "x",
+            "display_name": "Zephyr Flash"
+          }
+        ],
+        "judgement": {
+          "judgement": "unproven",
+          "confidence": 0,
+          "actor": "claude",
+          "reason": "proposed"
+        },
+        "produced_by": "00000001-0000-4000-8000-000000000001"
+      },
+      {
+        "id": "00000002-0000-4000-8000-000000000003",
+        "statement": "Zephyr announced a price increase.",
+        "theme": "scorecard",
+        "step": "capture",
+        "as_of": "2025-01-01T00:00:00Z",
+        "status": "active",
+        "companies": [
+          {
+            "id": "00000006-0000-4000-8000-000000000001",
+            "slug": "x",
+            "display_name": "Zephyr Flash"
+          }
+        ],
+        "judgement": {
+          "judgement": "unproven",
+          "confidence": 0,
+          "actor": "claude",
+          "reason": "proposed"
+        },
+        "produced_by": "00000001-0000-4000-8000-000000000002"
+      },
+      {
+        "id": "00000002-0000-4000-8000-000000000004",
+        "statement": "Aurora is developing a campus with a secured power connection.",
+        "theme": "scorecard",
+        "step": "context",
+        "as_of": "2025-01-01T00:00:00Z",
+        "status": "active",
+        "companies": [
+          {
+            "id": "00000006-0000-4000-8000-000000000001",
+            "slug": "x",
+            "display_name": "Aurora Compute"
+          }
+        ],
+        "judgement": {
+          "judgement": "unproven",
+          "confidence": 0,
+          "actor": "claude",
+          "reason": "proposed"
+        },
+        "produced_by": "00000001-0000-4000-8000-000000000003"
+      },
+      {
+        "id": "00000002-0000-4000-8000-000000000005",
+        "statement": "Pixelwave's advertiser demand cannot absorb the impressions it has available.",
+        "theme": "scorecard",
+        "step": "demand_vs_supply",
+        "as_of": "2025-01-01T00:00:00Z",
+        "status": "active",
+        "companies": [
+          {
+            "id": "00000006-0000-4000-8000-000000000001",
+            "slug": "x",
+            "display_name": "Pixelwave"
+          }
+        ],
+        "judgement": {
+          "judgement": "unproven",
+          "confidence": 0,
+          "actor": "claude",
+          "reason": "proposed"
+        },
+        "produced_by": "00000001-0000-4000-8000-000000000005"
+      },
+      {
+        "id": "00000002-0000-4000-8000-000000000006",
+        "statement": "Brokerage Co's activity follows market volatility.",
+        "theme": "scorecard",
+        "step": "demand_vs_supply",
+        "as_of": "2025-01-01T00:00:00Z",
+        "status": "active",
+        "companies": [
+          {
+            "id": "00000006-0000-4000-8000-000000000001",
+            "slug": "x",
+            "display_name": "Brokerage Co"
+          }
+        ],
+        "judgement": {
+          "judgement": "unproven",
+          "confidence": 0,
+          "actor": "claude",
+          "reason": "proposed"
+        },
+        "produced_by": "00000001-0000-4000-8000-000000000006"
+      },
+      {
+        "id": "00000002-0000-4000-8000-000000000007",
+        "statement": "Ironwood is one of two suppliers of the material.",
+        "theme": "scorecard",
+        "step": "constraint",
+        "as_of": "2025-01-01T00:00:00Z",
+        "status": "active",
+        "companies": [
+          {
+            "id": "00000006-0000-4000-8000-000000000001",
+            "slug": "x",
+            "display_name": "Ironwood Substrates"
+          }
+        ],
+        "judgement": {
+          "judgement": "unproven",
+          "confidence": 0,
+          "actor": "claude",
+          "reason": "proposed"
+        },
+        "produced_by": "00000001-0000-4000-8000-000000000007"
+      },
+      {
+        "id": "00000002-0000-4000-8000-000000000008",
+        "statement": "A Belief of some other session, not one of the runs.",
+        "theme": "scorecard",
+        "step": "constraint",
+        "as_of": "2025-01-01T00:00:00Z",
+        "status": "active",
+        "companies": [
+          {
+            "id": "00000006-0000-4000-8000-000000000001",
+            "slug": "x",
+            "display_name": "Elsewhere Inc"
+          }
+        ],
+        "judgement": {
+          "judgement": "unproven",
+          "confidence": 0,
+          "actor": "claude",
+          "reason": "proposed"
+        },
+        "produced_by": "00000001-0000-4000-8000-000000000008"
+      }
+    ],
+    "total": 8,
+    "limit": 500,
+    "offset": 0
+  },
+  "/beliefs/00000002-0000-4000-8000-000000000001": {
+    "id": "00000002-0000-4000-8000-000000000001",
+    "statement": "Zephyr cut wafer starts to keep supply in balance while profitable.",
+    "theme": "scorecard",
+    "step": "constraint",
+    "as_of": "2025-01-01T00:00:00Z",
+    "status": "active",
+    "companies": [
+      {
+        "id": "00000006-0000-4000-8000-000000000001",
+        "slug": "x",
+        "display_name": "Zephyr Flash"
+      }
+    ],
+    "judgement": {
+      "judgement": "unproven",
+      "confidence": 0,
+      "actor": "claude",
+      "reason": "proposed"
+    },
+    "produced_by": "00000001-0000-4000-8000-000000000001",
+    "citations": [
+      {
+        "id": "00000005-0000-4000-8000-000000000001",
+        "kind": "fact",
+        "ref_id": "00000004-0000-4000-8000-000000000001",
+        "valence": 1.0,
+        "weight": "load_bearing",
+        "statement": "Zephyr cut wafer starts this quarter.",
+        "quote": "we reduced wafer starts in the quarter to keep supply in balance",
+        "span_start": 100,
+        "span_end": 140,
+        "source_version_id": "00000003-0000-4000-8000-000000000001",
+        "source_title": "Zephyr Flash Q2 FY25 results release",
+        "available_at": "2025-01-30T21:05:00Z"
+      }
+    ]
+  },
+  "/beliefs/00000002-0000-4000-8000-000000000002": {
+    "id": "00000002-0000-4000-8000-000000000002",
+    "statement": "Zephyr reported 1.9 billion dollars of revenue for the quarter.",
+    "theme": "scorecard",
+    "step": "capture",
+    "as_of": "2025-01-01T00:00:00Z",
+    "status": "active",
+    "companies": [
+      {
+        "id": "00000006-0000-4000-8000-000000000001",
+        "slug": "x",
+        "display_name": "Zephyr Flash"
+      }
+    ],
+    "judgement": {
+      "judgement": "unproven",
+      "confidence": 0,
+      "actor": "claude",
+      "reason": "proposed"
+    },
+    "produced_by": "00000001-0000-4000-8000-000000000001",
+    "citations": [
+      {
+        "id": "00000005-0000-4000-8000-000000000003",
+        "kind": "fact",
+        "ref_id": "00000004-0000-4000-8000-000000000003",
+        "valence": 1.0,
+        "weight": "load_bearing",
+        "statement": "Zephyr reported revenue.",
+        "quote": "net revenue for the quarter was 1.9 billion dollars",
+        "span_start": 100,
+        "span_end": 140,
+        "source_version_id": "00000003-0000-4000-8000-000000000001",
+        "source_title": "Zephyr Flash Q2 FY25 results release",
+        "available_at": "2025-01-30T21:05:00Z"
+      }
+    ]
+  },
+  "/beliefs/00000002-0000-4000-8000-000000000003": {
+    "id": "00000002-0000-4000-8000-000000000003",
+    "statement": "Zephyr announced a price increase.",
+    "theme": "scorecard",
+    "step": "capture",
+    "as_of": "2025-01-01T00:00:00Z",
+    "status": "active",
+    "companies": [
+      {
+        "id": "00000006-0000-4000-8000-000000000001",
+        "slug": "x",
+        "display_name": "Zephyr Flash"
+      }
+    ],
+    "judgement": {
+      "judgement": "unproven",
+      "confidence": 0,
+      "actor": "claude",
+      "reason": "proposed"
+    },
+    "produced_by": "00000001-0000-4000-8000-000000000002",
+    "citations": [
+      {
+        "id": "00000005-0000-4000-8000-000000000004",
+        "kind": "fact",
+        "ref_id": "00000004-0000-4000-8000-000000000004",
+        "valence": 1.0,
+        "weight": "load_bearing",
+        "statement": "Zephyr raised prices.",
+        "quote": "we announced a price increase effective next month",
+        "span_start": 100,
+        "span_end": 140,
+        "source_version_id": "00000003-0000-4000-8000-000000000003",
+        "source_title": "Zephyr Flash Q3 FY25 call transcript",
+        "available_at": "2025-04-30T22:00:00Z"
+      }
+    ]
+  },
+  "/beliefs/00000002-0000-4000-8000-000000000004": {
+    "id": "00000002-0000-4000-8000-000000000004",
+    "statement": "Aurora is developing a campus with a secured power connection.",
+    "theme": "scorecard",
+    "step": "context",
+    "as_of": "2025-01-01T00:00:00Z",
+    "status": "active",
+    "companies": [
+      {
+        "id": "00000006-0000-4000-8000-000000000001",
+        "slug": "x",
+        "display_name": "Aurora Compute"
+      }
+    ],
+    "judgement": {
+      "judgement": "unproven",
+      "confidence": 0,
+      "actor": "claude",
+      "reason": "proposed"
+    },
+    "produced_by": "00000001-0000-4000-8000-000000000003",
+    "citations": [
+      {
+        "id": "00000005-0000-4000-8000-000000000005",
+        "kind": "fact",
+        "ref_id": "00000004-0000-4000-8000-000000000005",
+        "valence": 1.0,
+        "weight": "load_bearing",
+        "statement": "Aurora is building a data centre.",
+        "quote": "we are developing a campus with a secured power connection",
+        "span_start": 100,
+        "span_end": 140,
+        "source_version_id": "00000003-0000-4000-8000-000000000004",
+        "source_title": "Aurora Compute 10-Q",
+        "available_at": "2025-02-13T21:00:00Z"
+      }
+    ]
+  },
+  "/beliefs/00000002-0000-4000-8000-000000000005": {
+    "id": "00000002-0000-4000-8000-000000000005",
+    "statement": "Pixelwave's advertiser demand cannot absorb the impressions it has available.",
+    "theme": "scorecard",
+    "step": "demand_vs_supply",
+    "as_of": "2025-01-01T00:00:00Z",
+    "status": "active",
+    "companies": [
+      {
+        "id": "00000006-0000-4000-8000-000000000001",
+        "slug": "x",
+        "display_name": "Pixelwave"
+      }
+    ],
+    "judgement": {
+      "judgement": "unproven",
+      "confidence": 0,
+      "actor": "claude",
+      "reason": "proposed"
+    },
+    "produced_by": "00000001-0000-4000-8000-000000000005",
+    "citations": [
+      {
+        "id": "00000005-0000-4000-8000-000000000006",
+        "kind": "fact",
+        "ref_id": "00000004-0000-4000-8000-000000000006",
+        "valence": 1.0,
+        "weight": "load_bearing",
+        "statement": "Pixelwave says inventory outgrew demand.",
+        "quote": "ad impressions available grew faster than advertiser demand",
+        "span_start": 100,
+        "span_end": 140,
+        "source_version_id": "00000003-0000-4000-8000-000000000005",
+        "source_title": "Pixelwave 10-Q",
+        "available_at": "2025-08-01T20:00:00Z"
+      }
+    ]
+  },
+  "/beliefs/00000002-0000-4000-8000-000000000006": {
+    "id": "00000002-0000-4000-8000-000000000006",
+    "statement": "Brokerage Co's activity follows market volatility.",
+    "theme": "scorecard",
+    "step": "demand_vs_supply",
+    "as_of": "2025-01-01T00:00:00Z",
+    "status": "active",
+    "companies": [
+      {
+        "id": "00000006-0000-4000-8000-000000000001",
+        "slug": "x",
+        "display_name": "Brokerage Co"
+      }
+    ],
+    "judgement": {
+      "judgement": "unproven",
+      "confidence": 0,
+      "actor": "claude",
+      "reason": "proposed"
+    },
+    "produced_by": "00000001-0000-4000-8000-000000000006",
+    "citations": []
+  },
+  "/beliefs/00000002-0000-4000-8000-000000000007": {
+    "id": "00000002-0000-4000-8000-000000000007",
+    "statement": "Ironwood is one of two suppliers of the material.",
+    "theme": "scorecard",
+    "step": "constraint",
+    "as_of": "2025-01-01T00:00:00Z",
+    "status": "active",
+    "companies": [
+      {
+        "id": "00000006-0000-4000-8000-000000000001",
+        "slug": "x",
+        "display_name": "Ironwood Substrates"
+      }
+    ],
+    "judgement": {
+      "judgement": "unproven",
+      "confidence": 0,
+      "actor": "claude",
+      "reason": "proposed"
+    },
+    "produced_by": "00000001-0000-4000-8000-000000000007",
+    "citations": [
+      {
+        "id": "00000005-0000-4000-8000-000000000007",
+        "kind": "fact",
+        "ref_id": "00000004-0000-4000-8000-000000000007",
+        "valence": 1.0,
+        "weight": "load_bearing",
+        "statement": "Ironwood supplies two substrate grades.",
+        "quote": "we are one of two suppliers of the material",
+        "span_start": 100,
+        "span_end": 140,
+        "source_version_id": "00000003-0000-4000-8000-000000000006",
+        "source_title": "Ironwood Substrates 10-K",
+        "available_at": "2025-02-20T21:00:00Z"
+      }
+    ]
+  },
+  "/beliefs/00000002-0000-4000-8000-000000000008": {
+    "id": "00000002-0000-4000-8000-000000000008",
+    "statement": "A Belief of some other session, not one of the runs.",
+    "theme": "scorecard",
+    "step": "constraint",
+    "as_of": "2025-01-01T00:00:00Z",
+    "status": "active",
+    "companies": [
+      {
+        "id": "00000006-0000-4000-8000-000000000001",
+        "slug": "x",
+        "display_name": "Elsewhere Inc"
+      }
+    ],
+    "judgement": {
+      "judgement": "unproven",
+      "confidence": 0,
+      "actor": "claude",
+      "reason": "proposed"
+    },
+    "produced_by": "00000001-0000-4000-8000-000000000008",
+    "citations": []
+  },
+  "/source-versions/00000003-0000-4000-8000-000000000001": {
+    "id": "00000003-0000-4000-8000-000000000001",
+    "available_at": "2025-01-30T21:05:00Z",
+    "source_document": {
+      "title": "Zephyr Flash Q2 FY25 results release"
+    }
+  },
+  "/source-versions/00000003-0000-4000-8000-000000000002": {
+    "id": "00000003-0000-4000-8000-000000000002",
+    "available_at": "2025-02-12T21:30:00Z",
+    "source_document": {
+      "title": "Zephyr Flash Q2 FY25 10-Q"
+    }
+  },
+  "/source-versions/00000003-0000-4000-8000-000000000003": {
+    "id": "00000003-0000-4000-8000-000000000003",
+    "available_at": "2025-04-30T22:00:00Z",
+    "source_document": {
+      "title": "Zephyr Flash Q3 FY25 call transcript"
+    }
+  },
+  "/source-versions/00000003-0000-4000-8000-000000000004": {
+    "id": "00000003-0000-4000-8000-000000000004",
+    "available_at": "2025-02-13T21:00:00Z",
+    "source_document": {
+      "title": "Aurora Compute 10-Q"
+    }
+  },
+  "/source-versions/00000003-0000-4000-8000-000000000005": {
+    "id": "00000003-0000-4000-8000-000000000005",
+    "available_at": "2025-08-01T20:00:00Z",
+    "source_document": {
+      "title": "Pixelwave 10-Q"
+    }
+  },
+  "/source-versions/00000003-0000-4000-8000-000000000006": {
+    "id": "00000003-0000-4000-8000-000000000006",
+    "available_at": "2025-02-20T21:00:00Z",
+    "source_document": {
+      "title": "Ironwood Substrates 10-K"
+    }
+  }
+}

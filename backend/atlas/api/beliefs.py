@@ -8,7 +8,9 @@
   `belief_beyond_quotes`, the `detail` holds the judge's `beyond`, `kinds` and `reason`; 503
   `judge_unavailable` when no verdict could be given: call again later) (ticket 23)
 - `POST /beliefs/{id}/cite`, `/judge` (an author's judgement; clears open flags and notices),
-  `/supersede`
+  `/supersede`. A Belief proposed by an **isolated** session (ticket 29a, the early-call
+  scorecard) is never judged: `/judge` is 409 `isolated_session_belief`, so it makes no call and
+  never reaches the conclusions bank
 - `POST /beliefs/{id}/examine` (`{session_id, outcome, note?, actor?}`; ticket 26): a session tested
   the Belief against what was public by its as-of time (`confirmed`, `qualified`, `contradicted`,
   `nothing_new`); insert-only history and the Belief's `last_examined_*`; no judgement. 422
@@ -16,7 +18,8 @@
 - `GET /beliefs?theme=&step=&company_id=&judgement=&status=&flagged=&as_of=&sort=created|stalest`,
   `GET /beliefs/{id}[?as_of=]` (citations with their quotes, spans and dates)
 
-Errors use the envelope: 404 `not_found`, 409 `belief_not_active` / `already_cited`, 422.
+Errors use the envelope: 404 `not_found`, 409 `belief_not_active` / `already_cited` /
+`isolated_session_belief`, 422.
 """
 
 import uuid
@@ -66,7 +69,7 @@ Paged = Annotated[Pagination, Depends(pagination)]
 
 
 def _refused(refusal: BeliefRefused) -> JSONResponse:
-    status = 409 if refusal.code == "already_cited" else 422
+    status = 409 if refusal.code in ("already_cited", "isolated_session_belief") else 422
     return error_response(status, refusal.code, refusal.message)
 
 

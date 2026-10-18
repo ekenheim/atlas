@@ -58,6 +58,15 @@ UNSPONSORED_ADR_CIKS = {
     "innolight": "0002150915",
 }
 
+# The early-call scorecard's four other companies (ticket 29a), CIKs and forms as SEC's ticker file
+# and submissions gave them on 2026-10-18, never read back from the config; no layer.
+SCORECARD = {
+    "iren": (None, "sec", "0001878848", ["10-K", "10-Q", "8-K", "20-F", "6-K"]),
+    "etoro": (None, "sec", "0001493318", ["F-1", "20-F", "6-K"]),
+    "snap": (None, "sec", "0001564408", None),
+    "poet-technologies": (None, "sec", "0001437424", ["20-F", "6-K"]),
+}
+
 STM_CIK = "0000932787"
 STM_ARCHIVES = "https://www.sec.gov/Archives/edgar/data/932787"
 
@@ -174,7 +183,7 @@ def test_the_memory_packaging_theme_seeds_the_seven_sec_path_companies(
     universe.seed()
 
     companies = universe.companies()
-    assert set(companies) == set(PHOTONICS) | set(MEMORY_PACKAGING)
+    assert set(companies) == set(PHOTONICS) | set(MEMORY_PACKAGING) | set(SCORECARD)
     assert {
         slug: (c["layer"], c["source_path"], c["cik"], c["sec_forms"])
         for slug, c in companies.items()
@@ -185,9 +194,31 @@ def test_the_memory_packaging_theme_seeds_the_seven_sec_path_companies(
     one = universe.get(f"/api/v1/companies/{companies['micron']['id']}")
     assert (one["layer"], one["legal_name"]) == ("memory-dram", "Micron Technology, Inc.")
     themes = {theme["id"]: theme for theme in universe.get("/api/v1/themes")}
-    assert sorted(themes) == ["memory-packaging", "photonics"]
+    assert sorted(themes) == ["memory-packaging", "photonics", "scorecard"]
     assert themes["memory-packaging"]["company_count"] == 7
     assert universe.get("/api/v1/themes/memory-packaging/map")["theme"]["id"] == "memory-packaging"
+
+
+def test_the_scorecard_theme_seeds_sandisk_and_four_unlayered_companies(
+    universe: Universe,
+) -> None:
+    universe.seed()
+
+    companies = universe.companies()
+    assert {
+        slug: (c["layer"], c["source_path"], c["cik"], c["sec_forms"])
+        for slug, c in companies.items()
+        if slug in SCORECARD
+    } == SCORECARD
+    # SanDisk belongs to two themes, with the one company row and its layer.
+    assert companies["sandisk"]["layer"] == "memory-nand"
+    themes = {theme["id"]: theme for theme in universe.get("/api/v1/themes")}
+    assert themes["scorecard"]["company_count"] == 5
+    assert themes["memory-packaging"]["company_count"] == 7
+    scorecard = universe.get("/api/v1/themes/scorecard/map")
+    assert [layer["layer"] for layer in scorecard["layers"]] == ["memory-nand"]
+    assert [c["slug"] for c in scorecard["layers"][0]["companies"]] == ["sandisk"]
+    assert sorted(c["slug"] for c in scorecard["unlayered"]) == sorted(SCORECARD)
 
 
 def test_a_company_with_a_layer_outside_its_theme_s_is_refused(universe: Universe) -> None:
@@ -208,9 +239,9 @@ def test_seeding_again_changes_nothing_and_audits_nothing(universe: Universe) ->
     events = universe.count("audit_event")
     second = universe.seed()
 
-    # 19 companies (both themes) plus Lumentum's one security, each created once.
-    assert sum(each["changes"] for each in first) == events == 20
-    assert [each["changes"] for each in second] == [0] * 19
+    # 23 companies (the three themes) plus Lumentum's one security, each created once.
+    assert sum(each["changes"] for each in first) == events == 24
+    assert [each["changes"] for each in second] == [0] * 23
     assert universe.count("audit_event") == events
 
 

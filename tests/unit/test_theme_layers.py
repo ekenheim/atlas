@@ -61,7 +61,7 @@ def setting(slug: str, layer: str) -> Callable[[dict[str, Any]], None]:
 def test_the_universe_loads_with_both_themes_and_the_seven_seeds() -> None:
     universe = load_universe(THEMES)
 
-    assert sorted(universe.themes) == ["memory-packaging", "photonics"]
+    assert sorted(universe.themes) == ["memory-packaging", "photonics", "scorecard"]
     assert len(universe.themes["photonics"].companies) == 12
     assert set(universe.themes["memory-packaging"].companies) == set(SEEDS)
     assert universe.themes["memory-packaging"].title == "Memory and advanced packaging for AI"
@@ -72,6 +72,46 @@ def test_the_universe_loads_with_both_themes_and_the_seven_seeds() -> None:
     assert universe.companies["ase-technology"].sec_forms == ("20-F", "6-K")
     assert universe.companies["camtek"].sec_forms == ("20-F", "6-K")
     assert universe.companies["micron"].tradingview_symbol == "NASDAQ:MU"
+
+
+def test_the_scorecard_theme_has_sandisk_and_four_companies_with_no_layer() -> None:
+    # The early-call scorecard's theme (ticket 29a): CIKs and forms as SEC's ticker file and
+    # submissions gave them on 2026-10-18, not read back from the config.
+    universe = load_universe(THEMES)
+
+    scorecard = universe.themes["scorecard"]
+    assert scorecard.companies == ("sandisk", "iren", "etoro", "snap", "poet-technologies")
+    assert [layer.name for layer in scorecard.layers or ()] == ["memory-nand"]
+    assert universe.companies["sandisk"].layer == "memory-nand"
+    forms = {
+        "iren": ("0001878848", ("10-K", "10-Q", "8-K", "20-F", "6-K"), "NASDAQ:IREN"),
+        "etoro": ("0001493318", ("F-1", "20-F", "6-K"), "NASDAQ:ETOR"),
+        "snap": ("0001564408", None, "NYSE:SNAP"),
+        "poet-technologies": ("0001437424", ("20-F", "6-K"), "NASDAQ:POET"),
+    }
+    for slug, (cik, sec_forms, symbol) in forms.items():
+        company = universe.companies[slug]
+        assert (company.cik, company.sec_forms, company.tradingview_symbol) == (
+            cik,
+            sec_forms,
+            symbol,
+        )
+        assert company.layer is None and company.source_path == "sec"
+    # SanDisk sits in two themes; nobody else is in two.
+    assert "sandisk" in universe.themes["memory-packaging"].companies
+    members = [slug for theme in universe.themes.values() for slug in theme.companies]
+    assert sorted(slug for slug in set(members) if members.count(slug) > 1) == ["sandisk"]
+
+
+def test_a_scorecard_company_with_a_layer_the_theme_does_not_list_is_refused(
+    tmp_path: Path,
+) -> None:
+    path = written(tmp_path, setting("iren", "module"))
+
+    with pytest.raises(UniverseConfigError) as refused:
+        load_universe(path)
+
+    assert "'iren'" in str(refused.value) and "'scorecard'" in str(refused.value)
 
 
 def test_the_themes_list_their_layers_upstream_to_downstream() -> None:
@@ -148,7 +188,11 @@ def version_of(slug: str) -> SourceVersionInfo:
 def test_a_company_s_retain_item_carries_only_its_own_themes() -> None:
     universe = load_universe(THEMES)
 
-    for slug, theme in (("lumentum", "photonics"), ("micron", "memory-packaging")):
+    for slug, theme in (
+        ("lumentum", "photonics"),
+        ("micron", "memory-packaging"),
+        ("iren", "scorecard"),
+    ):
         tags = version_tags(version_of(slug), universe)
         assert [tag for tag in tags if tag.startswith("theme:")] == [f"theme:{theme}"]
         assert observation_scopes(tags) == [[f"theme:{theme}"]]

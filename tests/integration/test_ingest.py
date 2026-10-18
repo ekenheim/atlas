@@ -606,11 +606,11 @@ def test_companies_are_seeded_from_config_idempotently(atlas: Atlas) -> None:
 
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0, second.stderr
-    # The universe's 19 companies (both themes) plus Lumentum's security (test_universe.py
+    # The universe's 23 companies (the three themes) plus Lumentum's security (test_universe.py
     # covers the rest of the universe).
-    assert len(atlas.audit_events()) == events_after_first == 20
+    assert len(atlas.audit_events()) == events_after_first == 24
     page = atlas.get("/api/v1/companies", limit=100)
-    assert page["total"] == 19
+    assert page["total"] == 23
     assert [
         (c["slug"], c["cik"]) for c in page["items"] if c["slug"] in ("coherent", "lumentum")
     ] == [

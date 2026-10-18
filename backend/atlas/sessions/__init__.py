@@ -16,10 +16,13 @@ from atlas.sessions.service import (
     SessionOpen,
     Sessions,
     SessionSummary,
+    ToolCall,
     UnknownCompany,
     get_session,
     list_sessions,
+    list_tool_calls,
     record_pipeline_session,
+    session_is_isolated,
 )
 
 __all__ = [
@@ -30,8 +33,11 @@ __all__ = [
     "SessionOpen",
     "SessionSummary",
     "Sessions",
+    "ToolCall",
     "UnknownCompany",
     "get_session",
     "list_sessions",
+    "list_tool_calls",
     "record_pipeline_session",
+    "session_is_isolated",
 ]

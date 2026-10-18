@@ -1,0 +1,127 @@
+{
+  "marks": [
+    {
+      "run": "sandisk@2025-02-28",
+      "reviewer": "A",
+      "belief_id": "00000002-0000-4000-8000-000000000001",
+      "mark": "hit",
+      "reason": "states the chosen utilisation cut"
+    },
+    {
+      "run": "sandisk@2025-02-28",
+      "reviewer": "B",
+      "belief_id": "00000002-0000-4000-8000-000000000001",
+      "mark": "hit",
+      "reason": "wafer starts cut by choice"
+    },
+    {
+      "run": "sandisk@2025-02-28",
+      "reviewer": "A",
+      "belief_id": "00000002-0000-4000-8000-000000000002",
+      "mark": "miss",
+      "reason": "revenue only"
+    },
+    {
+      "run": "sandisk@2025-02-28",
+      "reviewer": "B",
+      "belief_id": "00000002-0000-4000-8000-000000000002",
+      "mark": "miss",
+      "reason": "revenue only"
+    },
+    {
+      "run": "sandisk@2025-05-31",
+      "reviewer": "A",
+      "belief_id": "00000002-0000-4000-8000-000000000003",
+      "mark": "hit",
+      "reason": "price increase"
+    },
+    {
+      "run": "sandisk@2025-05-31",
+      "reviewer": "B",
+      "belief_id": "00000002-0000-4000-8000-000000000003",
+      "mark": "miss",
+      "reason": "a price rise is not the undersupply"
+    },
+    {
+      "run": "iren@2025-03-31",
+      "reviewer": "A",
+      "belief_id": "00000002-0000-4000-8000-000000000004",
+      "mark": "miss",
+      "reason": "its own campus, not the grid shortage"
+    },
+    {
+      "run": "iren@2025-03-31",
+      "reviewer": "B",
+      "belief_id": "00000002-0000-4000-8000-000000000004",
+      "mark": "miss",
+      "reason": "no statement that grid power is short"
+    },
+    {
+      "run": "snap@2025-08-31",
+      "reviewer": "A",
+      "belief_id": "00000002-0000-4000-8000-000000000005",
+      "mark": "false_positive",
+      "reason": "reads as a supply constraint on demand"
+    },
+    {
+      "run": "snap@2025-08-31",
+      "reviewer": "B",
+      "belief_id": "00000002-0000-4000-8000-000000000005",
+      "mark": "false_positive",
+      "reason": "same"
+    },
+    {
+      "run": "etoro@2025-09-30",
+      "reviewer": "A",
+      "belief_id": "00000002-0000-4000-8000-000000000006",
+      "mark": "miss",
+      "reason": "no constraint"
+    },
+    {
+      "run": "etoro@2025-09-30",
+      "reviewer": "B",
+      "belief_id": "00000002-0000-4000-8000-000000000006",
+      "mark": "miss",
+      "reason": "no constraint"
+    },
+    {
+      "run": "axt@2025-08-31",
+      "reviewer": "A",
+      "belief_id": "00000002-0000-4000-8000-000000000007",
+      "mark": "miss",
+      "reason": "two suppliers, not the shortage or the permits"
+    },
+    {
+      "run": "axt@2025-08-31",
+      "reviewer": "B",
+      "belief_id": "00000002-0000-4000-8000-000000000007",
+      "mark": "miss",
+      "reason": "same"
+    }
+  ],
+  "adjudications": [
+    {
+      "run": "sandisk@2025-05-31",
+      "belief_marks": {
+        "00000002-0000-4000-8000-000000000003": "miss"
+      },
+      "miss_class": "M4",
+      "reason": "the lead: a price rise alone is not the key; the undersupply is in no Belief"
+    },
+    {
+      "run": "iren@2025-03-31",
+      "miss_class": "M4",
+      "reason": "recorded, in the wrong step"
+    },
+    {
+      "run": "iren@2025-05-31",
+      "miss_class": "M3",
+      "reason": "read the power filing, no Fact"
+    },
+    {
+      "run": "axt@2025-08-31",
+      "miss_class": "M2",
+      "reason": "never surfaced"
+    }
+  ]
+}

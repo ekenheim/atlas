@@ -711,3 +711,21 @@ The prospective record: what Atlas said, dated, and what followed (`docs/decisio
 5. **A checkpoint waits** when a company it needs was not fetched (`deferred` reason `prices_not_fetched`, with `bounded: true`: raise `ATLAS_TRADINGVIEW_MAX_CALLS_PER_JOB` to cover the theme's companies plus the call's) or when no company of the call has a close near either date (`no_closes`: TradingView has no bars, or the symbol is wrong). The next pass tries again.
 6. **Predictions.** `POST /api/v1/hypotheses/{id}/predictions` on a published version; `POST .../predictions/{pid}/settle` with the `fact_id`, the `observation_id`, or (for a price) nothing or a `day` once the deadline has passed. For a price, `settle_calls` stores the company's closes past the deadline; if settling answers `no_price`, run `uv run atlas calls settle` and settle again. `GET /api/v1/predictions?state=lapsed` lists those past their deadline unsettled.
 7. **Not evidence.** The closes are for scoring. Do not cite a checkpoint in a Belief, a Fact or a Hypothesis statement.
+
+## Scorecard runs (atlas-beliefs ticket 29a)
+
+The early-call scorecard's runs are the lead's (`.scratch/atlas-beliefs/issues/29-the-early-call-scorecard.md`, Amendment 1 holds the rules and the order). Each run is one isolated Researcher session as of a past date, on the frozen configuration; `docs/decisions.md`, "Isolated sessions for the scorecard".
+
+1. **Before a run.** The `scorecard` theme's companies are in the universe (version 8; `uv run atlas companies seed`) and their documents ingested (`atlas ingest --company iren` and so on; SEC fixtures or live as for any company). No scheduled agent works the theme: the memory-packaging Researcher must run no SanDisk session before the scorecard's SanDisk runs are done. Record the coverage table (each key document present or absent as of each as-of date) before any session.
+2. **One run.** From a checkout with `claude` and `node`, `CLAUDE_CODE_OAUTH_TOKEN` set and `ATLAS_MCP_URL` pointing at Atlas:
+
+       ATLAS_AGENT_THEME=scorecard ATLAS_AGENT_MODEL=claude-opus-5-5 \
+       ATLAS_AGENT_AS_OF=2025-02-28T00:00:00+00:00 \
+       ATLAS_AGENT_QUESTION="As of 2025-02-28, does anything constrain supply in SanDisk's market, who holds it, and what would relieve it?" \
+       ATLAS_AGENT_SEEDS=sandisk ATLAS_AGENT_ISOLATED=true \
+       ATLAS_AGENT_CALL_BOUND=150 agent/run.sh researcher
+
+   Add `--dry-run` first to see the question, seeds, isolation and filled-in prompt (nothing is called). Pass the exact model ID, never the `opus` alias. The same question everywhere (the case's company name in the question); one run per ChatGPT 5-hour window. The summary line's `atlas_session_id` is the run's session: put it, the case, the as-of date, the configuration and (from the closed-book probe and the code reading) the closed-book verdict and the code rank in the runs file (`scripts/scorecard.py` docstring has its shape).
+3. **Check the session.** `GET /api/v1/sessions/{id}` must say `isolated: true`; `GET /api/v1/sessions/{id}/tool-calls` is Atlas's record of what it did, refusals included (an `isolated_session` refusal means the agent tried to read earlier conclusions; it got nothing). A run not isolated, or on another configuration, is flagged and not scored by the report.
+4. **Reading the runs.** `uv run python scripts/scorecard.py sheets --runs runs.json --base-url <Atlas>` writes `bundles/` and `sheets/` (one review sheet per run, no prices, probes or code ranks) to `.scratch/live-runs/<stamp>-scorecard/`; two blind reviewers mark each Belief (`hit`, `miss`, `false_positive`) on the sheets; the lead adjudicates disagreements and classifies each miss (M1 to M5, FP) in the marks file. Then `scripts/scorecard.py report --runs runs.json --marks marks.json --bundles <dir>/bundles` writes `report.md` and `results.json`. Nothing here judges a Belief: an isolated session's Beliefs are refused a judgement (`409 isolated_session_belief`) and stay `unproven`.
+5. **Raspberry Pi** has no company in the universe (LSE, not an SEC filer). Run it only if its documents can be imported; otherwise list it under `not_run` with the reason.

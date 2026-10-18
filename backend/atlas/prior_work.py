@@ -146,6 +146,11 @@ class PriorWork(BaseModel):
         " companies: documents public after it are new to Atlas (`newest_documents(since=...)`)"
     )
     hidden_sessions: int = Field(description="earlier sessions with an as-of time after this one")
+    isolated: bool = Field(
+        default=False,
+        description="the asking session is isolated (ticket 29a): nothing is listed, whatever"
+        " Atlas holds",
+    )
     facts: Capped[PriorFact]
     beliefs: Capped[PriorBelief]
     documents_read: Capped[DocumentRead]
@@ -168,6 +173,27 @@ def _aware(moment: datetime) -> datetime:
 
 def _same_question(a: str, b: str) -> bool:
     return " ".join(a.lower().split()) == " ".join(b.lower().split())
+
+
+def no_prior_work(
+    *, theme: str, as_of: datetime, company_slugs: list[str], steps: list[str]
+) -> PriorWork:
+    """What an isolated session is given (ticket 29a): nothing. The scorecard replays an old
+    as-of time, and what Atlas holds was chosen later, with hindsight."""
+    return PriorWork(
+        as_of=_aware(as_of),
+        theme=theme,
+        companies=company_slugs,
+        steps=steps,
+        latest_session_as_of=None,
+        hidden_sessions=0,
+        isolated=True,
+        facts=Capped[PriorFact](total=0, shown=0, beyond=0, items=[]),
+        beliefs=Capped[PriorBelief](total=0, shown=0, beyond=0, items=[]),
+        documents_read=Capped[DocumentRead](total=0, shown=0, beyond=0, items=[]),
+        sessions=Capped[PriorSession](total=0, shown=0, beyond=0, items=[]),
+        issues=Capped[PriorIssue](total=0, shown=0, beyond=0, items=[]),
+    )
 
 
 def prior_work(

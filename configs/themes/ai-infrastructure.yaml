@@ -29,7 +29,7 @@
 # Listings (securities) need a primary-source start date, so they are added with ticket 03.
 #
 # Bump `version` on any change, so a run can record which universe it used.
-version: 7
+version: 8
 name: ai-infrastructure
 
 companies:
@@ -329,6 +329,63 @@ companies:
     source_path: sec
     tradingview_symbol: "NASDAQ:AMKR"  # unverified
 
+  # ===== The scorecard theme: the early-call scorecard's companies (ticket 29a) =====
+  # SanDisk (above, also memory-packaging's), then four companies the scorecard's answer key
+  # names (.scratch/atlas-beliefs/issues/29-the-early-call-scorecard.md). CIKs and forms are
+  # SEC's ticker file and submissions as read on 2026-10-18. None of the four has a `layer`:
+  # the scorecard compares one company's reading at several as-of dates, not a supply chain, so
+  # the theme lists the one layer SanDisk already has and the rest are unlayered. TradingView
+  # symbols are unverified: the catalog job confirms them (a symbol its answer leaves out is no
+  # error). Raspberry Pi (LSE, not an SEC filer) has no adapter here: the scorecard reports it
+  # not run unless its documents can be imported.
+
+  iren:
+    legal_name: IREN Limited
+    display_name: IREN
+    # IREN on Nasdaq (XNAS); formerly Iris Energy. Moved from foreign-private-issuer forms
+    # (20-F, 6-K) to domestic ones (10-K, 10-Q, 8-K) in 2025, so both sets are listed.
+    cik: "0001878848"
+    country: AU
+    website: https://iren.com
+    source_path: sec
+    sec_forms: [10-K, 10-Q, 8-K, 20-F, 6-K]
+    tradingview_symbol: "NASDAQ:IREN"  # unverified
+
+  etoro:
+    legal_name: eToro Group Ltd.
+    display_name: eToro
+    # ETOR on Nasdaq (XNAS), listed in May 2025. A foreign private issuer: the F-1, then
+    # 20-F and 6-K.
+    cik: "0001493318"
+    country: IL
+    website: https://www.etoro.com
+    source_path: sec
+    sec_forms: [F-1, 20-F, 6-K]
+    tradingview_symbol: "NASDAQ:ETOR"  # unverified
+
+  snap:
+    legal_name: Snap Inc.
+    display_name: Snap
+    # SNAP on NYSE (XNYS). A domestic filer: the default forms (10-K, 10-Q, 8-K).
+    cik: "0001564408"
+    country: US
+    website: https://www.snap.com
+    source_path: sec
+    tradingview_symbol: "NYSE:SNAP"  # unverified
+
+  poet-technologies:
+    legal_name: POET Technologies Inc.
+    display_name: POET
+    # POET on Nasdaq (XNAS) and the TSX Venture; an optical interposer maker (a photonics
+    # name, so a negative of the scorecard with that caveat). A foreign private issuer: 20-F
+    # and 6-K.
+    cik: "0001437424"
+    country: CA
+    website: https://poet-technologies.com
+    source_path: sec
+    sec_forms: [20-F, 6-K]
+    tradingview_symbol: "NASDAQ:POET"  # unverified
+
 themes:
   photonics:
     title: Photonics for AI data centers
@@ -392,3 +449,25 @@ themes:
       - formfactor
       - ase-technology
       - amkor
+
+  # The early-call scorecard's theme (atlas-beliefs ticket 29a; docs/decisions.md, "Isolated
+  # sessions for the scorecard"). Never a scheduled agent's theme: the runs are the lead's, each
+  # one an isolated session as of a past date. Its own short layer list is the smallest change
+  # to the per-theme layers that lets SanDisk (memory-nand) sit beside four companies with no
+  # layer; `memory-nand` is the same layer name as memory-packaging's, so no migration.
+  scorecard:
+    title: Early-call scorecard
+    description: >-
+      The companies of the early-call scorecard's answer key: does Atlas, reading only what
+      was public on a past date, name a bottleneck before the market priced it, and stay quiet
+      where there was none. SanDisk (NAND), IREN (grid power), eToro, Snap and POET (the
+      negatives). Replayed in isolated sessions only.
+    layers:
+      - name: memory-nand
+        covers: NAND flash makers (SanDisk, the one scored company with a layer)
+    companies:
+      - sandisk
+      - iren
+      - etoro
+      - snap
+      - poet-technologies
