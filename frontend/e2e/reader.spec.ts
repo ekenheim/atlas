@@ -77,10 +77,13 @@ test.describe("the company dossier", () => {
     await expect(finding).toHaveAttribute("aria-expanded", "false");
     await finding.click();
     await expect(finding).toHaveAttribute("aria-expanded", "true");
-    const quote = page.locator(".quote-card blockquote").first();
+    // The finding's own quote (the bear checks' quotes sit in their closed rows above).
+    const quote = page.locator(".finding-quote .quote-card blockquote").first();
     await expect(quote).toBeVisible();
     await expect(quote).not.toHaveText("");
-    await expect(page.locator(".quote-card").getByRole("link", { name: "Open in source" })).toBeVisible();
+    await expect(
+      page.locator(".finding-quote .quote-card").getByRole("link", { name: "Open in source" }),
+    ).toBeVisible();
 
     const identity = page.getByRole("table", { name: "Identity" });
     await expect(identity.getByRole("row", { name: /^CIK/ }).getByRole("cell")).toHaveText(

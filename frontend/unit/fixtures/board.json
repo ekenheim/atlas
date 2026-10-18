@@ -1,9 +1,9 @@
 {
  "items": [
   {
-   "id": "d88333d4-439d-4ab1-98ce-1b1ebd777c3f",
+   "id": "c59431cd-2e98-426d-84a8-f727c1ce49e2",
    "theme": "robotics",
-   "created_at": "2026-10-18T18:37:56.765339Z",
+   "created_at": "2026-10-18T19:15:01.052228Z",
    "created_by_session": null,
    "created_by_run": null,
    "constraint": "Precision strain-wave reducer capacity",
@@ -12,16 +12,19 @@
     {
      "name": "Harmonic Drive Systems",
      "slug": null,
-     "cik": null
+     "cik": null,
+     "company_id": null
     },
     {
      "name": "Nabtesco",
      "slug": null,
-     "cik": null
+     "cik": null,
+     "company_id": null
     }
    ],
    "status": "lead",
    "status_reason": null,
+   "status_set_at": "2026-10-18T19:15:01.052228Z",
    "thesis_gate": {
     "holds": false,
     "missing": [
@@ -106,14 +109,14 @@
    "relief_horizon": null,
    "crowding": null,
    "issue_ids": [],
-   "last_event_at": "2026-10-18T18:37:56.765339Z",
-   "last_evidence_at": "2026-10-18T18:37:56.765339Z",
+   "last_event_at": "2026-10-18T19:15:01.052228Z",
+   "last_evidence_at": "2026-10-18T19:15:01.052228Z",
    "event_count": 1
   },
   {
-   "id": "0f81ecae-d581-4947-9967-08b0c94b3555",
+   "id": "581fea55-2359-4cbe-913c-fb57e00e7099",
    "theme": "photonics",
-   "created_at": "2026-10-18T18:37:56.755070Z",
+   "created_at": "2026-10-18T19:15:01.043159Z",
    "created_by_session": null,
    "created_by_run": null,
    "constraint": "MOCVD reactor lead times",
@@ -121,6 +124,7 @@
    "holders": [],
    "status": "lead",
    "status_reason": null,
+   "status_set_at": "2026-10-18T19:15:01.043159Z",
    "thesis_gate": {
     "holds": false,
     "missing": [
@@ -205,14 +209,14 @@
    "relief_horizon": null,
    "crowding": null,
    "issue_ids": [],
-   "last_event_at": "2026-10-18T18:37:56.755070Z",
-   "last_evidence_at": "2026-10-18T18:37:56.755070Z",
+   "last_event_at": "2026-10-18T19:15:01.043159Z",
+   "last_evidence_at": "2026-10-18T19:15:01.043159Z",
    "event_count": 1
   },
   {
-   "id": "64152665-c5ec-4157-a95e-89496c9cacda",
+   "id": "26e13745-9b9b-4585-be90-168adf19cffe",
    "theme": "photonics",
-   "created_at": "2026-10-18T18:37:56.732328Z",
+   "created_at": "2026-10-18T19:15:01.021633Z",
    "created_by_session": null,
    "created_by_run": null,
    "constraint": "Pump laser capacity",
@@ -220,6 +224,7 @@
    "holders": [],
    "status": "killed",
    "status_reason": "Supply added faster than demand.",
+   "status_set_at": "2026-10-18T19:15:01.031819Z",
    "thesis_gate": {
     "holds": false,
     "missing": [
@@ -304,14 +309,14 @@
    "relief_horizon": null,
    "crowding": null,
    "issue_ids": [],
-   "last_event_at": "2026-10-18T18:37:56.742355Z",
-   "last_evidence_at": "2026-10-18T18:37:56.732328Z",
+   "last_event_at": "2026-10-18T19:15:01.031819Z",
+   "last_evidence_at": "2026-10-18T19:15:01.021633Z",
    "event_count": 2
   },
   {
-   "id": "a12495ce-90f8-46d7-9cde-348f900651f1",
+   "id": "dfcf68cf-928a-4d10-834d-e6330eee2556",
    "theme": "photonics",
-   "created_at": "2026-10-18T18:37:56.681844Z",
+   "created_at": "2026-10-18T19:15:00.959778Z",
    "created_by_session": null,
    "created_by_run": null,
    "constraint": "CW lasers for silicon photonics",
@@ -320,11 +325,13 @@
     {
      "name": "Coherent",
      "slug": "coherent",
-     "cik": null
+     "cik": null,
+     "company_id": "6aed559f-3bc4-5b32-8640-69835afa9d40"
     }
    ],
    "status": "candidate",
    "status_reason": null,
+   "status_set_at": "2026-10-18T19:15:01.004797Z",
    "thesis_gate": {
     "holds": false,
     "missing": [
@@ -368,10 +375,10 @@
       "fact_ids": [],
       "lead_ids": [],
       "issue_ids": [
-       "cc2bf2a6-0b00-4e83-aae4-523843b50066"
+       "8f8064d9-5329-47d4-af9f-de6abba3ae68"
       ]
      },
-     "set_at": "2026-10-18T18:37:56.706777Z"
+     "set_at": "2026-10-18T19:15:00.986822Z"
     },
     {
      "step": "d",
@@ -401,26 +408,26 @@
      "status": "contradicted",
      "evidence": {
       "fact_ids": [
-       "fc32456e-4440-4767-be48-00f291b16ac9"
+       "240c9885-bca8-4f82-9e3b-1f1bebfb3000"
       ],
       "lead_ids": [],
       "issue_ids": []
      },
-     "set_at": "2026-10-18T18:37:56.692467Z"
+     "set_at": "2026-10-18T19:15:00.970347Z"
     }
    ],
    "kill_criteria": [],
    "relief_horizon": null,
    "crowding": null,
    "issue_ids": [],
-   "last_event_at": "2026-10-18T18:37:56.719514Z",
-   "last_evidence_at": "2026-10-18T18:37:56.706777Z",
+   "last_event_at": "2026-10-18T19:15:01.004797Z",
+   "last_evidence_at": "2026-10-18T19:15:00.986822Z",
    "event_count": 4
   },
   {
-   "id": "39e34c8c-9570-4d13-bec4-30e1f8ec9ea3",
+   "id": "2692ad07-7b79-4ee7-816f-5b044fd557f1",
    "theme": "photonics",
-   "created_at": "2026-10-18T18:37:56.553667Z",
+   "created_at": "2026-10-18T19:15:00.814920Z",
    "created_by_session": null,
    "created_by_run": null,
    "constraint": "Indium phosphide substrate export permits",
@@ -429,16 +436,19 @@
     {
      "name": "Lumentum",
      "slug": "lumentum",
-     "cik": null
+     "cik": null,
+     "company_id": "552b3120-cb7a-5d85-91e4-ec0f6d1a3148"
     },
     {
      "name": "Outside Holder Co",
      "slug": null,
-     "cik": null
+     "cik": null,
+     "company_id": null
     }
    ],
    "status": "thesis_ready",
    "status_reason": null,
+   "status_set_at": "2026-10-18T19:15:00.928645Z",
    "thesis_gate": {
     "holds": false,
     "missing": [
@@ -454,12 +464,12 @@
      "status": "primary",
      "evidence": {
       "fact_ids": [
-       "fc32456e-4440-4767-be48-00f291b16ac9"
+       "240c9885-bca8-4f82-9e3b-1f1bebfb3000"
       ],
       "lead_ids": [],
       "issue_ids": []
      },
-     "set_at": "2026-10-18T18:37:56.563612Z"
+     "set_at": "2026-10-18T19:15:00.825438Z"
     },
     {
      "step": "b",
@@ -467,12 +477,12 @@
      "status": "primary",
      "evidence": {
       "fact_ids": [
-       "daf87b78-eaa6-45fb-af93-f72f358430e1"
+       "9d88436c-3912-4db3-8fed-9fd82d0e6c34"
       ],
       "lead_ids": [],
       "issue_ids": []
      },
-     "set_at": "2026-10-18T18:37:56.576420Z"
+     "set_at": "2026-10-18T19:15:00.841049Z"
     },
     {
      "step": "c",
@@ -491,13 +501,13 @@
      "status": "primary",
      "evidence": {
       "fact_ids": [
-       "fc32456e-4440-4767-be48-00f291b16ac9",
-       "daf87b78-eaa6-45fb-af93-f72f358430e1"
+       "240c9885-bca8-4f82-9e3b-1f1bebfb3000",
+       "9d88436c-3912-4db3-8fed-9fd82d0e6c34"
       ],
       "lead_ids": [],
       "issue_ids": []
      },
-     "set_at": "2026-10-18T18:37:56.590076Z"
+     "set_at": "2026-10-18T19:15:00.857162Z"
     },
     {
      "step": "e",
@@ -507,10 +517,10 @@
       "fact_ids": [],
       "lead_ids": [],
       "issue_ids": [
-       "e56f8e92-1d07-4544-b969-ac2101ba3ab9"
+       "17fed36c-81d6-40a6-96ea-29ae4efbb075"
       ]
      },
-     "set_at": "2026-10-18T18:37:56.606068Z"
+     "set_at": "2026-10-18T19:15:00.873254Z"
     },
     {
      "step": "f",
@@ -533,16 +543,16 @@
    },
    "crowding": "early",
    "issue_ids": [
-    "e56f8e92-1d07-4544-b969-ac2101ba3ab9"
+    "17fed36c-81d6-40a6-96ea-29ae4efbb075"
    ],
-   "last_event_at": "2026-10-18T18:37:56.651271Z",
-   "last_evidence_at": "2026-10-18T18:37:56.621052Z",
+   "last_event_at": "2026-10-18T19:15:00.928645Z",
+   "last_evidence_at": "2026-10-18T19:15:00.889519Z",
    "event_count": 8
   },
   {
-   "id": "2a669fc6-b1fe-49a5-bade-ff3b2b445de9",
+   "id": "4bf41fdb-a082-4b7b-95cf-68c4a4863ddc",
    "theme": "photonics",
-   "created_at": "2026-10-18T18:37:56.426096Z",
+   "created_at": "2026-10-18T19:15:00.663334Z",
    "created_by_session": null,
    "created_by_run": null,
    "constraint": "EML supply for 800G transceivers",
@@ -551,16 +561,19 @@
     {
      "name": "Lumentum",
      "slug": "lumentum",
-     "cik": null
+     "cik": null,
+     "company_id": "552b3120-cb7a-5d85-91e4-ec0f6d1a3148"
     },
     {
      "name": "Outside Holder Co",
      "slug": null,
-     "cik": null
+     "cik": null,
+     "company_id": null
     }
    ],
    "status": "thesis_ready",
    "status_reason": null,
+   "status_set_at": "2026-10-18T19:15:00.778229Z",
    "thesis_gate": {
     "holds": false,
     "missing": [
@@ -576,12 +589,12 @@
      "status": "primary",
      "evidence": {
       "fact_ids": [
-       "fc32456e-4440-4767-be48-00f291b16ac9"
+       "240c9885-bca8-4f82-9e3b-1f1bebfb3000"
       ],
       "lead_ids": [],
       "issue_ids": []
      },
-     "set_at": "2026-10-18T18:37:56.436758Z"
+     "set_at": "2026-10-18T19:15:00.673605Z"
     },
     {
      "step": "b",
@@ -589,12 +602,12 @@
      "status": "primary",
      "evidence": {
       "fact_ids": [
-       "daf87b78-eaa6-45fb-af93-f72f358430e1"
+       "9d88436c-3912-4db3-8fed-9fd82d0e6c34"
       ],
       "lead_ids": [],
       "issue_ids": []
      },
-     "set_at": "2026-10-18T18:37:56.451481Z"
+     "set_at": "2026-10-18T19:15:00.690310Z"
     },
     {
      "step": "c",
@@ -613,13 +626,13 @@
      "status": "primary",
      "evidence": {
       "fact_ids": [
-       "fc32456e-4440-4767-be48-00f291b16ac9",
-       "daf87b78-eaa6-45fb-af93-f72f358430e1"
+       "240c9885-bca8-4f82-9e3b-1f1bebfb3000",
+       "9d88436c-3912-4db3-8fed-9fd82d0e6c34"
       ],
       "lead_ids": [],
       "issue_ids": []
      },
-     "set_at": "2026-10-18T18:37:56.465336Z"
+     "set_at": "2026-10-18T19:15:00.707326Z"
     },
     {
      "step": "e",
@@ -629,10 +642,10 @@
       "fact_ids": [],
       "lead_ids": [],
       "issue_ids": [
-       "764b8c71-2fa2-4bb3-be7f-9997cff185ca"
+       "a408fe83-9ecc-4aba-9196-d5ef4b400455"
       ]
      },
-     "set_at": "2026-10-18T18:37:56.478965Z"
+     "set_at": "2026-10-18T19:15:00.723852Z"
     },
     {
      "step": "f",
@@ -653,17 +666,17 @@
    },
    "crowding": "early",
    "issue_ids": [
-    "764b8c71-2fa2-4bb3-be7f-9997cff185ca"
+    "a408fe83-9ecc-4aba-9196-d5ef4b400455"
    ],
-   "last_event_at": "2026-10-18T18:37:56.538398Z",
-   "last_evidence_at": "2026-10-18T18:37:56.538398Z",
+   "last_event_at": "2026-10-18T19:15:00.796107Z",
+   "last_evidence_at": "2026-10-18T19:15:00.796107Z",
    "event_count": 9
   },
   {
-   "id": "012ed1e4-e025-42fd-86f6-040b72d05b43",
+   "id": "d0c1a9c2-c51e-4569-a52b-be430aa20944",
    "theme": "photonics",
-   "created_at": "2026-10-18T18:37:56.284608Z",
-   "created_by_session": "2e4a8bf7-9b04-4ced-a1a6-76bfaec91c10",
+   "created_at": "2026-10-18T19:15:00.483581Z",
+   "created_by_session": "cbbab0ed-32a9-46e9-b05c-e3b046334b1e",
    "created_by_run": null,
    "constraint": "Indium phosphide laser capacity",
    "layer": "laser",
@@ -671,16 +684,19 @@
     {
      "name": "Lumentum",
      "slug": "lumentum",
-     "cik": null
+     "cik": null,
+     "company_id": "552b3120-cb7a-5d85-91e4-ec0f6d1a3148"
     },
     {
      "name": "Outside Holder Co",
      "slug": null,
-     "cik": null
+     "cik": null,
+     "company_id": null
     }
    ],
    "status": "thesis_ready",
    "status_reason": null,
+   "status_set_at": "2026-10-18T19:15:00.642962Z",
    "thesis_gate": {
     "holds": true,
     "missing": []
@@ -694,12 +710,12 @@
      "status": "primary",
      "evidence": {
       "fact_ids": [
-       "fc32456e-4440-4767-be48-00f291b16ac9"
+       "240c9885-bca8-4f82-9e3b-1f1bebfb3000"
       ],
       "lead_ids": [],
       "issue_ids": []
      },
-     "set_at": "2026-10-18T18:37:56.299604Z"
+     "set_at": "2026-10-18T19:15:00.498619Z"
     },
     {
      "step": "b",
@@ -707,12 +723,12 @@
      "status": "primary",
      "evidence": {
       "fact_ids": [
-       "daf87b78-eaa6-45fb-af93-f72f358430e1"
+       "9d88436c-3912-4db3-8fed-9fd82d0e6c34"
       ],
       "lead_ids": [],
       "issue_ids": []
      },
-     "set_at": "2026-10-18T18:37:56.332776Z"
+     "set_at": "2026-10-18T19:15:00.535851Z"
     },
     {
      "step": "c",
@@ -731,13 +747,13 @@
      "status": "primary",
      "evidence": {
       "fact_ids": [
-       "fc32456e-4440-4767-be48-00f291b16ac9",
-       "daf87b78-eaa6-45fb-af93-f72f358430e1"
+       "240c9885-bca8-4f82-9e3b-1f1bebfb3000",
+       "9d88436c-3912-4db3-8fed-9fd82d0e6c34"
       ],
       "lead_ids": [],
       "issue_ids": []
      },
-     "set_at": "2026-10-18T18:37:56.347388Z"
+     "set_at": "2026-10-18T19:15:00.555000Z"
     },
     {
      "step": "e",
@@ -747,10 +763,10 @@
       "fact_ids": [],
       "lead_ids": [],
       "issue_ids": [
-       "d16dfb6b-c11b-4e00-a87d-c7000a37229d"
+       "42eaf04d-0368-440f-b7f7-d43a6cc6fb64"
       ]
      },
-     "set_at": "2026-10-18T18:37:56.364104Z"
+     "set_at": "2026-10-18T19:15:00.577032Z"
     },
     {
      "step": "f",
@@ -773,10 +789,10 @@
    },
    "crowding": "early",
    "issue_ids": [
-    "d16dfb6b-c11b-4e00-a87d-c7000a37229d"
+    "42eaf04d-0368-440f-b7f7-d43a6cc6fb64"
    ],
-   "last_event_at": "2026-10-18T18:37:56.410165Z",
-   "last_evidence_at": "2026-10-18T18:37:56.377794Z",
+   "last_event_at": "2026-10-18T19:15:00.642962Z",
+   "last_evidence_at": "2026-10-18T19:15:00.596997Z",
    "event_count": 8
   }
  ],

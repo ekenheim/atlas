@@ -2439,6 +2439,7 @@ textarea {
 }
 
 .bear-rows {
+  align-items: start;
   display: grid;
   gap: 0 var(--s5);
   grid-template-columns: minmax(0, 1fr);
@@ -2461,7 +2462,8 @@ textarea {
   align-items: baseline;
   cursor: pointer;
   display: flex;
-  gap: var(--s3);
+  flex-wrap: wrap;
+  gap: 0 var(--s3);
   list-style: none;
   padding: 0.55rem 0;
 }
@@ -2474,8 +2476,9 @@ textarea {
   background: var(--raise-hover);
 }
 
+/* The label keeps its line; a long unknown reason wraps under it, at the right. */
 .bear-label {
-  flex: 1;
+  flex: 1 1 11rem;
   min-width: 0;
 }
 
@@ -2491,6 +2494,7 @@ textarea {
 .bear-unknown {
   color: var(--muted);
   font-size: 0.9rem;
+  margin-left: auto;
   text-align: right;
 }
 
