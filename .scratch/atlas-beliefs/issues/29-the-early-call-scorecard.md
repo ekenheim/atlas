@@ -46,3 +46,25 @@ Raspberry Pi (LSE, not an SEC filer) is in the key but run only if its documents
 - [ ] Every case run at every as-of date, or reported not run with the reason.
 - [ ] The report: hits, false positives, lead times and the code's ranks, each run linked to its session; in `.scratch/pilot/results.md` and `docs/experiments.md`.
 - [ ] The owner reads the report.
+
+## Amendment 1 (2026-10-18, after the approach debate; before any reading or run)
+
+The key table above is unchanged. A debate of four rival plans, each red-teamed, and a judge (`.scratch/atlas-beliefs/debate-2026-10-18.json`) kept this ticket first and repaired its protocol. These rules bind every run; nothing here may change after the first code reading.
+
+**Frozen configuration.** Signal scorer `signals-v3` at commit `f0fe9ee` (config version 3); the `atlas-research` skill and `agent/prompts/researcher.md` at `84b299a`; the agent model by exact ID `claude-opus-5-5` (never `run.sh`'s `opus` alias); the judge `chatgpt` (gpt-5.6-luna) with `finding_judge.v4`/`v5`; Atlas release 0.6.12 or the first release carrying 29a, recorded with each run. A run on any other configuration is flagged and not scored.
+
+**Isolation (the leak the debate found).** `prior_work` filters Facts by company and as-of time, not by session or theme (`backend/atlas/prior_work.py`, `_facts`), and Fact reuse matches on version, company and step (`atlas.facts.reuse`). A 2025 replay would inherit the 2026 sessions' Facts, chosen with hindsight (114 standing AXT Facts as of 2025-08-31), and one SanDisk run would hand its Facts to the next. Every scorecard run is therefore an **isolated session** (29a): `prior_work` empty, Fact reuse off, recall from the conclusions bank and `list_beliefs` refused, and its Beliefs can never be judged, so they make no call and never reach the conclusions bank. The scorecard companies stay off every scheduled agent's frontier, and the memory-packaging Researcher runs no SanDisk session before the scorecard's SanDisk runs are done.
+
+**The code's reading is not leak-free in every case.** It cannot leak prices, but its vocabulary was written from the AXT and SanDisk case studies (`configs/discovery/signals.yaml`; experiments 2026-10-15). AXT's and SanDisk's code ranks are **in-sample** and reported apart; IREN, eToro, Snap, POET and Raspberry Pi are its clean cases. The scored statistic stays the within-company top-20 rank; a pooled percentile across the universe (k = 20, `--since` 365 days before the as-of date) is reported beside it.
+
+**Pre-registered prediction:** IREN's code rank will be weak: a bare "shortage" scores 0.8 under `min_score` 1.5 and no cue family holds "bottleneck". If it is, that is the vocabulary's photonics shape, found in advance, not after.
+
+**Closed-book arm.** Before any session, the frozen model with no tools is asked, per case and as-of date, to recall the company's supply position as of that date. Its verdict (stated, hedged, not stated) is reported beside the session's. A case the closed-book model states is "not discriminating" for the session's reading. The negatives measure discipline (the model knows eToro and Snap fell), not leakage.
+
+**Miss taxonomy, from the session's recorded tool trace.** M1: the key's document is not in the archive (intake). M2: in the archive, never surfaced (code rank above 20 and never read) (signal vocabulary or search). M3: read, not recorded as a Fact (skill). M4: recorded, but in no Belief or under the wrong step (predicate and step model: market-level supply statements, chosen supply discipline). M5: the Belief misstated (judge). FP: a supply constraint the company holds, found on a negative (discipline, Skeptic). **Rule:** the same class on two positive cases triggers its build; otherwise the most frequent class across the positive runs plus AXT decides, ties going to M1. One miss alone triggers nothing.
+
+**Control list for the code half.** Before ingest, by rule: for each scored case, the two SEC filers with the same four-digit SIC code nearest in market value that are not in the universe, drawn with seed 20261018; their hits are reported as a base rate and never labelled by price.
+
+**Order.** (1) This amendment committed; (2) the coverage table (each key document present or absent as of each as-of date; absences recorded as M1 before any session); (3) the code readings and the closed-book probes, committed to `.scratch/live-runs/`; (4) the isolated sessions, one per ChatGPT 5-hour window; (5) two blind reviewers per run (the key and the Beliefs, no prices, probes or code ranks), the lead adjudicating and classifying misses. **Report** per run: the session's raw hit, the closed-book verdict and the code rank side by side; no composite score. Fact precision at or above 92% and the trust gate at or below 10% are guardrails; a run below them is flagged.
+
+**Added acceptance:** this amendment committed before the first code reading and session; every run isolated and on the frozen configuration.
