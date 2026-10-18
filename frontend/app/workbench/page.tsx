@@ -57,6 +57,8 @@ export default function WorkbenchPage() {
   );
 }
 
+const loadCompanies = (theme: string) => api.themeMap(theme, ["companies"]);
+
 function StartForm({ themes }: { themes: ThemeSummary[] }) {
   const router = useRouter();
   const [themeId, setThemeId] = useState(themes[0]?.id ?? "");
@@ -65,7 +67,7 @@ function StartForm({ themes }: { themes: ThemeSummary[] }) {
   const [plan, setPlan] = useState<Investigation["plan"]>("default");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const map = useApi(themeId || null, api.themeMap);
+  const map = useApi(themeId || null, loadCompanies);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -142,8 +144,8 @@ function StartForm({ themes }: { themes: ThemeSummary[] }) {
         <Load loaded={map} what="the theme's companies">
           {(map) => {
             const companies: ThemeCompany[] = [
-              ...map.layers.flatMap((layer) => layer.companies),
-              ...map.unlayered,
+              ...(map.layers ?? []).flatMap((layer) => layer.companies),
+              ...(map.unlayered ?? []),
             ].filter((company) => company.seeded);
             if (companies.length === 0) return <p>No company of the theme is seeded.</p>;
             return (

@@ -89,6 +89,8 @@ export type BeliefQuery = Omit<
 export type SessionSummary = Schemas["SessionSummary"];
 export type ResearchSession = Schemas["ResearchSession"];
 export type Issue = Schemas["Issue"];
+export type IssueDetail = Schemas["IssueDetail"];
+export type IssueEdge = Schemas["IssueEdge"];
 export type ThemeChange = Schemas["ThemeChange"];
 export type Call = Schemas["Call"];
 export type Checkpoint = Schemas["Checkpoint"];
@@ -209,7 +211,19 @@ export type PredictionStateName = Prediction["state"];
 const listHypotheses = () => get("/api/v1/hypotheses", { query: PAGE });
 let hypothesesMemo: Promise<HypothesesPage> | null = null;
 const hypothesesByTheme = new Map<string, Promise<HypothesesPage>>();
-const themeMaps = new Map<string, Promise<ThemeMap>>();
+const themeMaps = new Map<string, Promise<Partial<ThemeMap>>>();
+
+/** The sections of a theme's map a page can ask for. */
+export type ThemeSection =
+  | "theme"
+  | "beliefs"
+  | "layers"
+  | "unlayered"
+  | "relationships"
+  | "counterparties"
+  | "candidates"
+  | "bottlenecks"
+  | "companies";
 
 /** Drop the shared Hypotheses read: after a publication, a correction or a proposed update. */
 export function forgetHypotheses(): void {
@@ -228,19 +242,24 @@ export const api = {
     get("/api/v1/memory/health", { query: companyId ? { company_id: companyId } : {} }),
   /** Every theme with its coverage. */
   themes: () => get("/api/v1/themes", {}),
-  /** One theme's map: companies by layer, Relationships between them, Candidates, gaps. */
-  themeMap: (id: string): Promise<ThemeMap> => {
-    // The map is large (every edge, with its Evidence): read once per theme and shared by the
-    // layer matrix and the Records, however many parts of the page ask.
-    let pending = themeMaps.get(id);
+  /**
+   * One theme's map: companies by layer, Relationships between them, Candidates, gaps. The map
+   * is large (every edge, with its Evidence), so a page asks only for the sections it shows
+   * (`include`: theme, beliefs, layers, unlayered, relationships, counterparties, candidates,
+   * bottlenecks, companies); the others are absent. Each read is shared per theme and sections.
+   */
+  themeMap: (id: string, include?: readonly ThemeSection[]): Promise<Partial<ThemeMap>> => {
+    const key = `${id}|${include?.join(",") ?? ""}`;
+    let pending = themeMaps.get(key);
     if (pending === undefined) {
-      pending = get("/api/v1/themes/{theme_id}/map", { path: { theme_id: id } }).catch(
-        (error: unknown) => {
-          themeMaps.delete(id);
-          throw error;
-        },
-      );
-      themeMaps.set(id, pending);
+      pending = get("/api/v1/themes/{theme_id}/map", {
+        path: { theme_id: id },
+        query: include && include.length > 0 ? { include: include.join(",") } : {},
+      }).catch((error: unknown) => {
+        themeMaps.delete(key);
+        throw error;
+      });
+      themeMaps.set(key, pending);
     }
     return pending;
   },

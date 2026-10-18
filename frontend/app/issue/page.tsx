@@ -10,9 +10,9 @@ import { RecordsFold } from "../../components/records-fold";
 import { Status } from "../../components/status";
 import { BeliefRow, beliefRowOf } from "../../components/step-rows";
 import { Load, Row, Timestamp } from "../../components/ui";
-import { api, type Company, type Issue, type IssueProduct } from "../../lib/api/client";
+import { api, type Company, type IssueDetail, type IssueEdge, type IssueProduct } from "../../lib/api/client";
 import { activity } from "../../lib/format";
-import { KINDS, statusWord, subQuestions, subQuestionsText } from "../../lib/issues";
+import { KINDS, STATUSES, statusWord, subQuestionsText } from "../../lib/issues";
 import { routes } from "../../lib/routes";
 import { useApi, useIdParam } from "../../lib/use-api";
 
@@ -24,7 +24,6 @@ export default function IssuePage() {
   );
 }
 
-const loadAll = () => api.issues();
 const loadCompanies = () => api.companies();
 
 function IssueDetail() {
@@ -42,8 +41,7 @@ function IssueDetail() {
   );
 }
 
-function Body({ issue }: { issue: Issue }) {
-  const all = useApi("issues", loadAll);
+function Body({ issue }: { issue: IssueDetail }) {
   const companies = useApi("companies", loadCompanies);
   const names = new Map<string, string>(
     companies.state === "ready"
@@ -51,7 +49,8 @@ function Body({ issue }: { issue: Issue }) {
       : [],
   );
   const named = issue.company_ids.map((id) => names.get(id) ?? "").filter(Boolean);
-  const children = all.state === "ready" ? subQuestions(all.data.items, issue.id) : [];
+  const parents = issue.edges.filter((edge) => edge.direction === "parent");
+  const children = issue.edges.filter((edge) => edge.direction === "child");
   const meta = [KINDS[issue.kind], named.join(", "), subQuestionsText(issue)].filter(
     (part) => part !== "",
   );
@@ -67,17 +66,15 @@ function Body({ issue }: { issue: Issue }) {
         {issue.body ? <p className="measure issue-body">{issue.body}</p> : null}
       </header>
 
-      {issue.parent_id ? (
+      {parents.length > 0 ? (
         <section aria-labelledby="under">
           <h2 className="reader-label" id="under">
             Under
           </h2>
-          <ul className="reader-rows">
-            <li className="reader-row">
-              <div className="row-title">
-                <Link href={routes.issue(issue.parent_id)}>{issue.parent_title ?? "The parent Issue"}</Link>
-              </div>
-            </li>
+          <ul className="reader-rows" aria-label="Under">
+            {parents.map((edge) => (
+              <EdgeRow key={edge.issue_id} edge={edge} />
+            ))}
           </ul>
         </section>
       ) : null}
@@ -88,18 +85,8 @@ function Body({ issue }: { issue: Issue }) {
             Sub-questions
           </h2>
           <ul className="reader-rows" aria-label="Sub-questions">
-            {children.map((child) => (
-              <li className="reader-row" key={child.id}>
-                <div>
-                  <div className="row-title">
-                    <Link href={routes.issue(child.id)}>{child.title}</Link>
-                  </div>
-                  <div className="reader-row-sub">
-                    <Status word={statusWord(child)} />
-                    {KINDS[child.kind]}
-                  </div>
-                </div>
-              </li>
+            {children.map((edge) => (
+              <EdgeRow key={edge.issue_id} edge={edge} />
             ))}
           </ul>
         </section>
@@ -170,5 +157,22 @@ function ProducedFact({ id }: { id: string }) {
       quote={assertion.quote}
       href={routes.span(assertion.source_version_id, assertion.id)}
     />
+  );
+}
+
+/** An Issue it narrows or waits on, or that narrows it: a row that opens that Issue. */
+function EdgeRow({ edge }: { edge: IssueEdge }) {
+  return (
+    <li className="reader-row">
+      <div>
+        <div className="row-title">
+          <Link href={routes.issue(edge.issue_id)}>{edge.title}</Link>
+        </div>
+        <div className="reader-row-sub">
+          {STATUSES[edge.status]} · {edge.kind === "requires" ? "needed first" : "narrows"} ·{" "}
+          {activity(edge.created_at)}
+        </div>
+      </div>
+    </li>
   );
 }

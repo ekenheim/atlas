@@ -54,7 +54,14 @@ const loadLeads = async () =>
 const loadThemes = () => api.themes();
 const loadBeliefs = async (theme: string) =>
   (await api.beliefs({ theme, status: "active" })).items;
-const loadMap = (theme: string) => api.themeMap(theme);
+const loadCompanies = (theme: string) => api.themeMap(theme, ["companies"]);
+const loadRecords = async (theme: string) => {
+  const [companies, rest] = await Promise.all([
+    api.themeMap(theme, ["companies"]),
+    api.themeMap(theme, ["relationships", "counterparties", "candidates", "bottlenecks"]),
+  ]);
+  return { companies, rest };
+};
 
 /** The summary and the Beliefs are quick; the map (every edge with its Evidence) is large, so
  * only the layer matrix and the Records wait for it. */
@@ -189,9 +196,7 @@ function Body({ theme, beliefs }: { theme: ThemeSummary; beliefs: BeliefSummary[
         <h2 className="reader-label" id="companies">
           Companies
         </h2>
-        <WithMap theme={theme.id} skeleton>
-          {(map) => <LayerMatrix map={map} />}
-        </WithMap>
+        <WithCompanies theme={theme.id}>{(map) => <LayerMatrix map={map} />}</WithCompanies>
       </section>
 
       <RecordsFold
@@ -199,32 +204,60 @@ function Body({ theme, beliefs }: { theme: ThemeSummary; beliefs: BeliefSummary[
       >
         {theme.description ? <p className="measure">{theme.description}</p> : null}
         <ThemeHypotheses theme={theme.id} />
-        <WithMap theme={theme.id}>{(map) => <MapRecords theme={theme} map={map} />}</WithMap>
+        <WithRecords theme={theme}>{(map) => <MapRecords theme={theme} map={map} />}</WithRecords>
       </RecordsFold>
     </div>
   );
 }
 
-/** What needs the theme's map, loaded when it is shown (shared, so the matrix and the Records
- * make one request between them). */
-function WithMap({
+type Companies = Required<Pick<ThemeMap, "layers" | "unlayered">>;
+type Sections = Companies &
+  Required<Pick<ThemeMap, "relationships" | "counterparties" | "candidates" | "bottlenecks">>;
+
+/** The layer matrix: only the companies of the map, read at once (a light read). */
+function WithCompanies({
   theme,
-  skeleton = false,
   children,
 }: {
   theme: string;
-  skeleton?: boolean;
-  children: (map: ThemeMap) => ReactNode;
+  children: (map: Companies) => ReactNode;
 }) {
-  const map = useApi(theme, loadMap);
-  if (map.state === "loading") {
-    return skeleton ? <span className="sk sk-strip" aria-busy="true" /> : <p role="status">Loading…</p>;
-  }
-  if (map.state === "error") return <p role="alert">Could not load the map: {map.message}</p>;
-  return <>{children(map.data)}</>;
+  const map = useApi(theme, loadCompanies);
+  if (map.state === "loading") return <span className="sk sk-strip" aria-busy="true" />;
+  if (map.state === "error") return <p role="alert">Could not load the companies: {map.message}</p>;
+  return <>{children({ layers: map.data.layers ?? [], unlayered: map.data.unlayered ?? [] })}</>;
 }
 
-function MapRecords({ theme, map }: { theme: ThemeSummary; map: ThemeMap }) {
+/** The Records' sections (the edges, the Candidates, the gaps), read only once they render, which
+ * is when the fold is first opened. */
+function WithRecords({
+  theme,
+  children,
+}: {
+  theme: ThemeSummary;
+  children: (map: Sections) => ReactNode;
+}) {
+  const loaded = useApi(theme.id, loadRecords);
+  if (loaded.state === "loading") return <p role="status">Loading…</p>;
+  if (loaded.state === "error") return <p role="alert">Could not load the records: {loaded.message}</p>;
+  const { companies, rest } = loaded.data;
+  const bottlenecks = rest.bottlenecks;
+  if (!bottlenecks) return <p role="alert">Could not load the records: the gaps are missing.</p>;
+  return (
+    <>
+      {children({
+        layers: companies.layers ?? [],
+        unlayered: companies.unlayered ?? [],
+        relationships: rest.relationships ?? [],
+        counterparties: rest.counterparties ?? [],
+        candidates: rest.candidates ?? [],
+        bottlenecks,
+      })}
+    </>
+  );
+}
+
+function MapRecords({ theme, map }: { theme: ThemeSummary; map: Sections }) {
   return (
     <>
         <h2>Companies in detail</h2>
@@ -299,7 +332,7 @@ function MapRecords({ theme, map }: { theme: ThemeSummary; map: ThemeMap }) {
 
 /** The layers, upstream to downstream, each with its companies; a filled dot is a company with
  * documents in the archive, a hollow one has none, and an empty layer says so. */
-function LayerMatrix({ map }: { map: ThemeMap }) {
+function LayerMatrix({ map }: { map: Companies }) {
   return (
     <table aria-label="Companies by layer" className="layer-matrix">
       <tbody>
@@ -356,7 +389,7 @@ function CompanyLinks({ companies }: { companies: ThemeCompany[] }) {
  * The edges with no layer, under each theme company they name (in the map's order: by layer,
  * then the companies with no layer set). They are never placed in a layer of the map.
  */
-function LayerlessEdges({ map }: { map: ThemeMap }) {
+function LayerlessEdges({ map }: { map: Sections }) {
   const companies = [...map.layers.flatMap((layer) => layer.companies), ...map.unlayered];
   const groups = layerlessByCompany(map.relationships, companies);
   if (groups.length === 0) return null;
