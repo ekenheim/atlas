@@ -123,8 +123,8 @@ class VersionProvenance(BaseModel):
 class ThesisJudgement(BaseModel):
     """The finding judge's word on a Belief-backed version's thesis, and where it comes from
     (ticket 30): the draft's own judging (`draft`), the judging of a correction that changed the
-    thesis (`correction`), or a later judging of the version on its own (`rejudge`: an insert-only
-    `hypothesis_thesis_judgement` row). `unjudged`: a judging that found nothing to judge it
+    thesis (`correction`: also an insert-only row, with its role call), or a later judging of the
+    version on its own (`rejudge`: such a row). `unjudged`: a judging that found nothing to judge it
     against. A version no judge has seen has none."""
 
     model_config = ConfigDict(frozen=True)
@@ -134,6 +134,8 @@ class ThesisJudgement(BaseModel):
     at: datetime
     by: str
     source: Literal["draft", "correction", "rejudge"]
+    # The judge's call, when one is on record (a row's; the draft's own is not kept here).
+    role_call_id: uuid.UUID | None = None
 
 
 class HypothesisVersion(BaseModel):
@@ -273,7 +275,8 @@ def thesis_judgements(
     latest: dict[int, ThesisJudgement] = {}
     for row in connection.execute(
         text(
-            "SELECT version, verdict, reason, actor, at FROM hypothesis_thesis_judgement"
+            "SELECT version, verdict, reason, source, role_call_id, actor, at"
+            " FROM hypothesis_thesis_judgement"
             " WHERE hypothesis_id = :id ORDER BY at, id"
         ),
         {"id": hypothesis_id},
@@ -283,7 +286,8 @@ def thesis_judgements(
             reason=row["reason"],
             at=row["at"],
             by=row["actor"],
-            source="rejudge",
+            source=row["source"],
+            role_call_id=row["role_call_id"],
         )
     by_number = {each.version: each for each in versions}
     effective: dict[int, ThesisJudgement | None] = {}

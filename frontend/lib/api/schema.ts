@@ -11353,8 +11353,8 @@ export interface components {
          * ThesisJudgement
          * @description The finding judge's word on a Belief-backed version's thesis, and where it comes from
          *     (ticket 30): the draft's own judging (`draft`), the judging of a correction that changed the
-         *     thesis (`correction`), or a later judging of the version on its own (`rejudge`: an insert-only
-         *     `hypothesis_thesis_judgement` row). `unjudged`: a judging that found nothing to judge it
+         *     thesis (`correction`: also an insert-only row, with its role call), or a later judging of the
+         *     version on its own (`rejudge`: such a row). `unjudged`: a judging that found nothing to judge it
          *     against. A version no judge has seen has none.
          */
         ThesisJudgement: {
@@ -11377,6 +11377,8 @@ export interface components {
              * @enum {string}
              */
             source: "draft" | "correction" | "rejudge";
+            /** Role Call Id */
+            role_call_id?: string | null;
         };
         /** @enum {string} */
         Tier: "exact" | "corroborated" | "candidate" | "conflict" | "unresolved";

@@ -146,7 +146,13 @@ class Beliefs:
         return recorded["fact"]["id"]
 
     def belief(
-        self, statement: str, step: str, quote: str, *, judged: str | None = "proven"
+        self,
+        statement: str,
+        step: str,
+        quote: str,
+        *,
+        judged: str | None = "proven",
+        as_of: str = "2026-09-30T00:00:00Z",
     ) -> dict[str, Any]:
         belief = self.post(
             "/api/v1/beliefs",
@@ -155,7 +161,7 @@ class Beliefs:
                 "theme": "photonics",
                 "step": step,
                 "company_ids": [self.company_id()],
-                "as_of": "2026-09-30T00:00:00Z",
+                "as_of": as_of,
                 "actor": ACTOR,
                 "citations": [
                     {
@@ -1339,6 +1345,15 @@ def gate_codes(beliefs: Beliefs, hypothesis_id: str) -> list[str]:
     return [each["code"] for each in read["failures"]]
 
 
+def snapshot_of(beliefs: Beliefs, hypothesis_id: str) -> dict[str, Any]:
+    """The content of the Research Snapshot of the Hypothesis's latest published version."""
+    items = beliefs.get("/api/v1/snapshots", hypothesis_id=hypothesis_id)["items"]
+    latest = max(items, key=lambda each: each["hypothesis_version"])
+    snapshot = beliefs.get(f"/api/v1/snapshots/{latest['id']}")
+    assert snapshot["verified"] is True
+    return snapshot["content"]
+
+
 def judge_thesis(beliefs: Beliefs, hypothesis_id: str, version: int, **body: Any) -> Any:
     return beliefs.api.post(
         f"/api/v1/hypotheses/{hypothesis_id}/versions/{version}/judge-thesis", json=body or None
@@ -1351,8 +1366,8 @@ def thesis_judgement_rows(beliefs: Beliefs) -> list[dict[str, Any]]:
             dict(each)
             for each in connection.execute(
                 text(
-                    "SELECT version, verdict, reason, judge_role, prompt_version, role_call_id,"
-                    " actor, note FROM hypothesis_thesis_judgement ORDER BY at, id"
+                    "SELECT version, verdict, reason, source, judge_role, prompt_version,"
+                    " role_call_id, actor, note FROM hypothesis_thesis_judgement ORDER BY at, id"
                 )
             ).mappings()
         ]
@@ -1386,14 +1401,19 @@ def test_a_corrected_thesis_is_judged_at_once_and_a_supported_one_publishes(
     judgement = second["thesis_judgement"]
     assert (judgement["verdict"], judgement["reason"], judgement["source"]) == (
         "supported",
-        None,  # the content keeps a reason for a misstated thesis only
+        "the quotes state it",  # the row's reason (the content keeps one for a misstated thesis)
         "correction",
     )
     assert judgement["by"] == second["created_by"]
     assert judgement["at"].startswith(second["created_at"][:16])
     # The draft's own judgement is read as the draft's.
     assert beliefs.hypothesis(hypothesis_id)["versions"][0]["thesis_judgement"]["source"] == "draft"
-    assert thesis_judgement_rows(beliefs) == []  # a correction's verdict is the version's content
+    # The correction's verdict is on record beside the content's, with its role call.
+    [row] = thesis_judgement_rows(beliefs)
+    assert (row["version"], row["verdict"], row["source"]) == (2, "supported", "correction")
+    assert (row["judge_role"], row["prompt_version"]) == ("finding_judge", "5")
+    assert row["role_call_id"] is not None and row["actor"] == second["created_by"]
+    assert str(row["role_call_id"]) == judgement["role_call_id"]
     with beliefs.engine.connect() as connection:
         audited = connection.execute(
             text("SELECT entity_id FROM audit_event WHERE action = 'hypothesis.thesis_judged'")
@@ -1403,6 +1423,18 @@ def test_a_corrected_thesis_is_judged_at_once_and_a_supported_one_publishes(
     evidence_ready(beliefs, hypothesis_id)
     assert gate_codes(beliefs, hypothesis_id) == []
     assert publish(beliefs, hypothesis_id, version=2).status_code == 200
+    # The snapshot names the verdict that cleared the gate, and its role call is among the
+    # snapshot's.
+    content = snapshot_of(beliefs, hypothesis_id)
+    frozen = content["thesis_judgement"]
+    assert frozen.pop("at").replace("+00:00", "Z")[:19] == judgement["at"][:19]
+    assert frozen == {
+        "verdict": "supported",
+        "source": "correction",
+        "by": second["created_by"],
+        "role_call_id": str(row["role_call_id"]),
+    }
+    assert str(row["role_call_id"]) in {each["id"] for each in content["role_calls"]}
 
 
 def test_a_corrected_thesis_the_judge_finds_misstated_is_held_at_the_gate(
@@ -1483,6 +1515,12 @@ def test_a_thesis_the_judge_cannot_reach_is_unchecked_and_judging_it_again_clear
     assert second["content"]["thesis_judged"] is None  # the content stays as stored
     assert gate_codes(beliefs, hypothesis_id) == []
     assert publish(beliefs, hypothesis_id, version=2).status_code == 200
+    # The snapshot names the judging that cleared the gate: its verdict, source and role call.
+    content = snapshot_of(beliefs, hypothesis_id)
+    assert content["thesis_judgement"]["verdict"] == "supported"
+    assert content["thesis_judgement"]["source"] == "rejudge"
+    assert content["thesis_judgement"]["role_call_id"] == str(row["role_call_id"])
+    assert str(row["role_call_id"]) in {each["id"] for each in content["role_calls"]}
     with beliefs.engine.connect() as connection:
         actions = connection.execute(
             text("SELECT action FROM audit_event WHERE action = 'hypothesis.thesis_judged'")
@@ -1571,3 +1609,100 @@ def test_the_thesis_of_an_unknown_hypothesis_or_version_cannot_be_judged(
     assert judge_thesis(beliefs, hypothesis["id"], 7).status_code == 404
     assert judge_thesis(beliefs, "00000000-0000-0000-0000-000000000000", 1).status_code == 404
     assert thesis_judgement_rows(beliefs) == []
+
+
+def test_a_misstated_thesis_cannot_be_judged_again_only_rewritten(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    hypothesis, _, _ = ready(beliefs, llm)
+    hypothesis_id = hypothesis["id"]
+    llm.script_role("finding_judge", ChatReply.answer(misstating, tokens=(400, 40)))
+    correct_thesis(beliefs, hypothesis_id, thesis_statement=NEW_THESIS)
+    calls = roles(llm).count("finding_judge")
+    [correction_row] = thesis_judgement_rows(beliefs)
+    assert correction_row["verdict"] == "misstated"
+
+    # The same text is not asked again until a judge says supported.
+    refused = judge_thesis(beliefs, hypothesis_id, 2)
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["error"]["code"] == "thesis_misstated_stands"
+    assert roles(llm).count("finding_judge") == calls
+    assert thesis_judgement_rows(beliefs) == [correction_row]
+
+    # A correction that leaves the text carries the verdict, and with it the refusal.
+    correct_thesis(beliefs, hypothesis_id, based_on=2, falsifiers=["A second source"])
+    assert judge_thesis(beliefs, hypothesis_id, 3).status_code == 409
+    assert roles(llm).count("finding_judge") == calls
+
+    # Only a correction with new text changes the verdict.
+    llm.script_role("finding_judge", ChatReply.answer(supporting, tokens=(400, 40)))
+    correct_thesis(beliefs, hypothesis_id, based_on=3, thesis_statement=THESIS)
+    assert roles(llm).count("finding_judge") == calls + 1
+    fourth = beliefs.hypothesis(hypothesis_id)["versions"][3]
+    assert fourth["thesis_judgement"]["verdict"] == "supported"
+    # A supported verdict may be judged again, as a thesis no judge has seen may (the outage
+    # test above).
+    llm.script_role("finding_judge", ChatReply.answer(supporting, tokens=(400, 40)))
+    assert judge_thesis(beliefs, hypothesis_id, 4).status_code == 201
+
+
+URL_10K = "https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm"
+
+
+def test_the_thesis_judge_is_sent_no_fact_from_a_document_after_the_cutoff(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    # The press release is public on 11 August, the 10-K on 17 August: the cutoff is the 14th.
+    cutoff = "2026-08-14T00:00:00Z"
+    constraint = beliefs.belief(CONSTRAINT, "constraint", QUARTER, as_of=cutoff)
+    beliefs.queue.enqueue(INGEST_KIND, "tenk", ingest_payload("lumentum", ["10-K"], None))
+    assert Worker(beliefs.queue, builtin_registry(beliefs.plain)).run_once() >= 1
+    tenk = beliefs.atlas.version(URL_10K)
+    parsed = beliefs.api.get(
+        f"/api/v1/source-versions/{tenk['id']}/content", params={"kind": "parsed"}
+    ).text
+    late_quote = "Lumentum Holdings Inc."
+    start = parsed.index(late_quote)
+    late = beliefs.post(
+        "/api/v1/facts",
+        {
+            "subject_company_id": beliefs.company_id(),
+            "source_version_id": tenk["id"],
+            "quote": late_quote,
+            "span_start": start,
+            "span_end": start + len(late_quote),
+            "epistemic_type": "company_claim",
+            "step": "context",
+            "statement": "Lumentum Holdings Inc. files the report.",
+            "period": "FY2026",
+            "status": "in_effect",
+        },
+        status=201,
+    )["fact"]["id"]
+    # The Belief cited it later: a document public after the cutoff.
+    beliefs.post(
+        f"/api/v1/beliefs/{constraint['id']}/cite",
+        {"ref_id": late, "valence": 0.9, "weight": "load_bearing", "note": "later"},
+    )
+    llm.script_role(
+        DRAFTER,
+        ChatReply.answer(editor({"constraint": CONSTRAINT_STATEMENT}), tokens=(3000, 700)),
+    )
+    llm.script_role("finding_judge", *(ChatReply.answer(supporting, tokens=(400, 40)),) * 2)
+    saved = beliefs.create(as_of=cutoff)
+    beliefs.worker_pass()
+    hypothesis_id = saved["id"]
+    assert beliefs.hypothesis(hypothesis_id)["draft_status"] == "drafted"
+
+    llm.script_role("finding_judge", *(ChatReply.answer(supporting, tokens=(400, 40)),) * 2)
+    correct_thesis(beliefs, hypothesis_id, thesis_statement=NEW_THESIS)
+    assert judge_thesis(beliefs, hypothesis_id, 2).status_code == 201
+
+    # The draft's thesis, a correction's and a judging again's: the press release's quote only.
+    thesis_quotes = [
+        [each["text"] for each in asked(body)["retrieved_data"]]
+        for body in llm.chat_requests()
+        if body["metadata"]["role"] == "finding_judge"
+        and asked(body)["request"]["finding"].get("thesis")
+    ]
+    assert thesis_quotes == [[QUARTER]] * 3

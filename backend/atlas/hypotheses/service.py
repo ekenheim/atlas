@@ -99,6 +99,12 @@ class NotBeliefBacked(HypothesisConflict):
     code = "not_belief_backed"
 
 
+class ThesisMisstatedStands(HypothesisConflict):
+    """The thesis was judged misstated and its text has not changed: it is not judged again."""
+
+    code = "thesis_misstated_stands"
+
+
 class JudgeOutage(HypothesisError):
     """The judge gave no verdict (off, unconfigured or unreachable): nothing was recorded."""
 
@@ -659,20 +665,9 @@ class Hypotheses:
                 old_hash=base.content_sha256,
                 new_hash=version.content_sha256,
             )
-            if thesis_changed and decided is not None:
-                record(
-                    connection,
-                    actor,
-                    "hypothesis.thesis_judged",
-                    entity_type="hypothesis_version",
-                    entity_id=str(version.id),
-                    new_hash=content_hash(
-                        {
-                            "verdict": decided.verdict,
-                            "reason": decided.reason,
-                            "source": "correction",
-                        }
-                    ),
+            if thesis_changed and judged is not None:
+                _insert_judgement(
+                    connection, actor, hypothesis_id, number, version.id, judged, "correction", None
                 )
         return number
 
@@ -685,9 +680,14 @@ class Hypotheses:
             return None
         with self._engine.connect() as connection:
             base = _latest(connection, hypothesis_id)
-            question = connection.execute(
-                text("SELECT question FROM hypothesis WHERE id = :id"), {"id": hypothesis_id}
-            ).scalar_one_or_none()
+            found = (
+                connection.execute(
+                    text("SELECT question, as_of FROM hypothesis WHERE id = :id"),
+                    {"id": hypothesis_id},
+                )
+                .mappings()
+                .one_or_none()
+            )
         if (
             base is None
             or base.version != correction.based_on_version
@@ -699,9 +699,10 @@ class Hypotheses:
             return judge_thesis(
                 self._engine,
                 self._judges,
-                question=question,
+                question=None if found is None else found["question"],
                 statement=correction.thesis_statement,
                 belief_ids=base.content.thesis_belief_ids,
+                as_of=None if found is None else found["as_of"],
             )
         except JudgeUnavailable:
             return None
@@ -716,7 +717,7 @@ class Hypotheses:
         with self._engine.connect() as connection:
             hypothesis = (
                 connection.execute(
-                    text("SELECT id, question FROM hypothesis WHERE id = :id"),
+                    text("SELECT id, question, as_of FROM hypothesis WHERE id = :id"),
                     {"id": hypothesis_id},
                 )
                 .mappings()
@@ -742,6 +743,15 @@ class Hypotheses:
             raise NotBeliefBacked(
                 "the version was not drafted from Beliefs: its thesis rests on no Belief's Facts"
             )
+        # The same text is not asked again until a correction changes it: a judge asked
+        # until it says what the researcher wants would be no judge (ticket 30).
+        with self._engine.connect() as connection:
+            standing = thesis_judgement(connection, hypothesis_id, version_number)
+        if standing is not None and standing.verdict == "misstated":
+            raise ThesisMisstatedStands(
+                "the thesis was judged misstated and stands until a correction changes its text"
+                f" ({standing.reason or 'it reaches beyond its Beliefs'})"
+            )
         if self._judges is None:
             raise JudgeOutage("the thesis could not be judged (judging is not configured)")
         try:
@@ -751,41 +761,22 @@ class Hypotheses:
                 question=hypothesis["question"],
                 statement=version.content.thesis_statement,
                 belief_ids=version.content.thesis_belief_ids,
+                as_of=hypothesis["as_of"],
             )
         except JudgeUnavailable as unavailable:
             raise JudgeOutage(
                 f"the thesis could not be judged ({unavailable.reason}); call again later"
             ) from unavailable
         with self._engine.begin() as connection:
-            connection.execute(
-                text(
-                    "INSERT INTO hypothesis_thesis_judgement (id, hypothesis_id, version,"
-                    " verdict, reason, judge_role, prompt_version, role_call_id, actor, note)"
-                    " VALUES (:id, :hypothesis, :version, :verdict, :reason, :role, :prompt,"
-                    " :call, :actor, :note)"
-                ),
-                {
-                    "id": uuid.uuid4(),
-                    "hypothesis": hypothesis_id,
-                    "version": version_number,
-                    "verdict": judged.verdict,
-                    "reason": judged.reason,
-                    "role": judged.judge_role,
-                    "prompt": judged.prompt_version,
-                    "call": judged.role_call_id,
-                    "actor": actor.name,
-                    "note": note,
-                },
-            )
-            record(
+            _insert_judgement(
                 connection,
                 actor,
-                "hypothesis.thesis_judged",
-                entity_type="hypothesis_version",
-                entity_id=str(version.id),
-                new_hash=content_hash(
-                    {"verdict": judged.verdict, "reason": judged.reason, "source": "rejudge"}
-                ),
+                hypothesis_id,
+                version_number,
+                version.id,
+                judged,
+                "rejudge",
+                note,
             )
 
     def publish(
@@ -937,6 +928,50 @@ class GateCheck:
     status: HypothesisStatus
     blocked: GateBlock | None
     failures: tuple[GateFailure, ...]
+
+
+def _insert_judgement(
+    connection: Connection,
+    actor: Actor,
+    hypothesis_id: uuid.UUID,
+    version_number: int,
+    version_id: uuid.UUID,
+    judged: ThesisJudged,
+    source: str,
+    note: str | None,
+) -> None:
+    """Record a judging of a version's thesis (insert-only) and audit it (ticket 30)."""
+    connection.execute(
+        text(
+            "INSERT INTO hypothesis_thesis_judgement (id, hypothesis_id, version, source,"
+            " verdict, reason, judge_role, prompt_version, role_call_id, actor, note)"
+            " VALUES (:id, :hypothesis, :version, :source, :verdict, :reason, :role, :prompt,"
+            " :call, :actor, :note)"
+        ),
+        {
+            "id": uuid.uuid4(),
+            "hypothesis": hypothesis_id,
+            "version": version_number,
+            "source": source,
+            "verdict": judged.verdict,
+            "reason": judged.reason,
+            "role": judged.judge_role,
+            "prompt": judged.prompt_version,
+            "call": judged.role_call_id,
+            "actor": actor.name,
+            "note": note,
+        },
+    )
+    record(
+        connection,
+        actor,
+        "hypothesis.thesis_judged",
+        entity_type="hypothesis_version",
+        entity_id=str(version_id),
+        new_hash=content_hash(
+            {"verdict": judged.verdict, "reason": judged.reason, "source": source}
+        ),
+    )
 
 
 # --- shared helpers -------------------------------------------------------------------------------

@@ -5,8 +5,10 @@ thesis, recorded apart from the version. A version's content never changes (a pu
 immutable), so judging a thesis that no judge saw, or judging it again, cannot rewrite
 `content.thesis_judged`; it adds a row here, and the version's effective verdict is its latest
 row if it has one, else the content's (`docs/decisions.md`, "A corrected thesis is judged").
-`verdict` is `unjudged` when there was nothing to judge the thesis against (its Beliefs cite no
-recorded Fact). Insert-only.
+`source` says what asked for it: the correction that wrote the thesis (its verdict is beside the
+content's) or a request to judge the version again. `verdict` is `unjudged` when there was nothing
+to judge the thesis against (its Beliefs cite no Fact public by the Hypothesis's cutoff).
+Insert-only.
 
 Revision ID: 0117
 Revises: 0116
@@ -26,6 +28,7 @@ def upgrade() -> None:
             id uuid PRIMARY KEY,
             hypothesis_id uuid NOT NULL REFERENCES hypothesis (id),
             version integer NOT NULL CHECK (version >= 1),
+            source text NOT NULL CHECK (source IN ('correction', 'rejudge')),
             verdict text NOT NULL CHECK (verdict IN ('supported', 'misstated', 'unjudged')),
             reason text NOT NULL,
             judge_role text NOT NULL CHECK (btrim(judge_role) <> ''),

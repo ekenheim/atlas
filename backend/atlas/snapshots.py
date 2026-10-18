@@ -44,6 +44,10 @@ version was built from, frozen in the transaction that publishes it.
   load-bearing citations with the Facts' quotes and spans, and the judgement it was drafted
   with. The Assertions those citations name are among `assertions`. Absent from snapshots
   written before ticket 14.
+- `thesis_judgement`: the verdict on the thesis of a version drafted from Beliefs that the
+  publish gate read (verdict, `source` draft, correction or rejudge, who, when, the judge's
+  role call, which is among `role_calls`); null for a version of an investigation. Absent from
+  snapshots written before ticket 30.
 - `scenarios` attached to the version (inputs, assumption and output hashes, outputs) and the
   `financial_dataset`: the XBRL observations their inputs cite, and the SHA-256 of that list's
   canonical JSON.
@@ -76,7 +80,7 @@ from atlas.archive import Archive, ArchiveIntegrityError, Namespace, ObjectNotFo
 from atlas.audit import Actor, record
 from atlas.beliefs.service import get_belief
 from atlas.beliefs.versions import version_beliefs
-from atlas.hypotheses.model import HypothesisVersion
+from atlas.hypotheses.model import HypothesisVersion, thesis_judgement
 from atlas.hypotheses.service import PublishHook, dependent_assertion_ids
 from atlas.hypotheses.steps import step_belief
 from atlas.scenarios.model import AssertionSource, AssumptionTable, SourcedInput, XbrlSource
@@ -291,6 +295,15 @@ def build_snapshot(
                 {"ids": finding_assertions},
             ).scalars(),
             *(scenario["role_call_id"] for scenario in scenarios),
+            # The judgings of a thesis (a correction's and any asked for again) up to this
+            # version: one of them is the verdict that cleared the gate (ticket 30).
+            *connection.execute(
+                text(
+                    "SELECT role_call_id FROM hypothesis_thesis_judgement"
+                    " WHERE hypothesis_id = :id AND version <= :version"
+                ),
+                {"id": hypothesis["id"], "version": version.version},
+            ).scalars(),
         ]
     )
     role_calls = _rows(
@@ -456,6 +469,7 @@ def build_snapshot(
         "beliefs": [_plain(each) for each in version_beliefs(connection, finding_assertions)],
         "belief_override": _plain(override) if override is not None else None,
         "steps": steps,
+        "thesis_judgement": _thesis_judgement(connection, hypothesis, version),
         "scenarios": [_plain(scenario) for scenario in scenarios],
         "financial_dataset": {
             "sha256": hashlib.sha256(canonical_json(observations)).hexdigest(),
@@ -477,6 +491,25 @@ def build_snapshot(
             "content_sha256": version.content_sha256,
         },
     }
+
+
+def _thesis_judgement(
+    connection: Connection, hypothesis: RowMapping, version: HypothesisVersion
+) -> dict[str, Any] | None:
+    """The effective verdict on the thesis of a version drafted from Beliefs, as the publish
+    gate read it (ticket 30); None for a version of an investigation or one no judge has seen."""
+    judgement = thesis_judgement(connection, hypothesis["id"], version.version)
+    if judgement is None:
+        return None
+    return _plain(
+        {
+            "verdict": judgement.verdict,
+            "source": judgement.source,
+            "by": judgement.by,
+            "at": judgement.at,
+            "role_call_id": judgement.role_call_id,
+        }
+    )
 
 
 def _steps(connection: Connection, version: HypothesisVersion) -> list[dict[str, Any]]:
