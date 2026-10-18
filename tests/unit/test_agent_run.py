@@ -385,9 +385,7 @@ def test_the_isolated_researchers_dry_run_is_what_it_was_in_0_6_14(run: Run):
     recorded = (
         ROOT / "tests" / "fixtures" / "agent" / "isolated-researcher-dry-run-v0.6.14.txt"
     ).read_bytes()
-    expected = recorded.decode("utf-8").replace("
-", "
-")
+    expected = recorded.decode("utf-8").replace("\r\n", "\n")
 
     result = scorecard_run(run, "--dry-run")
 
