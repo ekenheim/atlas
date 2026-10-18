@@ -4,7 +4,7 @@
 // drill to a Belief and its quote. Everything raw (edges, Candidates, the per-layer tables,
 // Hypotheses and their drafts) is in the Records, which render only when opened.
 import Link from "next/link";
-import { Suspense, useState } from "react";
+import { type ReactNode, Suspense, useState } from "react";
 
 import { ArgumentStrip } from "../../components/argument-strip";
 import { DueList } from "../../components/due-list";
@@ -13,13 +13,15 @@ import { RecordsFold } from "../../components/records-fold";
 import { StepRows, stepRowsOf } from "../../components/step-rows";
 import { Status, ThesisCheck } from "../../components/status";
 import { ChangedList, ThemeHypotheses } from "../../components/theme-feed";
-import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
+import { Code, Missing, Row, Timestamp } from "../../components/ui";
 import {
   api,
+  type BeliefSummary,
   type Bottlenecks,
   type Candidate,
   type ThemeCompany,
   type ThemeMap,
+  type ThemeSummary,
 } from "../../lib/api/client";
 import { argumentOf, weakestText } from "../../lib/argument";
 import { COMPANY_LAYERS } from "../../lib/relationships";
@@ -48,42 +50,55 @@ const loadPredictions = async () => (await api.predictions("open")).items;
 const loadLeads = async () =>
   (await api.calendarLeads(new Date().toISOString().slice(0, 10))).items;
 
+const loadThemes = () => api.themes();
+const loadBeliefs = async (theme: string) =>
+  (await api.beliefs({ theme, status: "active" })).items;
+const loadMap = (theme: string) => api.themeMap(theme);
+
+/** The summary and the Beliefs are quick; the map (every edge with its Evidence) is large, so
+ * only the layer matrix and the Records wait for it. */
 function Theme() {
   const id = useIdParam();
-  const map = useApi(id, api.themeMap);
+  const themes = useApi(id === null ? null : "themes", loadThemes);
+  const beliefs = useApi(id, loadBeliefs);
+  const summary =
+    themes.state === "ready" ? themes.data.find((each) => each.id === id) : undefined;
   return (
     <>
       <p className="crumbs">
         <Link href={routes.themes}>Themes</Link>
       </p>
-      {map.state === "loading" ? (
+      {themes.state === "loading" || beliefs.state === "loading" ? (
         <div aria-busy="true">
           <span className="sk sk-h1" />
           <span className="sk sk-thesis" />
           <span className="sk sk-line" />
           <span className="sk sk-strip" />
         </div>
+      ) : themes.state === "error" ? (
+        <p role="alert">Could not load the theme: {themes.message}</p>
+      ) : beliefs.state === "error" ? (
+        <p role="alert">Could not load the theme: {beliefs.message}</p>
+      ) : summary === undefined ? (
+        <p role="alert">Could not load the theme: it is not one of the themes.</p>
       ) : (
-        <Load loaded={map} what="the theme">
-          {(map) => <Body map={map} />}
-        </Load>
+        <Body theme={summary} beliefs={beliefs.data} />
       )}
     </>
   );
 }
 
-function Body({ map }: { map: ThemeMap }) {
-  const { theme } = map;
+function Body({ theme, beliefs }: { theme: ThemeSummary; beliefs: BeliefSummary[] }) {
   const hypotheses = useApi("hypotheses", loadHypotheses);
   const calls = useApi(theme.id, loadCalls);
   const predictions = useApi("predictions", loadPredictions);
   const leads = useApi("leads", loadLeads);
   const [mark] = useState<Date | null>(() => readMark());
 
-  const active = themeBeliefs(map.beliefs, theme.id);
+  const active = themeBeliefs(beliefs, theme.id);
   const starting = active.length === 0;
-  const steps = argumentOf(map.beliefs);
-  const card = buildCard(theme, hypotheses.state === "ready" ? hypotheses.data : [], map.beliefs);
+  const steps = argumentOf(beliefs);
+  const card = buildCard(theme, hypotheses.state === "ready" ? hypotheses.data : [], beliefs);
   const now = new Date();
   const callList = calls.state === "ready" ? calls.data : [];
 
@@ -171,7 +186,9 @@ function Body({ map }: { map: ThemeMap }) {
         <h2 className="reader-label" id="companies">
           Companies
         </h2>
-        <LayerMatrix map={map} />
+        <WithMap theme={theme.id} skeleton>
+          {(map) => <LayerMatrix map={map} />}
+        </WithMap>
       </section>
 
       <RecordsFold
@@ -179,7 +196,34 @@ function Body({ map }: { map: ThemeMap }) {
       >
         {theme.description ? <p className="measure">{theme.description}</p> : null}
         <ThemeHypotheses theme={theme.id} />
+        <WithMap theme={theme.id}>{(map) => <MapRecords theme={theme} map={map} />}</WithMap>
+      </RecordsFold>
+    </div>
+  );
+}
 
+/** What needs the theme's map, loaded when it is shown (shared, so the matrix and the Records
+ * make one request between them). */
+function WithMap({
+  theme,
+  skeleton = false,
+  children,
+}: {
+  theme: string;
+  skeleton?: boolean;
+  children: (map: ThemeMap) => ReactNode;
+}) {
+  const map = useApi(theme, loadMap);
+  if (map.state === "loading") {
+    return skeleton ? <span className="sk sk-strip" aria-busy="true" /> : <p role="status">Loading…</p>;
+  }
+  if (map.state === "error") return <p role="alert">Could not load the map: {map.message}</p>;
+  return <>{children(map.data)}</>;
+}
+
+function MapRecords({ theme, map }: { theme: ThemeSummary; map: ThemeMap }) {
+  return (
+    <>
         <h2>Companies in detail</h2>
         {map.layers.map((layer) => (
           <section key={layer.layer} aria-labelledby={`layer-${layer.layer}`}>
@@ -246,8 +290,7 @@ function Body({ map }: { map: ThemeMap }) {
             <Row name="Universe config version">{theme.universe_version}</Row>
           </tbody>
         </table>
-      </RecordsFold>
-    </div>
+    </>
   );
 }
 

@@ -208,6 +208,7 @@ export type PredictionStateName = Prediction["state"];
 
 const listHypotheses = () => get("/api/v1/hypotheses", { query: PAGE });
 let hypothesesMemo: Promise<HypothesesPage> | null = null;
+const themeMaps = new Map<string, Promise<ThemeMap>>();
 
 /** Drop the shared Hypotheses read: after a publication, a correction or a proposed update. */
 export function forgetHypotheses(): void {
@@ -226,8 +227,21 @@ export const api = {
   /** Every theme with its coverage. */
   themes: () => get("/api/v1/themes", {}),
   /** One theme's map: companies by layer, Relationships between them, Candidates, gaps. */
-  themeMap: (id: string) =>
-    get("/api/v1/themes/{theme_id}/map", { path: { theme_id: id } }),
+  themeMap: (id: string): Promise<ThemeMap> => {
+    // The map is large (every edge, with its Evidence): read once per theme and shared by the
+    // layer matrix and the Records, however many parts of the page ask.
+    let pending = themeMaps.get(id);
+    if (pending === undefined) {
+      pending = get("/api/v1/themes/{theme_id}/map", { path: { theme_id: id } }).catch(
+        (error: unknown) => {
+          themeMaps.delete(id);
+          throw error;
+        },
+      );
+      themeMaps.set(id, pending);
+    }
+    return pending;
+  },
   /** What changed on a theme, newest first: judgements, flags, notices and new Facts. */
   themeChanges: (id: string) =>
     get("/api/v1/themes/{theme_id}/changes", { path: { theme_id: id }, query: { limit: 30 } }),
@@ -273,12 +287,15 @@ export const api = {
   relationship: (id: string) =>
     get("/api/v1/relationships/{relationship_id}", { path: { relationship_id: id } }),
   /** The owner approves or rejects an edge; repeating its decision is `invalid_transition`. */
-  reviewRelationship: (id: string, body: OwnerReview) =>
-    post(
+  reviewRelationship: async (id: string, body: OwnerReview) => {
+    const reviewed = await post(
       "/api/v1/relationships/{relationship_id}/review",
       { path: { relationship_id: id } },
       body,
-    ),
+    );
+    themeMaps.clear();
+    return reviewed;
+  },
   /** Investigations, newest first (the workbench's first 500). */
   /** Every research session, newest first (Claude sessions and the pipeline's runs). */
   sessions: () => get("/api/v1/sessions", { query: PAGE }),

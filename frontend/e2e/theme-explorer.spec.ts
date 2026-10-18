@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { expectRecordsClosed, openRecords } from "./helpers";
+
 // The Theme explorer and the Company dossier, against the database `scripts/e2e.py` seeds:
 // the photonics universe (configs/themes/ai-infrastructure.yaml), Lumentum ingested from the
 // recorded EDGAR fixtures (its companyfacts normalized into as-of financials), and three
@@ -25,30 +27,28 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
     .getByRole("link", { name: "Themes" })
     .click();
   await expect(page.getByRole("heading", { level: 1, name: "Themes" })).toBeVisible();
-  const themes = page.getByRole("table", { name: "Themes and their coverage" });
-  // Twelve companies, eleven without sources (only Lumentum is ingested), three edges.
-  await expect(themes.getByRole("row", { name: new RegExp(THEME) }).getByRole("cell")).toHaveText([
-    new RegExp(`^${THEME}`),
-    "12",
-    "11",
-    "none",
-    "3",
-    "0",
-  ]);
-  await themes.getByRole("link", { name: THEME }).click();
+  // The theme is a card: its title, where its thesis stands and its coverage (twelve companies,
+  // only Lumentum ingested, no empty layer).
+  const card = page.getByRole("article", { name: THEME });
+  await expect(card).toContainText("12 companies · 1 with documents · 0 layers empty");
+  await card.getByRole("link", { name: THEME }).click();
 
-  // The assessment first: the theme's Hypotheses (none yet here), then what Atlas believes, by
-  // step, above the companies and the edges.
+  // The assessment first: what Atlas believes, by step, then what changed and what is due, above
+  // the companies. There is no Hypothesis yet; the raw records are folded away.
   await expect(page.getByRole("heading", { level: 1, name: THEME })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2 }).first()).toHaveText("Hypotheses");
-  await expect(page.getByRole("region", { name: "Hypotheses" })).toContainText(
-    "No Hypothesis on this theme yet.",
-  );
-  await expect(page.getByRole("heading", { level: 2 }).nth(1)).toHaveText("What Atlas believes");
+  await expect(page.getByLabel("Thesis")).toContainText("No thesis yet · 1 proven Belief");
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+    "What Atlas believes",
+    "Changed",
+    "Due",
+    "Companies",
+  ]);
   const believed = page.getByRole("region", { name: "What Atlas believes" });
   const constraint = believed.getByRole("region", { name: "Constraint" });
+  await constraint.locator("summary").click();
   await expect(constraint.getByRole("listitem", { name: PROVEN })).toContainText("Proven 80%");
   const relief = believed.getByRole("region", { name: "Relief" });
+  await relief.locator("summary").click();
   await expect(relief.getByRole("listitem", { name: FLAGGED })).toContainText("Unproven");
   await expect(relief.getByRole("listitem", { name: FLAGGED })).toContainText("1 flag");
   await expect(believed.getByRole("region", { name: "Control" })).toContainText(
@@ -57,6 +57,13 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
   // What changed: the proven Belief's judgement, a link to its record.
   const changes = page.getByRole("list", { name: "Changes, newest first" });
   await expect(changes.getByRole("link", { name: `proven 80%: ${PROVEN}` })).toBeVisible();
+
+  // Closed, the records hold no edge and no Candidate.
+  await expectRecordsClosed(page);
+  await expect(
+    page.getByRole("table", { name: "Relationships between the theme's companies" }),
+  ).toHaveCount(0);
+  await openRecords(page);
 
   // The map: companies by layer, upstream to downstream.
   await expect(page.getByRole("heading", { level: 3 })).toHaveText([
@@ -96,7 +103,10 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
   await expect(page.getByText("Hindsight is not configured")).toBeVisible();
 
   // The dossier: identity, listings, Relationships, financials, sources.
-  await chips.getByRole("link", { name: "Lumentum" }).click();
+  await page
+    .getByRole("table", { name: "Companies by layer" })
+    .getByRole("link", { name: "Lumentum" })
+    .click();
   await expect(page.getByRole("heading", { level: 1, name: "Lumentum" })).toBeVisible();
   // The company's Beliefs come first, each with Lumentum's exposure: its own Facts back both.
   await expect(page.getByRole("heading", { level: 2 }).first()).toHaveText("What Atlas believes");

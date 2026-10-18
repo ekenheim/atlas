@@ -5,7 +5,8 @@ import { expect, test } from "@playwright/test";
 
 // The secondary leak guard (Y10): the surface of a reader page does not mention system fields.
 // The main guard is the e2e's rendered-text check with Records closed; this scans the source of
-// the files that make the surface, with the Records stripped out.
+// the files that make the surface, with the Records stripped out. (The Hypothesis page defines
+// its Records helpers in the same file, so the e2e guard covers it.)
 const ROOT = join(__dirname, "..");
 const SURFACE = [
   "app/page.tsx",
@@ -13,7 +14,6 @@ const SURFACE = [
   "app/decide/page.tsx",
   "app/record/page.tsx",
   "app/belief/page.tsx",
-  "app/hypothesis/page.tsx",
   "components/theme-card.tsx",
   "components/due-list.tsx",
   "components/step-rows.tsx",

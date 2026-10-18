@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import { openSystem } from "./helpers";
+
 // The edge table, an edge's Evidence and source span, and the exceptions queue, against
 // the Relationships `scripts/e2e.py` builds from hedged sentences of Lumentum's FY2026 10-K
 // (the recorded EDGAR fixture), through the Assertions service and a `review_relationships`
@@ -31,10 +33,7 @@ test("the edge table sorts and filters, and an edge opens its highlighted source
   page,
 }) => {
   await page.goto("/");
-  await page
-    .getByRole("navigation", { name: "Site" })
-    .getByRole("link", { name: "Relationships" })
-    .click();
+  await openSystem(page, "Relationships");
   await expect(page.getByRole("heading", { level: 1, name: "Relationships" })).toBeVisible();
   const table = edgeTable(page);
   await expect(page.getByRole("status")).toHaveText("3 relationships.");
@@ -99,7 +98,7 @@ test("the edge table sorts and filters, and an edge opens its highlighted source
   const mark = text.locator("mark");
   await expect(mark).toHaveText(DEPENDS.quote);
   await expect(mark).toBeInViewport();
-  await expect(page.getByText(/^Highlighted: the span of the depends_on Assertion/)).toBeVisible();
+  await expect(page.getByText(/^Quoted passage · 10-K · filed /)).toBeVisible();
   // The highlight is only presentation: the offsets still index the verbatim text.
   const [before, span] = await text.evaluate((element) => {
     const marked = element.querySelector("mark");
@@ -109,15 +108,18 @@ test("the edge table sorts and filters, and an edge opens its highlighted source
   });
   expect(span).toBe(DEPENDS.quote);
   const end = before + [...DEPENDS.quote].length;
-  await expect(page.getByText(`characters ${before}–${end}`)).toBeVisible();
+  const grouped = (n: number) => n.toLocaleString("en-US");
+  await expect(
+    page
+      .getByRole("region", { name: "Provenance" })
+      .getByRole("row", { name: /^Characters/ })
+      .getByRole("cell"),
+  ).toHaveText(`${grouped(before)}–${grouped(end)}`);
 });
 
 test("the owner approves and rejects edges in the exceptions queue", async ({ page }) => {
   await page.goto("/");
-  await page
-    .getByRole("navigation", { name: "Site" })
-    .getByRole("link", { name: "Exceptions queue" })
-    .click();
+  await openSystem(page, "Exceptions queue");
   const queue = page.getByRole("table", { name: /waiting for the owner/ });
   await expect(queue.locator("caption")).toHaveText(
     "2 relationships waiting for the owner, oldest first",

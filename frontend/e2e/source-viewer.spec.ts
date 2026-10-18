@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { expect, test, type Locator } from "@playwright/test";
 
+import { openSystem } from "./helpers";
+
 // Expected values come from the recorded EDGAR fixtures the API was seeded from
 // (scripts/e2e.py ingests tests/fixtures/edgar/lumentum), never from the API itself.
 const FIXTURES = path.resolve(__dirname, "../../tests/fixtures");
@@ -45,7 +47,7 @@ test("a Source Version shows its provenance and parsed text", async ({ page }) =
   expect(ACCEPTED_AT).toBeDefined();
 
   await page.goto("/");
-  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Companies" }).click();
+  await openSystem(page, "Companies");
   await page.getByRole("link", { name: "Lumentum" }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: "Lumentum" })).toBeVisible();

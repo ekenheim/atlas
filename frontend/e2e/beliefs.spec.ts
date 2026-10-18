@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { openRecords, openSystem } from "./helpers";
+
 // The Beliefs pages, against the database `scripts/e2e.py` seeds (`seed_beliefs`): two
 // photonics Beliefs about Lumentum citing the session's two Facts. One is a constraint the
 // owner proved (80%); the other is an unproven relief whose second Fact stands against it, so
@@ -14,7 +16,7 @@ test("the Beliefs list reads by step, filters to the flagged and opens a Belief 
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Beliefs" }).click();
+  await openSystem(page, "Beliefs");
   await expect(page.getByRole("heading", { level: 1, name: "Beliefs" })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("2 beliefs");
 
@@ -23,7 +25,7 @@ test("the Beliefs list reads by step, filters to the flagged and opens a Belief 
   const proven = constraint.getByRole("listitem", { name: PROVEN });
   await expect(proven).toContainText("Proven 80%");
   await expect(proven).toContainText("Lumentum");
-  await expect(proven).toContainText("as of 2026-09-30");
+  await expect(proven).toContainText("as of 30 Sep 2026");
   await expect(proven).toContainText("2 citations");
   const relief = page.getByRole("region", { name: "Relief" });
   const flagged = relief.getByRole("listitem", { name: FLAGGED });
@@ -45,11 +47,11 @@ test("the Beliefs list reads by step, filters to the flagged and opens a Belief 
   await expect(doubt).toContainText("A load-bearing citation against it stands");
   const against = page.getByRole("region", { name: "Evidence against it" });
   await expect(against.getByText(AGAINST_QUOTE)).toBeVisible();
-  await expect(against).toContainText("against (-1), load-bearing");
+  await expect(against).toContainText("load-bearing");
   await expect(page.getByRole("region", { name: "Evidence for it" })).toContainText("Lumentum");
 
   // A citation opens the source viewer at its span.
-  await against.getByRole("link", { name: "Source" }).click();
+  await against.getByRole("link", { name: "Open in source" }).click();
   const mark = page.getByRole("region", { name: "Parsed text" }).locator("mark");
   await expect(mark).toHaveText(AGAINST_QUOTE);
   await expect(mark).toBeInViewport();
@@ -59,12 +61,15 @@ test("a proven Belief shows who judged it and its history", async ({ page }) => 
   await page.goto("/beliefs/?step=constraint");
   await page.getByRole("link", { name: PROVEN }).click();
   await expect(page.getByRole("heading", { level: 1, name: PROVEN })).toBeVisible();
+  // The verdict line: the word, the confidence and when it was judged.
+  await expect(page.getByLabel("Verdict")).toContainText(/^Proven 80% · judged \d{1,2} \w{3} \d{4}/);
+  await expect(page.getByRole("region", { name: "Needs a second look" })).toHaveCount(0);
+  await expect(page.getByText("Nothing against it found yet")).toBeVisible();
+
+  // The records are one click deeper: who judged it and why, and the history keeps the first,
+  // unproven judgement.
+  await openRecords(page);
   await expect(page.getByText("Judged by e2e-owner")).toBeVisible();
   await expect(page.getByText("two quarters agree").first()).toBeVisible();
-  await expect(page.getByRole("region", { name: "Needs a second look" })).toHaveCount(0);
-  await expect(page.getByText("Nothing cited against it.")).toBeVisible();
-
-  // The records are one click deeper: the history keeps the first, unproven judgement.
-  await page.getByText("Records").first().click();
   await expect(page.getByRole("list", { name: "Judgement history" }).getByRole("listitem")).toHaveCount(2);
 });
