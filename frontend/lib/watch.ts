@@ -2,7 +2,8 @@
 // and cards, and which layout a theme's page takes. Keyed by theme slug: a watched theme need not
 // be one of `/themes`. Pure, so each rule is tested.
 import type { BeliefSummary, Chokepoint, ThemeSummary, WatchRun } from "./api/client";
-import { type BoardCounts, boardCounts, themeTitle } from "./chokepoints";
+import { type BoardCounts, boardCounts, boardLine, themeTitle } from "./chokepoints";
+import { plainDay } from "./format";
 import { memoExcerpt } from "./markdown";
 import { isUnseen } from "./seen";
 import { themeBeliefs } from "./today";
@@ -180,4 +181,59 @@ export function themeLayout(
   if (board.length > 0 || runs.length > 0) return "board";
   if (summary) return "starting";
   return "missing";
+}
+
+export interface ThemesCard<T> {
+  slug: string;
+  title: string;
+  /** One of `/themes`, for its round-2 card; null for a watched slug `/themes` does not list. */
+  theme: T | null;
+  /** `Watching` or `Not started` instead of the round-2 card; null keeps that card. */
+  watch: { watching: boolean; line: string } | null;
+}
+
+/**
+ * The Themes page's cards: every theme of `/themes` keeps one, then the watched slugs it does not
+ * list, alphabetically. A theme with no active Belief that the Watch is on reads `Watching` with
+ * its last watch and board; one with no company and nothing watched reads `Not started`.
+ */
+export function themesCards<T extends Pick<ThemeSummary, "id" | "title" | "company_count">>(
+  themes: readonly T[],
+  beliefs: readonly BeliefSummary[] | null,
+  board: readonly Chokepoint[],
+  runs: readonly WatchRun[],
+  now: Date = new Date(),
+): ThemesCard<T>[] {
+  const watched = watchedSlugs(board, runs);
+  const latest = latestByTheme(runs);
+  const watchLine = (slug: string) => {
+    const run = latest.get(slug)?.latest;
+    const parts = [
+      run ? `last watch ${plainDay(run.run_date, now)}` : null,
+      boardLine(boardCounts(board.filter((each) => each.theme === slug))) || null,
+    ].filter((part): part is string => part !== null);
+    return parts.join(" · ");
+  };
+  const listed = themes.map((theme): ThemesCard<T> => {
+    const believed = beliefs !== null && themeBeliefs(beliefs, theme.id).length > 0;
+    const watch =
+      beliefs === null || believed
+        ? null
+        : watched.has(theme.id)
+          ? { watching: true, line: watchLine(theme.id) }
+          : theme.company_count === 0
+            ? { watching: false, line: "The first watch has not run." }
+            : null;
+    return { slug: theme.id, title: theme.title, theme, watch };
+  });
+  const others = [...watched]
+    .filter((slug) => !themes.some((each) => each.id === slug))
+    .sort()
+    .map((slug): ThemesCard<T> => ({
+      slug,
+      title: themeTitle(slug, themes),
+      theme: null,
+      watch: { watching: true, line: watchLine(slug) },
+    }));
+  return [...listed, ...others];
 }

@@ -6,6 +6,7 @@ import {
   namedOnBoard,
   stoppedWatch,
   themeLayout,
+  themesCards,
   todayCards,
   watchRows,
   watchedSlugs,
@@ -177,4 +178,33 @@ test("the theme page's layout, every rule, robotics in and out of /themes", () =
   expect(themeLayout(robotics, [], [], [])).toBe("starting");
   expect(themeLayout(theme("memory-packaging", 7), null, [], [])).toBe("starting");
   expect(themeLayout(undefined, [], [], [])).toBe("missing");
+});
+
+test("Themes keeps every card: Watching for a watched theme with no Belief, Not started for an empty one", () => {
+  const themes = [theme("photonics"), theme("memory-packaging", 7), theme("robotics", 0)];
+  const beliefs = [belief("photonics")];
+  // The shipping state: robotics is Not started, the others keep their round-2 cards.
+  expect(themesCards(themes, beliefs, [], [], NOW).map((card) => [card.slug, card.watch])).toEqual([
+    ["photonics", null],
+    ["memory-packaging", null],
+    ["robotics", { watching: false, line: "The first watch has not run." }],
+  ]);
+  // After the first survey, and with a watched slug that /themes does not list.
+  const cards = themesCards(
+    themes,
+    beliefs,
+    [cp(), cp({ id: "2", status: "thesis_ready" }), cp({ theme: "zeta" })],
+    [run()],
+    NOW,
+  );
+  expect(cards.map((card) => [card.slug, card.watch?.line ?? null])).toEqual([
+    ["photonics", null],
+    ["memory-packaging", null],
+    ["robotics", "last watch 24 Oct · 2 chokepoints · 1 thesis-ready"],
+    ["zeta", "1 chokepoint"],
+  ]);
+  expect(cards[3]?.theme).toBeNull();
+  expect(cards[3]?.title).toBe("Zeta");
+  // While the Beliefs are unknown no card is replaced.
+  expect(themesCards(themes, null, [], [run()], NOW).map((card) => card.watch)).toEqual([null, null, null]);
 });

@@ -108,3 +108,32 @@ export function ThemeCard({
     </article>
   );
 }
+
+/** A theme that has no Belief yet but the Watch is on it (`Watching`, with its last watch and
+ * board), or one with no company that the Watch has not reached (`Not started`). */
+export function WatchCard({
+  slug,
+  title,
+  watching,
+  line,
+}: {
+  slug: string;
+  title: string;
+  watching: boolean;
+  line: string;
+}) {
+  const id = `card-${slug}`;
+  return (
+    <article className="theme-card" aria-labelledby={id}>
+      <div className="card-line card-head">
+        <h2 className="card-title" id={id}>
+          <Link href={routes.theme(slug)}>{title}</Link>
+        </h2>
+        <span className="card-status">
+          <Status word={{ word: watching ? "Watching" : "Not started", tone: "muted" }} />
+        </span>
+      </div>
+      <p className="card-starting">{line}</p>
+    </article>
+  );
+}

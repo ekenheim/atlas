@@ -2,13 +2,17 @@
 
 // One theme: what Atlas thinks about it and how sure it is, what changed, what is due, and the
 // drill to a Belief and its quote. Everything raw (edges, Candidates, the per-layer tables,
-// Hypotheses and their drafts) is in the Records, which render only when opened.
+// Hypotheses and their drafts) is in the Records, which render only when opened. A theme the
+// Watch has begun on, with nothing believed yet, leads with its board instead (spec §10.3.2):
+// the page is keyed by slug, so a watched theme need not be one of `/themes`.
 import Link from "next/link";
 import { type ReactNode, Suspense, useState } from "react";
 
 import { ArgumentStrip } from "../../components/argument-strip";
+import { Board } from "../../components/board";
 import { DueList } from "../../components/due-list";
 import { EdgeList } from "../../components/edge-list";
+import { OpenIssues } from "../../components/hypothesis-steps";
 import { RecordsFold } from "../../components/records-fold";
 import { StepRows, stepRowsOf } from "../../components/step-rows";
 import { Status, ThesisCheck } from "../../components/status";
@@ -19,18 +23,22 @@ import {
   type BeliefSummary,
   type Bottlenecks,
   type Candidate,
+  type Chokepoint,
   type ThemeCompany,
   type ThemeMap,
   type ThemeSummary,
+  type WatchRun,
 } from "../../lib/api/client";
 import { argumentOf, weakestText } from "../../lib/argument";
-import { COMPANY_LAYERS } from "../../lib/relationships";
+import { boardCounts, boardParts, humanise, layerName } from "../../lib/chokepoints";
 import { routes } from "../../lib/routes";
 import { readMark } from "../../lib/seen";
 import { layeredEdges, layerlessByCompany } from "../../lib/themes";
-import { evidenceDay } from "../../lib/format";
+import { evidenceDay, exactTime, plainDay } from "../../lib/format";
+import { WATCH_MODE_WORDS } from "../../lib/status";
 import { buildCard, newestEvidence, startingStatus, themeBeliefs } from "../../lib/today";
-import { useApi, useIdParam } from "../../lib/use-api";
+import { type Loaded, useApi, useIdParam } from "../../lib/use-api";
+import { stoppedWatch, themeLayout } from "../../lib/watch";
 
 export default function ThemePage() {
   return (
@@ -55,6 +63,8 @@ const loadThemes = () => api.themes();
 const loadBeliefs = async (theme: string) =>
   (await api.beliefs({ theme, status: "active" })).items;
 const loadCompanies = (theme: string) => api.themeMap(theme, ["companies"]);
+const loadBoard = async (theme: string) => (await api.chokepoints({ theme, limit: 500 })).items;
+const loadRuns = async (theme: string) => (await api.watchRuns({ theme, limit: 8 })).items;
 const loadRecords = async (theme: string) => {
   const [companies, rest] = await Promise.all([
     api.themeMap(theme, ["companies"]),
@@ -64,19 +74,40 @@ const loadRecords = async (theme: string) => {
 };
 
 /** The summary and the Beliefs are quick; the map (every edge with its Evidence) is large, so
- * only the layer matrix and the Records wait for it. */
+ * only the layer matrix and the Records wait for it. The board and the runs load beside them: a
+ * theme with active Beliefs renders as soon as they arrive, any other once all four have answered
+ * (`themeLayout`; a failed board or runs read counts as empty). */
 function Theme() {
   const id = useIdParam();
   const themes = useApi(id === null ? null : "themes", loadThemes);
   const beliefs = useApi(id, loadBeliefs);
+  const board = useApi(id, loadBoard);
+  const runs = useApi(id, loadRuns);
   const summary =
     themes.state === "ready" ? themes.data.find((each) => each.id === id) : undefined;
+  const active = summary && beliefs.state === "ready" ? themeBeliefs(beliefs.data, summary.id) : [];
+  const waiting =
+    themes.state === "loading" ||
+    beliefs.state === "loading" ||
+    (active.length === 0 && (board.state === "loading" || runs.state === "loading"));
+  // A Beliefs error fails one of `/themes`; for any other slug it reads as no Beliefs, so the
+  // board-led page never depends on it.
+  const failed = themes.state === "error" || (summary !== undefined && beliefs.state === "error");
+  const layout =
+    waiting || failed
+      ? null
+      : themeLayout(
+          summary,
+          beliefs.state === "ready" ? beliefs.data : null,
+          board.state === "ready" ? board.data : [],
+          runs.state === "ready" ? runs.data : [],
+        );
   return (
     <>
       <p className="crumbs">
         <Link href={routes.themes}>Themes</Link>
       </p>
-      {themes.state === "loading" || beliefs.state === "loading" ? (
+      {waiting ? (
         <div aria-busy="true">
           <span className="sk sk-h1" />
           <span className="sk sk-thesis" />
@@ -85,18 +116,144 @@ function Theme() {
         </div>
       ) : themes.state === "error" ? (
         <p role="alert">Could not load the theme: {themes.message}</p>
-      ) : beliefs.state === "error" ? (
+      ) : summary !== undefined && beliefs.state === "error" ? (
         <p role="alert">Could not load the theme: {beliefs.message}</p>
+      ) : layout === "board" && id !== null ? (
+        <BoardLed slug={id} summary={summary} board={board} runs={runs.state === "ready" ? runs.data : []} />
       ) : summary === undefined ? (
         <p role="alert">Could not load the theme: it is not one of the themes.</p>
       ) : (
-        <Body theme={summary} beliefs={beliefs.data} />
+        <Body theme={summary} beliefs={beliefs.state === "ready" ? beliefs.data : []} board={board} runs={runs} />
       )}
     </>
   );
 }
 
-function Body({ theme, beliefs }: { theme: ThemeSummary; beliefs: BeliefSummary[] }) {
+/** "Watching · last watch 24 Oct · 4 chokepoints · 1 thesis-ready"; the date is warn once the
+ * Watch has stopped. */
+function WatchingLine({ board, runs, now }: { board: Chokepoint[]; runs: WatchRun[]; now: Date }) {
+  const latest = runs[0];
+  return (
+    <p className="thesis-status">
+      <Status word={{ word: "Watching", tone: "muted" }} />
+      {latest ? (
+        <span className={`thesis-part${stoppedWatch(latest, now) ? " status-warn" : ""}`}>
+          last watch {plainDay(latest.run_date, now)}
+        </span>
+      ) : null}
+      {boardParts(boardCounts(board)).map((part) => (
+        <span key={part.text} className={`thesis-part${part.tone === "warn" ? " status-warn" : ""}`}>
+          {part.text}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+/** A theme led by its board: the Watch has begun on it, nothing is believed yet. */
+function BoardLed({
+  slug,
+  summary,
+  board,
+  runs,
+}: {
+  slug: string;
+  summary: ThemeSummary | undefined;
+  board: Loaded<Chokepoint[]>;
+  runs: WatchRun[];
+}) {
+  const now = new Date();
+  const items = board.state === "ready" ? board.data : [];
+  return (
+    <div className="reader theme-page">
+      <h1 className="page-title">{summary?.title ?? humanise(slug)}</h1>
+      <WatchingLine board={items} runs={runs} now={now} />
+      {board.state === "error" ? (
+        <p className="muted">Chokepoints unavailable</p>
+      ) : (
+        <Board items={items} run={runs[0] ?? null} now={now} />
+      )}
+      <OpenIssues theme={slug} title="Open questions" />
+      {summary && summary.company_count > 0 ? (
+        <section aria-labelledby="companies">
+          <h2 className="reader-label" id="companies">
+            Companies
+          </h2>
+          <WithCompanies theme={slug}>{(map) => <LayerMatrix map={map} />}</WithCompanies>
+        </section>
+      ) : null}
+      <RecordsFold counts={`${runs.length} watch ${runs.length === 1 ? "run" : "runs"}`}>
+        <WatchRunRecords runs={runs} />
+        {summary ? (
+          <>
+            {summary.description ? <p className="measure">{summary.description}</p> : null}
+            <table>
+              <caption>The theme</caption>
+              <tbody>
+                <Row name="Companies">
+                  {summary.company_count}, {summary.companies_without_sources} without sources
+                </Row>
+                <Row name="Layers without a company">
+                  {summary.empty_layers.length > 0 ? summary.empty_layers.map(layerName).join(", ") : <Missing />}
+                </Row>
+                <Row name="Universe config version">{summary.universe_version}</Row>
+              </tbody>
+            </table>
+          </>
+        ) : null}
+      </RecordsFold>
+    </div>
+  );
+}
+
+/** The Watch's runs of a theme, newest first, each opening its memo. */
+function WatchRunRecords({ runs }: { runs: WatchRun[] }) {
+  if (runs.length === 0) return null;
+  return (
+    <>
+      <h2>Watch runs</h2>
+      <ul className="reader-rows" aria-label="Watch runs">
+        {runs.map((run) => {
+          const mode = WATCH_MODE_WORDS[run.mode];
+          const cost = run.cost_usd === null ? null : `$${run.cost_usd.toFixed(2)}`;
+          return (
+            <li className="reader-row" key={run.id}>
+              <div className="row-title">
+                <Link href={routes.watchRun(run.id)}>
+                  {[evidenceDay(run.run_date), mode, `${run.tool_calls} tool calls`, cost]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </Link>
+              </div>
+              <div className="reader-row-sub row-secondary">{exactTime(run.created_at)}</div>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
+/** The board on a theme with a thesis: after Changed | Due and before Companies, only when the
+ * board has a chokepoint or the Watch has run (in the shipping state, nothing). A failed read
+ * shows nothing here. */
+function BoardSlot({ board, runs }: { board: Loaded<Chokepoint[]>; runs: Loaded<WatchRun[]> }) {
+  if (board.state !== "ready") return null;
+  const latest = runs.state === "ready" ? (runs.data[0] ?? null) : null;
+  return <Board items={board.data} run={latest} />;
+}
+
+function Body({
+  theme,
+  beliefs,
+  board,
+  runs,
+}: {
+  theme: ThemeSummary;
+  beliefs: BeliefSummary[];
+  board: Loaded<Chokepoint[]>;
+  runs: Loaded<WatchRun[]>;
+}) {
   const hypotheses = useApi(theme.id, loadHypotheses);
   const calls = useApi(theme.id, loadCalls);
   const predictions = useApi("predictions", loadPredictions);
@@ -117,7 +274,11 @@ function Body({ theme, beliefs }: { theme: ThemeSummary; beliefs: BeliefSummary[
     <div className="reader theme-page">
       <h1 className="page-title">{theme.title}</h1>
 
-      {starting ? (
+      {starting && theme.company_count === 0 ? (
+        <section className="starting-block" aria-label="Where the theme stands">
+          <p className="card-starting">Not started · the first watch has not run</p>
+        </section>
+      ) : starting ? (
         <section className="starting-block" aria-label="Where the theme stands">
           <p className="card-starting">{startingStatus(theme)}</p>
           <p className="muted">Research begins when documents arrive.</p>
@@ -191,15 +352,19 @@ function Body({ theme, beliefs }: { theme: ThemeSummary; beliefs: BeliefSummary[
               )}
             </section>
           </div>
+
+          <BoardSlot board={board} runs={runs} />
         </>
       )}
 
-      <section aria-labelledby="companies">
-        <h2 className="reader-label" id="companies">
-          Companies
-        </h2>
-        <WithCompanies theme={theme.id}>{(map) => <LayerMatrix map={map} />}</WithCompanies>
-      </section>
+      {theme.company_count > 0 ? (
+        <section aria-labelledby="companies">
+          <h2 className="reader-label" id="companies">
+            Companies
+          </h2>
+          <WithCompanies theme={theme.id}>{(map) => <LayerMatrix map={map} />}</WithCompanies>
+        </section>
+      ) : null}
 
       <RecordsFold
         counts={`${theme.relationship_count} relationships, ${theme.open_candidate_count} candidates`}
@@ -265,14 +430,14 @@ function MapRecords({ theme, map }: { theme: ThemeSummary; map: Sections }) {
         <h2>Companies in detail</h2>
         {map.layers.map((layer) => (
           <section key={layer.layer} aria-labelledby={`layer-${layer.layer}`}>
-            <h3 id={`layer-${layer.layer}`}>{COMPANY_LAYERS[layer.layer]}</h3>
+            <h3 id={`layer-${layer.layer}`}>{layerName(layer.layer)}</h3>
             <p className="muted-small">{layer.covers}</p>
             {layer.companies.length === 0 ? (
               <p>
                 <strong>Coverage gap:</strong> no company in this layer.
               </p>
             ) : (
-              <Companies caption={`${COMPANY_LAYERS[layer.layer]} companies`} companies={layer.companies} />
+              <Companies caption={`${layerName(layer.layer)} companies`} companies={layer.companies} />
             )}
           </section>
         ))}
@@ -340,7 +505,7 @@ function LayerMatrix({ map }: { map: Companies }) {
       <tbody>
         {map.layers.map((layer) => (
           <tr key={layer.layer}>
-            <th scope="row">{COMPANY_LAYERS[layer.layer]}</th>
+            <th scope="row">{layerName(layer.layer)}</th>
             <td>
               {layer.companies.length === 0 ? (
                 <span className="status status-warn">no company</span>

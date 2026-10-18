@@ -2,8 +2,8 @@
 
 // The Watch's board for one theme (spec §10.3.3): the chokepoints by group, Thesis-ready first,
 // then Candidates, then Spotted (five, then all of them in place), and the ruled-out ones in a
-// closed fold of their own whose rows render only once it is opened. Nothing for an empty board:
-// the page says so in one line when it has to.
+// closed fold of their own whose rows render only once it is opened. An empty board renders
+// nothing; with a run but no chokepoint yet it is its header and one muted line.
 import Link from "next/link";
 import { useState } from "react";
 
@@ -84,6 +84,22 @@ function RuledOut({ rows, now }: { rows: Chokepoint[]; now: Date }) {
   );
 }
 
+/** The board's heading, with the theme's latest memo on the right. */
+export function BoardHead({ run, now }: { run: WatchRun | null; now: Date }) {
+  return (
+    <div className="board-head">
+      <h2 className="reader-label" id="board-title">
+        Chokepoints
+      </h2>
+      {run ? (
+        <Link className="board-memo" href={routes.watchRun(run.id)}>
+          Memo · {plainDay(run.run_date, now)} <span aria-hidden="true">→</span>
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
 export function Board({
   items,
   run,
@@ -94,21 +110,12 @@ export function Board({
   run?: WatchRun | null;
   now?: Date;
 }) {
-  if (items.length === 0) return null;
+  if (items.length === 0 && !run) return null;
   const groups = boardGroups(items);
   return (
     <section id="board" className="board" aria-labelledby="board-title">
-      <div className="board-head">
-        <h2 className="reader-label" id="board-title">
-          Chokepoints
-        </h2>
-        {run ? (
-          <Link className="board-memo" href={routes.watchRun(run.id)}>
-            Memo · {plainDay(run.run_date, now)} <span aria-hidden="true">→</span>
-          </Link>
-        ) : null}
-      </div>
-      <PipLegend />
+      <BoardHead run={run ?? null} now={now} />
+      {items.length === 0 ? <p className="board-empty">Nothing on the board yet.</p> : <PipLegend />}
       <Group id="board-ready" title="Thesis-ready" rows={groups.ready} now={now} />
       <Group id="board-candidates" title="Candidates" rows={groups.candidates} now={now} />
       <Group id="board-spotted" title="Spotted" rows={groups.spotted} now={now} limit={SPOTTED_SHOWN} />
