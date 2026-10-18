@@ -1,0 +1,188 @@
+{
+ "company_id": "552b3120-cb7a-5d85-91e4-ec0f6d1a3148",
+ "as_of": "2026-10-18T19:08:11.690473Z",
+ "checks": [
+  {
+   "status": "flag",
+   "unknown_reason": null,
+   "summary": "Shares outstanding rose 28% in a year.",
+   "basis": "dei:EntityCommonStockSharesOutstanding: 89,700,000 at 2026-08-14 against 69,900,000 at 2025-08-12, +28.33%; flag above +10%",
+   "sources": [
+    {
+     "kind": "financial_observation",
+     "observation_id": "68b8e2b3-eca9-4008-9765-56052d7630f9",
+     "concept": "dei:EntityCommonStockSharesOutstanding",
+     "period_end": "2026-08-14",
+     "value": "89700000",
+     "source_version_id": null,
+     "form_type": null,
+     "available_at": "2026-08-17T20:03:17Z",
+     "parser_version": null,
+     "char_start": null,
+     "char_end": null,
+     "quote": null
+    },
+    {
+     "kind": "financial_observation",
+     "observation_id": "90fde616-8960-4105-96fb-70a7403241ad",
+     "concept": "dei:EntityCommonStockSharesOutstanding",
+     "period_end": "2025-08-12",
+     "value": "69900000",
+     "source_version_id": null,
+     "form_type": null,
+     "available_at": "2025-08-20T03:59:59Z",
+     "parser_version": null,
+     "char_start": null,
+     "char_end": null,
+     "quote": null
+    }
+   ],
+   "key": "dilution",
+   "value": {
+    "concept": "dei:EntityCommonStockSharesOutstanding",
+    "shares": 89700000,
+    "shares_as_of": "2026-08-14",
+    "shares_year_earlier": 69900000,
+    "year_earlier_as_of": "2025-08-12",
+    "growth_pct": 28.33
+   }
+  },
+  {
+   "status": "unknown",
+   "unknown_reason": "form_not_collected",
+   "summary": "Not known: the company's shelf filings are not collected.",
+   "basis": "form not ingested: Atlas ingests 10-K, 10-Q and 8-K, and holds no S-3, S-3ASR, F-3, S-1 or 424B5 of this company in the 365 days before the as-of time, which is not evidence that there was none",
+   "sources": [],
+   "key": "shelf_or_atm",
+   "value": null
+  },
+  {
+   "status": "unknown",
+   "unknown_reason": "not_comparable",
+   "summary": "Not known: there are not four comparable quarters, this year and a year earlier.",
+   "basis": "fewer than four consecutive quarters of revenue and gross profit ending 2026-06-27",
+   "sources": [],
+   "key": "gaap_gross_margin",
+   "value": null
+  },
+  {
+   "status": "flag",
+   "unknown_reason": null,
+   "summary": "One customer is 26.6% of revenue.",
+   "basis": "1 sentence(s) or table row(s) of the latest annual report (10-K public 2026-08-17) give a customer's current-period share of revenue as 25% or more; flag at 25%",
+   "sources": [
+    {
+     "kind": "source_version",
+     "observation_id": null,
+     "concept": null,
+     "period_end": null,
+     "value": null,
+     "source_version_id": "ff625442-57a2-4c86-8c30-73cad5de112f",
+     "form_type": "10-K",
+     "available_at": "2026-08-17T20:03:17Z",
+     "parser_version": "text-v3",
+     "char_start": 27835,
+     "char_end": 27866,
+     "quote": "Customer A\t26.6\t%\t15.4\t%\t18.9\t%"
+    }
+   ],
+   "key": "customer_concentration",
+   "value": {
+    "document": {
+     "source_version_id": "ff625442-57a2-4c86-8c30-73cad5de112f",
+     "form": "10-K"
+    },
+    "current_percent": 26.6,
+    "matches": [
+     {
+      "percents": [
+       26.6,
+       15.4,
+       18.9
+      ],
+      "current_percent": 26.6,
+      "lower_bound": false,
+      "char_start": 27835,
+      "char_end": 27866,
+      "quote": "Customer A\t26.6\t%\t15.4\t%\t18.9\t%"
+     }
+    ],
+    "top_customers_share": [],
+    "no_customer_above": []
+   }
+  },
+  {
+   "status": "clear",
+   "unknown_reason": null,
+   "summary": "The latest report does not raise going-concern doubt.",
+   "basis": "the whole latest periodic report (10-K public 2026-08-17) was read and has no sentence naming substantial doubt about the ability to continue as a going concern",
+   "sources": [],
+   "key": "going_concern",
+   "value": {
+    "document": {
+     "source_version_id": "ff625442-57a2-4c86-8c30-73cad5de112f",
+     "form": "10-K"
+    },
+    "sentences": 0,
+    "negated_sentences": 0,
+    "hedged_only": false
+   }
+  },
+  {
+   "status": "clear",
+   "unknown_reason": null,
+   "summary": "Cash exceeds debt by 406.1 million (USD).",
+   "basis": "balance sheet at 2026-06-27: cash 2,043,500,000 - debt 1,637,400,000 [DebtLongtermAndShorttermCombinedAmount (the current LongTermDebtCurrent = ShortTermBorrowings and noncurrent LongTermDebtNoncurrent add up to it)] = 406,100,000 (USD); no flag: net cash; no short-term investments tagged, counted as none",
+   "sources": [
+    {
+     "kind": "financial_observation",
+     "observation_id": "ecd81e3e-3c7b-4503-aca2-c0f92ad82e35",
+     "concept": "us-gaap:CashAndCashEquivalentsAtCarryingValue",
+     "period_end": "2026-06-27",
+     "value": "2043500000",
+     "source_version_id": null,
+     "form_type": null,
+     "available_at": "2026-08-17T20:03:17Z",
+     "parser_version": null,
+     "char_start": null,
+     "char_end": null,
+     "quote": null
+    },
+    {
+     "kind": "financial_observation",
+     "observation_id": "b69a78a4-a7b6-45b9-ba2a-939cfb44030c",
+     "concept": "us-gaap:DebtLongtermAndShorttermCombinedAmount",
+     "period_end": "2026-06-27",
+     "value": "1637400000",
+     "source_version_id": null,
+     "form_type": null,
+     "available_at": "2026-08-17T20:03:17Z",
+     "parser_version": null,
+     "char_start": null,
+     "char_end": null,
+     "quote": null
+    }
+   ],
+   "key": "net_cash",
+   "value": {
+    "unit": "USD",
+    "as_of_balance_sheet": "2026-06-27",
+    "net_cash": 406100000,
+    "cash": 2043500000,
+    "short_term_investments": null,
+    "debt": 1637400000,
+    "debt_concepts": [
+     "DebtLongtermAndShorttermCombinedAmount"
+    ]
+   }
+  }
+ ],
+ "flagged": [
+  "dilution",
+  "customer_concentration"
+ ],
+ "unknown": [
+  "shelf_or_atm",
+  "gaap_gross_margin"
+ ]
+}

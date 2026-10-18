@@ -125,6 +125,7 @@ for (const width of WIDTHS) {
       await page.goto("/companies/");
       await page.getByRole("link", { name: "Lumentum" }).click();
       await expect(page.getByRole("region", { name: "What Atlas believes" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Bear checks" }).getByRole("listitem")).toHaveCount(6);
       await checkSurface(page);
       await expect(page.locator("details.reader-records")).toHaveCount(1);
     });

@@ -13,6 +13,7 @@ import type {
   HypothesisVersion,
   Prediction,
   StepState,
+  UnknownReason,
   WatchRun,
 } from "./api/client";
 import { plainDay } from "./format";
@@ -348,12 +349,23 @@ export const BEAR_LABELS: Record<CheckKeyName, string> = {
   net_cash: "Net cash or debt",
 };
 
-/** Why a check is unknown, written here until W8's `unknown_reason`. */
-export const BEAR_UNKNOWN_REASONS: Record<CheckKeyName, string> = {
-  dilution: "no comparable share counts",
-  shelf_or_atm: "not in the filings Atlas collects",
-  gaap_gross_margin: "no usable quarterly figures",
-  customer_concentration: "no customer share stated",
-  going_concern: "no report fully read",
-  net_cash: "no complete balance sheet",
+/** Why Atlas cannot answer a check (the API's `unknown_reason`), in a few words after
+ * "Unknown ·". The API's `summary` says it in a sentence; this is the row's short form.
+ * `no_revenue` and `taxonomy_not_read` arrive with the W8 review; until the client is regenerated
+ * they are not yet in `UnknownReason`, and the enum test checks every value has words. */
+export const UNKNOWN_REASON_WORDS: Record<UnknownReason | "no_revenue" | "taxonomy_not_read", string> = {
+  form_not_collected: "not in the filings Atlas collects",
+  no_xbrl: "not in the company's financial data",
+  not_comparable: "nothing a year earlier to compare",
+  no_statement: "the report does not say",
+  partial_parse: "the report was only partly read",
+  stale_figure: "the latest figure is over 15 months old",
+  split_suspected: "looks like a stock split, not new shares",
+  several_share_classes: "several share classes that cannot be told apart",
+  ambiguous_debt_tags: "debt figures that do not add up",
+  debt_not_tagged: "debt not in the financial data",
+  no_parsed_text: "the report has no readable text",
+  not_english: "the report is not in English",
+  no_revenue: "no revenue to measure against",
+  taxonomy_not_read: "figures in a format Atlas does not read",
 };

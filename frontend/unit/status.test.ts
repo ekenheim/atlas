@@ -5,6 +5,8 @@ import { expect, test } from "@playwright/test";
 
 import type { HypothesisVersion, Prediction } from "../lib/api/client";
 import {
+  BEAR_LABELS,
+  BEAR_STATUS_WORDS,
   BELIEF_STATE_WORDS,
   BELOW_THE_BAR,
   BOARD_FILTER_WORDS,
@@ -19,6 +21,7 @@ import {
   PREDICTION_WORDS,
   STEP_MARKS,
   STEP_STATUS_WORDS,
+  UNKNOWN_REASON_WORDS,
   UNPRICED_REASONS,
   WATCH_MODE_WORDS,
   beliefWords,
@@ -242,4 +245,13 @@ test("the thesis gate's codes read as what is still needed", () => {
     expect(token).toMatch(/_|^unexamined$/);
     expect(word).not.toMatch(/_/);
   }
+});
+
+test("every bear check, check status and unknown reason has words", () => {
+  expect(sorted(Object.keys(BEAR_LABELS))).toEqual(sorted(enumOf("CheckKey")));
+  expect(sorted(Object.keys(BEAR_STATUS_WORDS))).toEqual(sorted(enumOf("CheckStatus")));
+  // Every reason the API sends has words (the map may run ahead of the schema by a review).
+  for (const reason of enumOf("UnknownReason")) expect(Object.keys(UNKNOWN_REASON_WORDS)).toContain(reason);
+  for (const words of Object.values(UNKNOWN_REASON_WORDS)) expect(words).not.toMatch(/_|XBRL/);
+  expect(BEAR_STATUS_WORDS.clear).toBeNull();
 });

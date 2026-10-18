@@ -1,0 +1,69 @@
+{
+ "company_id": "523bb6cf-102b-503b-90e4-05e4fcc965d2",
+ "as_of": "2026-10-18T19:08:11.811976Z",
+ "checks": [
+  {
+   "status": "unknown",
+   "unknown_reason": "no_xbrl",
+   "summary": "Not known: no share count is in the company's financial data.",
+   "basis": "shares outstanding cannot be compared with a year earlier: no share-count observation (dei or balance sheet)",
+   "sources": [],
+   "key": "dilution",
+   "value": null
+  },
+  {
+   "status": "unknown",
+   "unknown_reason": "form_not_collected",
+   "summary": "Not known: the company's shelf filings are not collected.",
+   "basis": "form not ingested: Atlas ingests 10-K, 10-Q and 8-K, and holds no S-3, S-3ASR, F-3, S-1 or 424B5 of this company in the 365 days before the as-of time, which is not evidence that there was none",
+   "sources": [],
+   "key": "shelf_or_atm",
+   "value": null
+  },
+  {
+   "status": "unknown",
+   "unknown_reason": "no_xbrl",
+   "summary": "Not known: no quarterly revenue and gross profit are in the company's financial data.",
+   "basis": "no quarterly revenue and gross profit (or cost of revenue) in XBRL",
+   "sources": [],
+   "key": "gaap_gross_margin",
+   "value": null
+  },
+  {
+   "status": "unknown",
+   "unknown_reason": "form_not_collected",
+   "summary": "Not known: the company's annual report is not collected.",
+   "basis": "no 10-K or 20-F of this company is in the ledger as of the as-of time",
+   "sources": [],
+   "key": "customer_concentration",
+   "value": null
+  },
+  {
+   "status": "unknown",
+   "unknown_reason": "form_not_collected",
+   "summary": "Not known: the company's periodic reports are not collected.",
+   "basis": "no 10-K, 10-Q, 20-F or 40-F of this company is in the ledger as of the as-of time",
+   "sources": [],
+   "key": "going_concern",
+   "value": null
+  },
+  {
+   "status": "unknown",
+   "unknown_reason": "no_xbrl",
+   "summary": "Not known: no cash balance is in the company's financial data.",
+   "basis": "no cash and cash equivalents in XBRL",
+   "sources": [],
+   "key": "net_cash",
+   "value": null
+  }
+ ],
+ "flagged": [],
+ "unknown": [
+  "dilution",
+  "shelf_or_atm",
+  "gaap_gross_margin",
+  "customer_concentration",
+  "going_concern",
+  "net_cash"
+ ]
+}

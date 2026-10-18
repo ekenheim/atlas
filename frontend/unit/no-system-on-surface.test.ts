@@ -30,6 +30,7 @@ const SURFACE = [
   "components/chokepoint-steps.tsx",
   "components/watch-section.tsx",
   "components/memo.tsx",
+  "components/bear-checks.tsx",
 ];
 
 const FORBIDDEN: [string, RegExp][] = [

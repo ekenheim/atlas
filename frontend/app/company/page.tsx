@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { Suspense, useState } from "react";
 
+import { BearChecks } from "../../components/bear-checks";
+import { BearChecksRecords } from "../../components/bear-checks-records";
 import { DueList } from "../../components/due-list";
 import { EdgeList } from "../../components/edge-list";
 import { QuestionRows } from "../../components/question-rows";
@@ -23,7 +25,7 @@ import { argumentOf } from "../../lib/argument";
 import { SOURCE_ROWS, filterByType, typeChips, typeName } from "../../lib/company-sources";
 import { datedTitle, evidenceDay, groupDigits, period } from "../../lib/format";
 import { companyRows, formatCount, plural } from "../../lib/memory";
-import { COMPANY_LAYERS } from "../../lib/relationships";
+import { layerName } from "../../lib/chokepoints";
 import { companyQuestions, hypothesisByInvestigation } from "../../lib/research-index";
 import { routes } from "../../lib/routes";
 import { useApi, useIdParam } from "../../lib/use-api";
@@ -62,7 +64,7 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
   const { company } = dossier;
   const listing = company.securities[0];
   const kicker = [
-    company.layer ? COMPANY_LAYERS[company.layer] : null,
+    company.layer ? layerName(company.layer) : null,
     listing?.ticker ?? null,
   ].filter((part) => part !== null);
   const facts = [company.country, listing?.exchange_mic].filter((part) => part);
@@ -105,11 +107,13 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
         )}
       </section>
 
+      <BearChecks companyId={company.id} />
       <OnThisCompany companyId={company.id} now={now} />
       <LatestDocuments sources={dossier.sources} total={dossier.source_total} />
 
       <RecordsFold counts={`${plural(edgeCount, "relationship")}, ${plural(dossier.source_total, "source")}`}>
         <InTheResearch companyId={company.id} />
+        <BearChecksRecords companyId={company.id} />
         <section aria-labelledby="found">
           <h2 id="found">What Atlas found</h2>
           {findings.groups.length === 0 ? (
@@ -158,7 +162,7 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
                   <Missing />
                 )}
               </Row>
-              <Row name="Layer">{company.layer ? COMPANY_LAYERS[company.layer] : <Missing />}</Row>
+              <Row name="Layer">{company.layer ? layerName(company.layer) : <Missing />}</Row>
               <Row name="Source path">
                 {company.source_path ? <Code>{company.source_path}</Code> : <Missing />}
               </Row>
