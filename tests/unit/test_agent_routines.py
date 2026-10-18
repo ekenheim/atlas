@@ -197,3 +197,57 @@ def test_the_scout_reads_the_ranked_signal_leads_before_the_newest_documents():
         "3. `newest_documents` for the theme"
     )
     assert "never a Fact" in scout
+
+
+# --- The Chokepoint Watch's wrapper (ticket W2) -----------------------------------------------
+
+# Tools its Tools line names that the server does not list on this branch. TEMPORARY: built on
+# ticket/w3-sources (`filing_search`, `web_search`, `fetch_page`) and ticket/w4-bear-checks
+# (`bear_checks`); removed at integration, when the server lists them and this set must be empty.
+WATCH_TOOLS_BUILT_ON_OTHER_BRANCHES = {"filing_search", "web_search", "fetch_page", "bear_checks"}
+
+
+def test_the_watch_wrapper_names_only_tools_the_server_has_or_the_other_branches_build():
+    listed = wrapper_tools("watch")
+    assert len(listed) >= 15
+    assert len(listed) == len(set(listed)), "a tool listed twice"
+    missing = set(listed) - registry()
+    assert missing <= WATCH_TOOLS_BUILT_ON_OTHER_BRANCHES, sorted(
+        missing - WATCH_TOOLS_BUILT_ON_OTHER_BRANCHES
+    )
+    # The allow-set is no cover for a tool that exists: once the server lists one, it comes out.
+    assert not WATCH_TOOLS_BUILT_ON_OTHER_BRANCHES & registry(), (
+        "the server lists a tool the temporary allow-set still names: remove it from the set"
+    )
+    # The board's own tools (W1) and the ones the Watch reads with exist already.
+    assert {
+        "board",
+        "get_chokepoint",
+        "add_chokepoint",
+        "update_chokepoint",
+        "write_memo",
+        "list_issues",
+        "upcoming_reports",
+        "newest_documents",
+        "signal_leads",
+        "recall",
+    } <= registry()
+
+
+def test_the_watch_wrapper_names_its_actor_and_every_placeholder_run_sh_fills():
+    text = (PROMPTS_DIR / "watch.md").read_text(encoding="utf-8")
+    assert "Pass it to `open_session` unchanged, with `actor: atlas-watch`" in text
+    for placeholder in (
+        "{{THEME}}",
+        "{{AS_OF}}",
+        "{{MODE}}",
+        "{{SINCE}}",
+        "{{DEMAND_DRIVER}}",
+        "{{CALL_BOUND}}",
+        "{{OUT_DIR}}",
+    ):
+        assert placeholder in text, placeholder
+    # It publishes nothing and gives no trade view; the Tools line is the last line.
+    assert "You publish nothing" in text
+    assert "no buy or sell language" in text
+    assert text.rstrip().splitlines()[-1].startswith("Tools: ")

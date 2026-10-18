@@ -10,6 +10,9 @@ It prints `port N` on its first line and serves, from the JSON config:
 - `GET /api/v1/companies` -> `{"items": config.companies}`
 - `GET /api/v1/sessions?limit=&offset=` -> a page of `config.sessions` (newest first as given)
   with its `total`; `config.sessions_status` (default 200) is the status it answers with
+- `GET /api/v1/watch-runs?theme=&limit=` -> `{"items": ...}`: the newest `config.watch_runs` of the
+  theme (`{"theme", "run_date", ...}`, newest first as given); `config.watch_runs_status` (default
+  200) is the status it answers with (the Watch's mode and since date, ticket W2)
 - `POST /api/v1/sessions` -> appends the request body as one line to POSTS.jsonl and answers
   `config.post_status` (default 201) with `{"id": config.post_id, "isolated": config.post_isolated}`
 
@@ -60,6 +63,15 @@ class Handler(BaseHTTPRequestHandler):
                     "offset": offset,
                 },
             )
+        elif url.path == "/api/v1/watch-runs":
+            theme = query.get("theme", [None])[0]
+            limit = int(query.get("limit", ["50"])[0])
+            runs = [
+                each
+                for each in CONFIG.get("watch_runs", [])
+                if theme is None or each.get("theme") == theme
+            ]
+            self.send(CONFIG.get("watch_runs_status", 200), {"items": runs[:limit]})
         else:
             self.send(404, {"error": {"code": "not_found"}})
 
