@@ -28,7 +28,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Connection, Engine, text
 
 from atlas.audit import Actor, content_hash, record
-from atlas.companies import Layer, Universe, company_id_from, default_slug
+from atlas.companies import CompanyLayer, Universe, company_id_from, default_slug
 from atlas.identity import Resolution
 from atlas.jobs.queue import JobQueue
 from atlas.ledger.ingest import INGEST_KIND, ingest_payload
@@ -104,7 +104,7 @@ class CandidateCommit(BaseModel):
     slug: str | None = Field(default=None, pattern=_SLUG, max_length=64)
     display_name: str | None = Field(default=None, min_length=1, max_length=200, pattern=r"\S")
     country: str | None = Field(default=None, pattern=r"^[A-Z]{2}$")
-    layer: Layer | None = None
+    layer: CompanyLayer | None = None
     cik: str | None = Field(
         default=None,
         pattern=r"^[0-9]{10}$",

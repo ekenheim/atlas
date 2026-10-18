@@ -39,6 +39,17 @@ PHOTONICS = {
     "fabrinet": ("contract-manufacturing", "sec", "0001408710", None),
     "ciena": ("system", "sec", "0000936395", None),
 }
+# The memory-packaging theme's SEC-path seeds (the same shape), identities from the seed list
+# (docs/research/seed-list-memory-packaging.md), never from the config the code reads.
+MEMORY_PACKAGING = {
+    "micron": ("memory-dram", "sec", "0000723125", None),
+    "sk-hynix": ("memory-dram", "sec", "0002120882", ["F-1", "424B4", "6-K", "20-F"]),
+    "sandisk": ("memory-nand", "sec", "0002023554", None),
+    "camtek": ("process-control", "sec", "0001109138", ["20-F", "6-K"]),
+    "formfactor": ("test", "sec", "0001039399", None),
+    "ase-technology": ("osat", "sec", "0001122411", ["20-F", "6-K"]),
+    "amkor": ("osat", "sec", "0001047127", None),
+}
 # SEC's ticker files map these to Soitec, IQE and Innolight, but they hold only depositary
 # F-6EF registrations for unsponsored ADRs (seed-list finding 3).
 UNSPONSORED_ADR_CIKS = {
@@ -149,6 +160,7 @@ def test_the_photonics_theme_seeds_the_twelve_companies_with_layer_and_source_pa
     assert {
         slug: (c["layer"], c["source_path"], c["cik"], c["sec_forms"])
         for slug, c in companies.items()
+        if slug in PHOTONICS
     } == PHOTONICS
     assert companies["stmicroelectronics"]["legal_name"] == "STMicroelectronics N.V."
     assert companies["innolight"]["country"] == "CN"
@@ -156,14 +168,49 @@ def test_the_photonics_theme_seeds_the_twelve_companies_with_layer_and_source_pa
     assert (one["layer"], one["source_path"]) == ("substrate", "exchange:amf")
 
 
+def test_the_memory_packaging_theme_seeds_the_seven_sec_path_companies(
+    universe: Universe,
+) -> None:
+    universe.seed()
+
+    companies = universe.companies()
+    assert set(companies) == set(PHOTONICS) | set(MEMORY_PACKAGING)
+    assert {
+        slug: (c["layer"], c["source_path"], c["cik"], c["sec_forms"])
+        for slug, c in companies.items()
+        if slug in MEMORY_PACKAGING
+    } == MEMORY_PACKAGING
+    assert companies["sk-hynix"]["country"] == "KR"
+    assert companies["ase-technology"]["country"] == "TW"
+    one = universe.get(f"/api/v1/companies/{companies['micron']['id']}")
+    assert (one["layer"], one["legal_name"]) == ("memory-dram", "Micron Technology, Inc.")
+    themes = {theme["id"]: theme for theme in universe.get("/api/v1/themes")}
+    assert sorted(themes) == ["memory-packaging", "photonics"]
+    assert themes["memory-packaging"]["company_count"] == 7
+    assert universe.get("/api/v1/themes/memory-packaging/map")["theme"]["id"] == "memory-packaging"
+
+
+def test_a_company_with_a_layer_outside_its_theme_s_is_refused(universe: Universe) -> None:
+    # Micron is memory-packaging's; `substrate` is photonics' (package-substrate is the memory
+    # theme's own), so the theme config is refused at load, naming the company and the theme.
+    wrong = theme_config(universe.tmp_path, {"micron": {"layer": "substrate"}})
+
+    result = universe.cli("companies", "seed", themes=wrong)
+
+    assert result.returncode == 2
+    assert "micron" in result.stderr and "'substrate'" in result.stderr
+    assert "memory-packaging" in result.stderr and "memory-dram" in result.stderr
+    assert universe.count("company") == 0
+
+
 def test_seeding_again_changes_nothing_and_audits_nothing(universe: Universe) -> None:
     first = universe.seed()
     events = universe.count("audit_event")
     second = universe.seed()
 
-    # 12 companies plus Lumentum's one security, each created once.
-    assert sum(each["changes"] for each in first) == events == 13
-    assert [each["changes"] for each in second] == [0] * 12
+    # 19 companies (both themes) plus Lumentum's one security, each created once.
+    assert sum(each["changes"] for each in first) == events == 20
+    assert [each["changes"] for each in second] == [0] * 19
     assert universe.count("audit_event") == events
 
 

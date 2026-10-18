@@ -1,7 +1,7 @@
 # 20a: The second theme's configuration (memory and packaging, the SEC-path seeds)
 
 Type: build
-Status: ready-for-agent
+Status: in-review
 Parent: [20](20-the-second-theme.md)
 
 ## Why
@@ -24,8 +24,8 @@ Ticket 20 needs a second theme Atlas can ingest and a session can research. Six 
 
 ## Acceptance criteria
 
-- [ ] The universe loads with both themes; the seven seeds have CIKs from the seed list, `source_path: sec`, layers of the new theme.
-- [ ] A company with a layer outside its theme's list is refused at load, with a message naming both.
+- [x] The universe loads with both themes; the seven seeds have CIKs from the seed list, `source_path: sec`, layers of the new theme.
+- [x] A company with a layer outside its theme's list is refused at load, with a message naming both.
 - [ ] `GET /api/v1/themes` and `GET /api/v1/themes/{id}/map` work for `memory-packaging` (an empty theme map is fine).
 - [ ] Every theme-taking MCP tool and the settle benchmark keep photonics' answers unchanged and answer for the second theme by its own companies.
-- [ ] `docs/decisions.md` entry; AGENTS.md's `atlas companies seed` line names both themes.
+- [x] `docs/decisions.md` entry; AGENTS.md's `atlas companies seed` line names both themes.

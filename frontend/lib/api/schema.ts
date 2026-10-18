@@ -2912,7 +2912,7 @@ export interface components {
             display_name?: string | null;
             /** Country */
             country?: string | null;
-            layer?: components["schemas"]["Layer"] | null;
+            layer?: components["schemas"]["CompanyLayer"] | null;
             /**
              * Cik
              * @description which of the resolution's SEC entities, when it offered several
@@ -4152,7 +4152,7 @@ export interface components {
             country: string | null;
             /** Website */
             website: string | null;
-            layer: components["schemas"]["Layer"] | null;
+            layer: components["schemas"]["CompanyLayer"] | null;
             source_path: components["schemas"]["SourcePath"] | null;
             /** Sec Forms */
             sec_forms: string[] | null;
@@ -4322,6 +4322,8 @@ export interface components {
             /** One Entity */
             one_entity: boolean;
         };
+        /** @enum {string} */
+        CompanyLayer: "substrate" | "epi" | "chip-laser" | "dsp" | "module" | "contract-manufacturing" | "system" | "memory-dram" | "memory-nand" | "controller" | "bond-equipment" | "process-control" | "test" | "osat" | "package-substrate" | "package-materials";
         /** CompanyRef */
         CompanyRef: {
             /**
@@ -11127,7 +11129,7 @@ export interface components {
             legal_name: string;
             /** Country */
             country: string;
-            layer: components["schemas"]["Layer"] | null;
+            layer: components["schemas"]["CompanyLayer"] | null;
             source_path: components["schemas"]["SourcePath"];
             /**
              * Seeded
@@ -11182,7 +11184,7 @@ export interface components {
         };
         /** ThemeLayer */
         ThemeLayer: {
-            layer: components["schemas"]["Layer"];
+            layer: components["schemas"]["CompanyLayer"];
             /**
              * Covers
              * @description what the layer holds
@@ -11254,7 +11256,7 @@ export interface components {
              * Empty Layers
              * @description layers with no company in the theme
              */
-            empty_layers: components["schemas"]["Layer"][];
+            empty_layers: components["schemas"]["CompanyLayer"][];
             /** Relationship Count */
             relationship_count: number;
             /**

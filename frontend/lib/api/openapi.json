@@ -11666,7 +11666,7 @@
           "layer": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/Layer"
+                "$ref": "#/components/schemas/CompanyLayer"
               },
               {
                 "type": "null"
@@ -14766,7 +14766,7 @@
           "layer": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/Layer"
+                "$ref": "#/components/schemas/CompanyLayer"
               },
               {
                 "type": "null"
@@ -15224,6 +15224,27 @@
           "one_entity"
         ],
         "title": "CompanyEntities"
+      },
+      "CompanyLayer": {
+        "type": "string",
+        "enum": [
+          "substrate",
+          "epi",
+          "chip-laser",
+          "dsp",
+          "module",
+          "contract-manufacturing",
+          "system",
+          "memory-dram",
+          "memory-nand",
+          "controller",
+          "bond-equipment",
+          "process-control",
+          "test",
+          "osat",
+          "package-substrate",
+          "package-materials"
+        ]
       },
       "CompanyRef": {
         "properties": {
@@ -33784,7 +33805,7 @@
           "layer": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/Layer"
+                "$ref": "#/components/schemas/CompanyLayer"
               },
               {
                 "type": "null"
@@ -33914,7 +33935,7 @@
       "ThemeLayer": {
         "properties": {
           "layer": {
-            "$ref": "#/components/schemas/Layer"
+            "$ref": "#/components/schemas/CompanyLayer"
           },
           "covers": {
             "type": "string",
@@ -34054,7 +34075,7 @@
           },
           "empty_layers": {
             "items": {
-              "$ref": "#/components/schemas/Layer"
+              "$ref": "#/components/schemas/CompanyLayer"
             },
             "type": "array",
             "title": "Empty Layers",

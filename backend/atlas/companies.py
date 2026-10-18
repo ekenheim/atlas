@@ -20,7 +20,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, get_args
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
@@ -52,9 +52,32 @@ class SecurityConfig(_Config):
     figi: str | None = None
 
 
-# A company's primary layer in the photonics supply chain (spec Phases 3-6a, "Theme config").
+# A photonics supply-chain layer (spec Phases 3-6a, "Theme config"): also the Claim layer
+# taxonomy's set of names (`atlas.claims.LAYERS`). Claims, edges and the research bank's layer
+# labels are photonics-only (docs/decisions.md, "The second theme: layers per theme, the Claim
+# taxonomy stays photonics'").
 type Layer = Literal[
     "substrate", "epi", "chip-laser", "dsp", "module", "contract-manufacturing", "system"
+]
+# A company's layer is its theme's: photonics' seven, then the second theme's nine (memory and
+# advanced packaging; `package-substrate` is not photonics' `substrate`).
+type CompanyLayer = Literal[
+    "substrate",
+    "epi",
+    "chip-laser",
+    "dsp",
+    "module",
+    "contract-manufacturing",
+    "system",
+    "memory-dram",
+    "memory-nand",
+    "controller",
+    "bond-equipment",
+    "process-control",
+    "test",
+    "osat",
+    "package-substrate",
+    "package-materials",
 ]
 # Where a company's primary disclosures come from: SEC EDGAR, or its exchange's feed.
 type SourcePath = Literal["sec", "exchange:hkex", "exchange:fca-nsm", "exchange:amf"]
@@ -88,7 +111,7 @@ class CompanyConfig(_Config):
     lei: str | None = None
     country: str = Field(pattern=r"^[A-Z]{2}$")
     website: str | None = None
-    layer: Layer | None = None
+    layer: CompanyLayer | None = None
     source_path: SourcePath
     # The SEC forms to ingest (amendments included); None means the adapter's default
     # (10-K, 10-Q, 8-K). A foreign private issuer files 20-F/6-K instead.
@@ -118,10 +141,33 @@ class CompanyConfig(_Config):
         return self
 
 
+class ThemeLayerConfig(_Config):
+    """One layer of a theme's supply chain, as the Theme explorer lists it."""
+
+    name: CompanyLayer
+    covers: str = Field(min_length=1)  # what the layer holds
+
+
 class ThemeConfig(_Config):
     title: str = Field(min_length=1)
     description: str = ""
     companies: tuple[str, ...]
+    # The theme's layers, upstream to downstream. None: photonics' (`Layer`). A theme with a
+    # supply chain of its own lists them, and its companies' layers must be among them.
+    layers: tuple[ThemeLayerConfig, ...] | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def _layers_once(self) -> Self:
+        names = [layer.name for layer in self.layers or ()]
+        if len(names) != len(set(names)):
+            raise ValueError("a theme lists a layer twice")
+        return self
+
+    def layer_names(self) -> tuple[str, ...]:
+        """The layers a company of this theme may have."""
+        if self.layers is None:
+            return get_args(Layer.__value__)
+        return tuple(layer.name for layer in self.layers)
 
 
 class Universe(_Config):
@@ -144,6 +190,14 @@ class Universe(_Config):
             unknown = [c for c in theme.companies if c not in self.companies]
             if unknown:
                 raise ValueError(f"theme {slug!r} names unknown companies: {', '.join(unknown)}")
+            allowed = theme.layer_names()
+            for member in theme.companies:
+                layer = self.companies[member].layer
+                if layer is not None and layer not in allowed:
+                    raise ValueError(
+                        f"company {member!r} has layer {layer!r}, which is not one of theme"
+                        f" {slug!r} layers ({', '.join(allowed)})"
+                    )
         ciks = [c.cik for c in self.companies.values() if c.cik]
         if len(ciks) != len(set(ciks)):
             raise ValueError("two companies share a CIK")
@@ -441,7 +495,7 @@ class Company(BaseModel):
     lei: str | None
     country: str | None = Field(description="None only for a counterparty no registry placed")
     website: str | None
-    layer: Layer | None
+    layer: CompanyLayer | None
     source_path: SourcePath | None
     sec_forms: list[str] | None
     parent_company_id: uuid.UUID | None

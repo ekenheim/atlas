@@ -1,6 +1,6 @@
 // The edge table's vocabulary and its URL state: filters and sort live in the page's
 // query string, so a filtered, sorted table can be reloaded, bookmarked and linked.
-import type { Layer, RelationshipQuery, RelationshipState } from "./api/client";
+import type { CompanyLayer, Layer, RelationshipQuery, RelationshipState } from "./api/client";
 
 /** The photonics layers, upstream to downstream, as the API sorts them. */
 export const LAYERS: Record<Layer, string> = {
@@ -11,6 +11,23 @@ export const LAYERS: Record<Layer, string> = {
   module: "Module",
   "contract-manufacturing": "Contract manufacturing",
   system: "System",
+};
+
+/**
+ * A company's layer is its theme's: photonics' (above) and the memory-packaging theme's own.
+ * Edges and Claims carry photonics' layers only (`LAYERS`).
+ */
+export const COMPANY_LAYERS: Record<CompanyLayer, string> = {
+  ...LAYERS,
+  "memory-dram": "Memory: DRAM and HBM",
+  "memory-nand": "Memory: NAND",
+  controller: "Controller",
+  "bond-equipment": "Bond equipment",
+  "process-control": "Process control",
+  test: "Test",
+  osat: "OSAT",
+  "package-substrate": "Package substrate",
+  "package-materials": "Package materials",
 };
 
 /** The edge table's layer filter: a layer, or `none` for the edges that have no layer. */
