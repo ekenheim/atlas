@@ -10,6 +10,7 @@ Read `.claude/skills/atlas-research/SKILL.md` and do what it says. It is the who
 - Theme: {{THEME}}
 - {{SEEDS_INPUT}}
 - As-of time: {{AS_OF}} (the start of this run; pass it to `open_session` unchanged)
+- Actor: pass `actor: atlas-researcher` to `open_session`
 - Output folder: {{OUT_DIR}} (create it; write the files `SKILL.md` lists there)
 - {{START_INPUT}}
 - {{RECALL_INPUT}}

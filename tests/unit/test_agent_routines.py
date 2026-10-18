@@ -68,6 +68,15 @@ def wrapper_tools(routine: str) -> list[str]:
     return [word.strip() for word in lines[0].removeprefix("Tools: ").split(",")]
 
 
+@pytest.mark.parametrize("routine", ROUTINES)
+def test_a_routine_wrapper_names_the_actor_to_open_its_session_with(routine: str):
+    # Ticket 31 reads a session's agent from its actor, so each routine opens its session as
+    # `atlas-<routine>`, beside the as-of line.
+    lines = (PROMPTS_DIR / f"{routine}.md").read_text(encoding="utf-8").splitlines()
+    as_of = next(index for index, line in enumerate(lines) if line.startswith("- As-of time:"))
+    assert lines[as_of + 1] == f"- Actor: pass `actor: atlas-{routine}` to `open_session`"
+
+
 def test_the_server_lists_tools():
     # Guards the registry the other tests lean on: a refactor that empties it must not make
     # every check below pass for want of anything to check.

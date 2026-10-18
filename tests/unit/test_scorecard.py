@@ -16,6 +16,7 @@ import copy
 import importlib.util
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -167,7 +168,14 @@ def test_a_run_is_read_as_the_session_its_own_beliefs_its_trace_and_its_document
     # Its two Beliefs; the other session's Belief of the same theme is not read.
     assert [b["statement"][:12] for b in bundle["beliefs"]] == ["Zephyr cut w", "Zephyr repor"]
     assert all(b["produced_by"] == run.session_id for b in bundle["beliefs"])
-    assert [c["tool"] for c in bundle["tool_calls"]][:3] == ["open_session", "prior_work", "search"]
+    assert [c["tool"] for c in bundle["tool_calls"]][:3] == ["companies", "get_fact", "search"]
+    # The window is Atlas's own: the session's created time to its close.
+    assert bundle["window"] == {
+        "start": "2026-10-20T05:00:30Z",
+        "end": "2026-10-20T05:30:00Z",
+        "source": "session closed",
+    }
+    assert bundle["other_sessions_in_window"] == []
     # A cited document's date comes with its citation; the 10-Q only a Fact quotes is asked for.
     assert bundle["version_dates"] == {
         "00000003-0000-4000-8000-000000000001": "2025-01-30T21:05:00Z",
@@ -581,3 +589,390 @@ def test_the_per_run_table_shows_the_pooled_percentile_the_runs_file_gave() -> N
     assert "| iren@2025-03-31 |" in text
     assert "| not in top 20 | 41% |" in text
     assert "- FP: 1 (a supply constraint the company holds, found on a negative" in text
+
+
+# --- ticket 29b: permission denials and the signs that a run left isolation -------------------
+
+SESSIONS: dict[str, Any] = json.loads((FIXTURES / "sessions.json").read_text(encoding="utf-8"))
+DENIED = str(FIXTURES / "claude-result-denied.json")
+CLEAN = str(FIXTURES / "claude-result-clean.json")
+WINDOW = {"started_at": "2026-10-20T05:00:00Z", "finished_at": "2026-10-20T05:30:00Z"}
+INSIDE = "00000008-0000-4000-8000-000000000004"  # created 05:10:00, not isolated
+
+
+def first_run_with(**change: Any) -> tuple[Any, Any]:
+    document = copy.deepcopy(RUNS)
+    document["runs"][0].update(change)
+    runs = sc.parse_runs(document)
+    return runs, runs.runs[0]
+
+
+def test_the_permission_denials_of_a_runs_result_are_counted_by_tool() -> None:
+    _, denied = first_run_with(result_file=DENIED)
+    _, clean = first_run_with(result_file=CLEAN)
+    _, unnamed = first_run_with()
+
+    assert sc.permission_denials(denied, None) == {"count": 3, "tools": ["Bash", "WebSearch"]}
+    assert sc.permission_denials(clean, None) == {"count": 0, "tools": []}
+    assert sc.permission_denials(unnamed, None) is None
+
+
+def test_a_relative_result_file_is_read_from_the_runs_files_folder() -> None:
+    _, run = first_run_with(result_file="claude-result-denied.json")
+
+    found = sc.permission_denials(run, FIXTURES)
+
+    assert found == {"count": 3, "tools": ["Bash", "WebSearch"]}
+
+
+def test_a_result_without_the_key_does_not_say_and_one_that_cannot_be_read_is_an_error(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "bare.json").write_text('{"type": "result"}', encoding="utf-8")
+    (tmp_path / "broken.json").write_text("not json", encoding="utf-8")
+    _, bare = first_run_with(result_file=str(tmp_path / "bare.json"))
+    _, broken = first_run_with(result_file=str(tmp_path / "broken.json"))
+    _, missing = first_run_with(result_file=str(tmp_path / "gone.json"))
+
+    assert sc.permission_denials(bare, None) == {"count": None, "tools": []}
+    with pytest.raises(sc.ScorecardError, match="cannot read the result file"):
+        sc.permission_denials(broken, None)
+    with pytest.raises(sc.ScorecardError, match="cannot read the result file"):
+        sc.permission_denials(missing, None)
+
+
+def test_the_sheet_and_the_report_name_the_permission_denials_and_their_tools() -> None:
+    runs, denied = first_run_with(result_file=DENIED)
+    sheet = sc.review_sheet(denied, sc.collect_bundle(get, denied))
+    result = sc.build_report(runs, bundles(runs), MARKS["marks"], MARKS["adjudications"])
+
+    assert "- Permission denials: 3 (Bash, WebSearch)" in sheet
+    feb = row(result, "sandisk@2025-02-28")
+    assert feb["permission_denials"] == {"count": 3, "tools": ["Bash", "WebSearch"]}
+    assert "permission denials: 3 (Bash, WebSearch)" in feb["flags"]
+    # Reported, not a reason to leave the run unscored.
+    assert feb["raw"] == "hit"
+    text = sc.render_report(result)
+    assert "Permission denials |" in text and "| 3 (Bash, WebSearch) |" in text
+    # No denial, no flag; a run with no result file says nothing, and the sheet says so.
+    runs, clean = first_run_with(result_file=CLEAN)
+    fine = sc.build_report(runs, bundles(runs), MARKS["marks"], MARKS["adjudications"])
+    assert row(fine, "sandisk@2025-02-28")["permission_denials"] == {"count": 0, "tools": []}
+    assert row(fine, "sandisk@2025-02-28")["flags"] == []
+    assert "- Permission denials: 0\n" in sc.review_sheet(clean, sc.collect_bundle(get, clean))
+    unnamed = sc.parse_runs(RUNS).runs[0]
+    sheet = sc.review_sheet(unnamed, sc.collect_bundle(get, unnamed))
+    assert "- Permission denials: not recorded" in sheet
+    assert row(report(), "sandisk@2025-02-28")["permission_denials"] is None
+
+
+def test_a_session_that_is_not_isolated_is_marked_not_scored_on_the_sheet_and_the_report() -> None:
+    loose = copy.deepcopy(API)
+    loose[f"/sessions/{RUNS['runs'][0]['session_id']}"]["isolated"] = False
+
+    def get_loose(path: str, **params: Any) -> Any:
+        answer = loose[path]
+        return copy.deepcopy(answer) if not params.get("offset") else {**answer, "items": []}
+
+    runs = sc.parse_runs(RUNS)
+    run = runs.runs[0]
+    bundle = sc.collect_bundle(get_loose, run)
+    outcome = sc.resolve_run(run, runs, bundle, MARKS["marks"], None)
+
+    assert "Isolated session: NO (not scored: flag it)" in sc.review_sheet(run, bundle)
+    assert outcome.not_scored == "the session was not isolated"
+    all_bundles = {each.label: sc.collect_bundle(get_loose, each) for each in runs.runs}
+    result = sc.build_report(runs, all_bundles, MARKS["marks"], MARKS["adjudications"])
+    assert row(result, "sandisk@2025-02-28")["raw"] is None
+    assert "not scored: the session was not isolated" in row(result, "sandisk@2025-02-28")["flags"]
+    assert result["positive_hits"] == "0 of 3"
+
+
+OWN = RUNS["runs"][0]["session_id"]
+
+
+def get_patched(
+    *,
+    session: dict[str, Any] | None = None,
+    trace: list[dict[str, Any]] | None = None,
+    sessions: dict[str, Any] | None = None,
+) -> Callable[..., Any]:
+    """The recorded answers, with the first run's session fields, its tool trace or the sessions
+    list changed (the sessions list is paged as Atlas pages it)."""
+    changed = copy.deepcopy(API)
+    changed[f"/sessions/{OWN}"].update(session or {})
+    if trace is not None:
+        changed[f"/sessions/{OWN}/tool-calls"] = trace
+    if sessions is not None:
+        changed["/sessions"] = sessions
+
+    def answer(path: str, **params: Any) -> Any:
+        page: Any = copy.deepcopy(changed[path])
+        if "items" in page:  # a page (a trace is a list)
+            start = params.get("offset", 0)
+            page["items"] = page["items"][start : start + params.get("limit", 50)]
+        return page
+
+    return answer
+
+
+def with_others() -> Callable[..., Any]:
+    """The first run's window holds `INSIDE`, another session, as well as its own."""
+    return get_patched(sessions=SESSIONS)
+
+
+def test_another_session_in_the_runs_window_is_listed_for_the_lead_and_the_run_stays_scored() -> (
+    None
+):
+    runs = sc.parse_runs(RUNS)
+    run = runs.runs[0]
+    fetch = with_others()
+
+    bundle = sc.collect_bundle(fetch, run)
+
+    # Its own session is not another; the ones before and after the window are outside it.
+    assert [each["id"] for each in bundle["other_sessions_in_window"]] == [INSIDE]
+    other = bundle["other_sessions_in_window"][0]
+    assert (other["isolated"], other["actor"], other["theme"]) == (
+        False,
+        "claude-session",
+        "photonics",
+    )
+    # Listed, not a reason to drop the run: the agent cannot open a session, so this is unrelated.
+    assert sc.resolve_run(run, runs, bundle, MARKS["marks"], None).not_scored is None
+    sheet = sc.review_sheet(run, bundle)
+    assert f"Other sessions opened during the run: 1: {INSIDE} (actor claude-session," in sheet
+    assert "theme photonics, not isolated) (the lead decides)" in sheet
+    result = sc.build_report(
+        runs,
+        {each.label: sc.collect_bundle(fetch, each) for each in runs.runs},
+        MARKS["marks"],
+        MARKS["adjudications"],
+    )
+    feb = row(result, "sandisk@2025-02-28")
+    assert feb["raw"] == "hit"
+    assert any(
+        flag.startswith("1 other session(s) opened during the run's window (the lead decides)")
+        for flag in feb["flags"]
+    )
+    text = sc.render_report(result)
+    assert "## Other sessions during a run" in text
+    window = "2026-10-20T05:00:30Z to 2026-10-20T05:30:00Z, from session closed"
+    assert f"- sandisk@2025-02-28 ({window}): {INSIDE} (actor claude-session" in text
+
+
+def test_a_window_with_no_other_session_says_none() -> None:
+    fetch = get_patched(session={"finished_at": "2026-10-20T05:05:00Z"}, sessions=SESSIONS)
+    runs = sc.parse_runs(RUNS)
+
+    bundle = sc.collect_bundle(fetch, runs.runs[0])
+
+    assert bundle["other_sessions_in_window"] == []
+    assert "Other sessions opened during the run: none" in sc.review_sheet(runs.runs[0], bundle)
+    assert "- none" in sc.render_report(report()).split("## Other sessions during a run")[1]
+
+
+def test_the_sessions_list_is_read_to_its_end() -> None:
+    seen: list[int] = []
+    inner = with_others()
+
+    def small_pages(path: str, **params: Any) -> Any:
+        if path == "/sessions":
+            seen.append(params["offset"])
+            return inner(path, **(params | {"limit": 2}))
+        return inner(path, **params)
+
+    window = {"start": "2026-10-20T04:00:00Z", "end": "2026-10-20T06:00:00Z"}
+
+    found = sc.sessions_in_window(small_pages, window, OWN)
+
+    assert [each["id"] for each in found] == [
+        "00000008-0000-4000-8000-000000000005",
+        INSIDE,
+        "00000008-0000-4000-8000-000000000002",
+    ]
+    assert seen == [0, 2]  # four sessions at two a page
+
+
+def test_the_window_is_atlas_s_own_the_session_s_close_else_its_last_call_else_the_runs_file() -> (
+    None
+):
+    run = sc.parse_runs(RUNS).runs[0]
+    session = API[f"/sessions/{OWN}"]
+    trace = API[f"/sessions/{OWN}/tool-calls"]
+
+    closed = sc.run_window(run, session, trace)
+    open_ = sc.run_window(run, {**session, "finished_at": None}, trace)
+    bare = sc.run_window(run, {**session, "finished_at": None}, [])
+
+    assert closed == {
+        "start": "2026-10-20T05:00:30Z",
+        "end": "2026-10-20T05:30:00Z",
+        "source": "session closed",
+    }
+    assert open_ == {
+        "start": "2026-10-20T05:00:30Z",
+        "end": "2026-10-20T05:09:00Z",  # the last recorded tool call
+        "source": "last tool call",
+    }
+    assert bare is None  # nothing in Atlas, nothing in the runs file
+    # The runs file is only a fallback, and its end is a second late (run.sh rounds it down).
+    _, with_file = first_run_with(**WINDOW)
+    fallback = sc.run_window(with_file, {**session, "finished_at": None}, [])
+    assert fallback == {
+        "start": "2026-10-20T05:00:30Z",
+        "end": "2026-10-20T05:30:01+00:00",
+        "source": "runs file",
+    }
+    # Atlas's times win over the runs file's.
+    assert sc.run_window(with_file, session, trace) == closed
+    no_start = sc.run_window(with_file, {**session, "started_at": None}, trace)
+    assert no_start is not None and no_start["start"] == "2026-10-20T05:00:00Z"
+
+
+def test_the_runs_file_window_ends_a_second_late_because_the_runner_rounds_it_down() -> None:
+    session = {**API[f"/sessions/{OWN}"], "finished_at": None, "started_at": None}
+
+    def ids(finished_at: str) -> list[str]:
+        _, run = first_run_with(started_at="2026-10-20T04:00:00Z", finished_at=finished_at)
+        window = sc.run_window(run, session, [])
+        assert window is not None
+        return [each["id"] for each in sc.sessions_in_window(with_others(), window, OWN)]
+
+    assert INSIDE in ids("2026-10-20T05:10:00Z")
+    assert INSIDE in ids("2026-10-20T05:09:59Z")  # 05:10:00 is within the second's slack
+    assert INSIDE not in ids("2026-10-20T05:09:58Z")
+
+
+def test_a_run_with_no_window_is_a_scoring_problem_not_a_footnote() -> None:
+    runs = sc.parse_runs(RUNS)
+    run = runs.runs[0]
+    fetch = get_patched(session={"started_at": None, "finished_at": None}, trace=[])
+
+    bundle = sc.collect_bundle(fetch, run)
+    outcome = sc.resolve_run(run, runs, bundle, MARKS["marks"], None)
+
+    assert bundle["window"] is None and bundle["other_sessions_in_window"] is None
+    assert outcome.not_scored == (
+        "no window: the session has no start or end time and the runs file none"
+    )
+    assert "not checked: no window (not scored)" in sc.review_sheet(run, bundle)
+    result = sc.build_report(
+        runs,
+        {
+            each.label: (bundle if each is run else sc.collect_bundle(get, each))
+            for each in runs.runs
+        },
+        MARKS["marks"],
+        MARKS["adjudications"],
+    )
+    feb = row(result, "sandisk@2025-02-28")
+    assert feb["raw"] is None
+    assert any(flag.startswith("not scored: no window") for flag in feb["flags"])
+    assert result["positive_hits"] == "0 of 3"
+
+
+def call(tool: str, outcome: str = "ok", at: str = "2026-10-20T05:20:00Z") -> dict[str, Any]:
+    return {
+        "id": "00000007-0000-4000-8000-0000000000ff",
+        "tool": tool,
+        "arguments": {},
+        "outcome": outcome,
+        "reason": None if outcome == "ok" else "isolated_session",
+        "at": at,
+    }
+
+
+def test_a_trace_with_a_tool_outside_the_twelve_makes_the_run_not_scored() -> None:
+    runs = sc.parse_runs(RUNS)
+    run = runs.runs[0]
+    trace = [
+        *API[f"/sessions/{OWN}/tool-calls"],
+        call("open_session"),
+        call("prior_work", "refused"),
+    ]
+
+    bundle = sc.collect_bundle(get_patched(trace=trace), run)
+    outcome = sc.resolve_run(run, runs, bundle, MARKS["marks"], None)
+
+    assert outcome.not_scored == (
+        "the trace shows tools outside the isolated list: open_session, prior_work"
+    )
+    result = sc.build_report(
+        runs,
+        {each.label: sc.collect_bundle(get_patched(trace=trace), each) for each in runs.runs[:1]}
+        | {each.label: sc.collect_bundle(get, each) for each in runs.runs[1:]},
+        MARKS["marks"],
+        MARKS["adjudications"],
+    )
+    feb = row(result, "sandisk@2025-02-28")
+    assert feb["raw"] is None
+    assert any("outside the isolated list: open_session, prior_work" in f for f in feb["flags"])
+    # A refused call to an isolated tool is still inside the list; the fixtures' traces are clean.
+    clean = [*API[f"/sessions/{OWN}/tool-calls"], call("recall", "refused")]
+    bundle = sc.collect_bundle(get_patched(trace=clean), run)
+    assert sc.resolve_run(run, runs, bundle, MARKS["marks"], None).not_scored is None
+
+
+def test_the_scorecards_twelve_tools_are_the_runners() -> None:
+    import re
+
+    text = (REPO / "agent" / "run.sh").read_text(encoding="utf-8")
+    match = re.search(r'^isolated_tools="([a-z_ ]+)"$', text, re.MULTILINE)
+    assert match is not None
+    assert list(sc.ISOLATED_TOOLS) == match.group(1).split()
+    assert len(sc.ISOLATED_TOOLS) == 12 and "open_session" not in sc.ISOLATED_TOOLS
+
+
+@pytest.mark.parametrize(
+    ("session", "wording"),
+    [
+        ({"model": "opus"}, "session model 'opus'"),
+        ({"model": None}, "session model None"),
+        ({"actor": "claude-session"}, "session actor 'claude-session'"),
+        (
+            {"model": "claude-fable-5-1", "actor": "atlas-scout"},
+            "session model 'claude-fable-5-1', session actor 'atlas-scout'",
+        ),
+    ],
+)
+def test_the_session_s_model_and_actor_in_atlas_must_be_the_frozen_ones(
+    session: dict[str, Any], wording: str
+) -> None:
+    runs = sc.parse_runs(RUNS)
+    run = runs.runs[0]
+
+    bundle = sc.collect_bundle(get_patched(session=session), run)
+    outcome = sc.resolve_run(run, runs, bundle, MARKS["marks"], None)
+
+    assert outcome.not_scored == f"another configuration than the frozen one: {wording}"
+    # The frozen configuration's model is the runs file's, so the fixtures' sessions pass.
+    assert runs.frozen["agent_model"] == "claude-opus-5-5"
+    assert (
+        sc.resolve_run(run, runs, sc.collect_bundle(get, run), MARKS["marks"], None).not_scored
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"started_at": "2026-10-20T05:00:00Z"}, "come together"),
+        ({"finished_at": "2026-10-20T05:00:00Z"}, "come together"),
+        (
+            {"started_at": "2026-10-20T05:30:00Z", "finished_at": "2026-10-20T05:00:00Z"},
+            "finished_at is before started_at",
+        ),
+        ({"started_at": "soon", "finished_at": "later"}, "is not an ISO time"),
+        ({"started_at": "2026-10-20T05:00:00", "finished_at": "2026-10-20T05:30:00"}, "no offset"),
+        ({"result_file": ""}, "non-empty string"),
+    ],
+)
+def test_a_window_or_result_file_that_does_not_fit_is_refused(
+    change: dict[str, Any], message: str
+) -> None:
+    document = copy.deepcopy(RUNS)
+    document["runs"][0].update(change)
+
+    with pytest.raises(sc.ScorecardError, match=message):
+        sc.parse_runs(document)

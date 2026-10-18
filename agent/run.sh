@@ -17,17 +17,21 @@
 #   ATLAS_AGENT_QUESTION      (researcher only) the question, verbatim: overrides `next_issue`
 #   ATLAS_AGENT_SEEDS         (researcher only) seed company slugs, comma-separated; needs the
 #                             question
-#   ATLAS_AGENT_ISOLATED      (researcher only) `true`: the prompt has the Researcher open an
-#                             isolated session (`open_session` with `isolated: true`; Atlas
-#                             enforces it); default false. The early-call scorecard's runs
-#                             (ticket 29): the lead passes all three and the exact model ID in
-#                             ATLAS_AGENT_MODEL
+#   ATLAS_AGENT_ISOLATED      (researcher only) `true`: run.sh itself opens an isolated Atlas
+#                             session (`POST /api/v1/sessions` with `isolated: true`, the theme,
+#                             the question, the seeds, the as-of time and the model; the run
+#                             fails if it cannot) BEFORE claude starts, and gives the Researcher
+#                             its id; `open_session` is not among its tools, so it cannot leave
+#                             isolation (ticket 29b). Needs the question. Default false. The
+#                             early-call scorecard's runs (ticket 29): `agent/scorecard-run.sh`
+#                             passes all of it and the exact model ID in ATLAS_AGENT_MODEL
 #   ATLAS_AGENT_TMP           the writable directory (default /tmp): the output folder is
 #                             $ATLAS_AGENT_TMP/out, the MCP config $ATLAS_AGENT_TMP/atlas-mcp.json
 #
-# Prints one JSON line to stdout (agent, session id, turns, cost, duration, the first 2,000
-# characters of the result) for the pod log; exits non-zero when the run failed. --dry-run prints
-# the command, the MCP config and the prompt, and calls nothing.
+# Prints one JSON line to stdout (agent, session id, the Atlas session id, turns, cost, duration,
+# started_at and finished_at in UTC, the first 2,000 characters of the result) for the pod log;
+# exits non-zero when the run failed. --dry-run prints the command, the MCP config and the
+# prompt, and calls nothing (no network: an isolated run shows a placeholder for the session id).
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -109,6 +113,7 @@ if [[ -n "$question" || -n "$seeds" || "$isolated" == true ]]; then
   [[ "$agent" == researcher ]] \
     || die "ATLAS_AGENT_QUESTION, ATLAS_AGENT_SEEDS and ATLAS_AGENT_ISOLATED are the researcher's"
 fi
+[[ "$isolated" == false || -n "$question" ]] || die "ATLAS_AGENT_ISOLATED needs ATLAS_AGENT_QUESTION"
 if [[ -n "$seeds" ]]; then
   [[ -n "$question" ]] || die "ATLAS_AGENT_SEEDS needs ATLAS_AGENT_QUESTION"
   seeds_re='^[a-z0-9][a-z0-9-]*(,[a-z0-9][a-z0-9-]*)*$'
@@ -148,11 +153,30 @@ if [[ -n "$question" ]]; then
 fi
 # An isolated session is allowed an explicit list of Atlas tools, not the whole server (the
 # scorecard's runs, ticket 29a): the Belief, Issue and prior-work tools are not among them, and
-# Atlas refuses them besides. The same list is the prompt's `Tools:` line and --allowedTools.
-isolated_tools="open_session close_session companies search read locate record_fact get_fact judge_statement relate_facts propose_belief cite_belief recall"
+# Atlas refuses most of them besides. `open_session` is not among them either (ticket 29b):
+# run.sh opens the session itself, so the agent cannot open another, non-isolated, one. The same
+# list is the prompt's `Tools:` line and --allowedTools. `off_list` is every other tool of the
+# server, named in the prompt (tests/unit/test_agent_run.py checks that the two lists together
+# are the server's tools, so a new tool cannot slip through unnamed).
+isolated_tools="close_session companies search read locate record_fact get_fact judge_statement relate_facts propose_belief cite_belief recall"
+off_list="open_session supersede_belief examine_belief list_beliefs get_belief prior_work open_issue narrow_issue complete_issue next_issue list_issues draft_hypothesis get_hypothesis signal_leads upcoming_reports newest_documents"
+# What the prompt shows in the session's place until run.sh has opened it (a dry run never does).
+session_ref="<the Atlas session id: run.sh opens it before you start>"
 if [[ "$isolated" == true ]]; then
-  start_block="Start: this is an isolated session (a replay of a past date), so pass \`isolated: true\` to \`open_session\`. Atlas gives an isolated session no prior work and records a Fact for every span you quote, so research from the archive: \`search\`, \`read\`, \`locate\`, \`record_fact\`."
-  recall_block="Recall: allowed for \`bank: research\` only: facts, never observations, an index to find sections to \`read\`, never evidence. Your tools are exactly the ones on the Tools line below; no other Atlas tool is available to you, and the rules above that name one (\`supersede_belief\`, \`open_issue\`, \`next_issue\`, \`prior_work\`, \`examine_belief\`, \`list_beliefs\`) do not apply."
+  start_block="Start: this is an isolated session (a replay of a past date) and its Atlas session is already open: its \`session_id\` is $session_ref. Pass that \`session_id\` to every tool call. Do not call \`open_session\` (it is not available to you) and open no other session. Atlas gives an isolated session no prior work and records a Fact for every span you quote, so research from the archive: \`search\`, \`read\`, \`locate\`, \`record_fact\`. When you have written the files, call \`close_session\` with your card."
+  off_names=""
+  for tool in $off_list; do off_names+="${off_names:+, }\`$tool\`"; done
+  recall_block="Recall: allowed for \`bank: research\` only: facts, never observations, an index to find sections to \`read\`, never evidence. Your tools are exactly the ones on the Tools line below. These Atlas tools are not available to you, and any rule above that names one does not apply: $off_names."
+  # The wrapper's two lines that tell the agent to pass these to `open_session` say otherwise.
+  old_seeds=" (slugs; pass them to \`open_session\` as \`seeds\`)."
+  new_seeds=" (slugs; already the session's seeds)."
+  seeds_block="${seeds_block//"$old_seeds"/"$new_seeds"}"
+  old_as_of="(the start of this run; pass it to \`open_session\` unchanged)"
+  new_as_of="(the session's as-of time; the session is already open with it)"
+  prompt="${prompt//"$old_as_of"/"$new_as_of"}"
+  old_actor="pass \`actor: atlas-researcher\` to \`open_session\`"
+  new_actor="the session already has \`actor: atlas-researcher\`"
+  prompt="${prompt//"$old_actor"/"$new_actor"}"
   isolation_block="- Knowledge: use only what the tools return. Do not use anything you know about the company, its market, its prices or the years after the as-of time from outside this session; a statement no Fact you recorded carries is not scored. Every Belief you propose is a proposal for the lead to read, and Atlas will never judge it. Cite only Facts you recorded in this session."
   tools_line="$(grep '^Tools: ' "$prompt_file")"
   prompt="${prompt//"$tools_line"/"Tools: ${isolated_tools// /, }"}"
@@ -178,16 +202,20 @@ if [[ "$isolated" == true ]]; then
   for tool in $isolated_tools; do allowed+=("mcp__atlas__$tool"); done
   allowed+=(Read Write Edit Glob)
 fi
-cmd=(
-  claude -p "$prompt"
-  --mcp-config "$mcp_config" --strict-mcp-config
-  --tools "Read,Write,Edit,Glob"
-  --allowedTools "${allowed[@]}"
-  --add-dir "$out_dir"
-  --model "$model"
-  --max-turns "$max_turns"
-  --output-format json
-)
+# Built again once an isolated run has the session's id in its prompt.
+build_command() {
+  cmd=(
+    claude -p "$prompt"
+    --mcp-config "$mcp_config" --strict-mcp-config
+    --tools "Read,Write,Edit,Glob"
+    --allowedTools "${allowed[@]}"
+    --add-dir "$out_dir"
+    --model "$model"
+    --max-turns "$max_turns"
+    --output-format json
+  )
+}
+build_command
 
 quote() {
   local plain_re='^[A-Za-z0-9_@%+=:,./-]+$'
@@ -204,6 +232,12 @@ if [[ "$dry_run" == 1 ]]; then
   printf 'question: %s\n' "${question:-none (next_issue)}"
   printf 'seeds: %s\n' "${seeds:-none}"
   printf 'isolated: %s\n' "$isolated"
+  if [[ "$isolated" == true ]]; then
+    atlas_base="${mcp_url%/}"
+    atlas_base="${atlas_base%/mcp}"
+    printf 'session: run.sh would open it before claude starts (POST %s/api/v1/sessions, isolated, theme %s, actor atlas-%s); the prompt shows a placeholder for its id\n' \
+      "$atlas_base" "$theme" "$agent"
+  fi
   printf 'command:'
   for word in "${cmd[@]}"; do
     if [[ "$word" == "$prompt" ]]; then printf ' <prompt>'; else printf ' %s' "$(quote "$word")"; fi
@@ -237,16 +271,85 @@ printf '%s\n' "$mcp_json" >"$mcp_config"
 result="$out_dir/claude-result.json"
 errors="$out_dir/claude-stderr.txt"
 started="$(date +%s)"
+started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# An isolated run opens its Atlas session itself, before claude starts (ticket 29b): the agent is
+# given the id and has no `open_session`, so it cannot leave isolation by opening another. The
+# seed slugs are looked up to ids as the matcher did. If anything fails, claude is never called:
+# the one JSON line says why (ok false) and the run exits 1.
+open_js='
+const [mcpUrl, agent, theme, question, seeds, asOf, model, startedAt] = process.argv.slice(1);
+const token = process.env.CLAUDE_CODE_OAUTH_TOKEN || "";
+const redact = (text) => (token ? String(text).split(token).join("[redacted]") : String(text));
+const fail = (reason) => {
+  const line = {
+    agent, ok: false, exit_status: null, session_id: null, atlas_session_id: null,
+    reason: redact(reason), started_at: startedAt,
+    finished_at: new Date().toISOString().replace(/\.[0-9]+Z$/, "Z"),
+  };
+  process.stderr.write("run.sh: could not open the isolated Atlas session: " + redact(reason) + "\n");
+  process.stdout.write(JSON.stringify(line) + "\n");
+  process.exit(1);
+};
+const rowsOf = (body) => (Array.isArray(body) ? body : Array.isArray(body && body.items) ? body.items : []);
+(async () => {
+  try {
+    const base = String(mcpUrl).replace(/\/mcp\/?$/, "");
+    const ids = [];
+    if (seeds) {
+      const answer = await fetch(base + "/api/v1/companies?limit=500", { signal: AbortSignal.timeout(30000) });
+      if (!answer.ok) fail("the company lookup answered " + answer.status);
+      const companies = rowsOf(await answer.json());
+      for (const slug of seeds.split(",")) {
+        const found = companies.find((each) => each && each.slug === slug);
+        if (!found) fail("unknown seed company: " + slug);
+        ids.push(String(found.id));
+      }
+    }
+    const made = await fetch(base + "/api/v1/sessions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        question, theme, seed_company_ids: ids, as_of: asOf, model, actor: "atlas-" + agent, isolated: true,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    const text = await made.text();
+    if (made.status !== 201) fail("POST /api/v1/sessions answered " + made.status + ": " + text.slice(0, 300));
+    let body = null;
+    try { body = JSON.parse(text); } catch (_) { body = null; }
+    if (!body || typeof body.id !== "string" || !/^[A-Za-z0-9-]+$/.test(body.id)) fail("the session answer has no id");
+    if (body.isolated !== true) fail("Atlas opened a session that is not isolated");
+    process.stdout.write(body.id + "\n");
+  } catch (error) {
+    fail("Atlas is unreachable: " + (error && error.message ? error.message : String(error)));
+  }
+})();
+'
+atlas_session=""
+if [[ "$isolated" == true ]]; then
+  open_status=0
+  opened="$(node -e "$open_js" "$mcp_url" "$agent" "$theme" "$question" "$seeds" "$as_of" "$model" "$started_at")" || open_status=$?
+  if [[ "$open_status" != 0 ]]; then
+    printf '%s\n' "$opened"
+    exit 1
+  fi
+  atlas_session="$opened"
+  prompt="${prompt//"$session_ref"/"$atlas_session"}"
+  build_command
+fi
+
 cd "$root"
 status=0
 "${cmd[@]}" >"$result" 2>"$errors" || status=$?
 finished="$(date +%s)"
+finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 # The pod-log line, from claude's JSON result. Every string that leaves this script has the token
 # replaced first.
 summary_js='
 const fs = require("fs");
-const [agent, resultFile, errorFile, status, wall, mcpUrl, asOf, question, seeds] = process.argv.slice(1);
+const [agent, resultFile, errorFile, status, wall, mcpUrl, asOf, question, seeds, startedAt, finishedAt, openedSession] = process.argv.slice(1);
 const token = process.env.CLAUDE_CODE_OAUTH_TOKEN || "";
 const redact = (text) => (token ? String(text).split(token).join("[redacted]") : String(text));
 const first = (text, n) => Array.from(String(text)).slice(0, n).join("");
@@ -257,8 +360,8 @@ try { data = JSON.parse(raw); } catch (_) { data = null; }
 const object = data && typeof data === "object" && !Array.isArray(data) ? data : null;
 const exit = Number(status);
 const ok = exit === 0 && object !== null && object.is_error === false && object.subtype === "success";
-// The Atlas session the run opened: the one Atlas lists with the as-of time of the run (the
-// agent passes it to open_session unchanged), preferring one whose actor names the agent.
+// The Atlas session the run opened: for a run that is not isolated, the one Atlas lists with the
+// as-of time of the run (the agent passes it to open_session unchanged), preferring one whose actor names the agent.
 // session_id is the Claude Code session. Atlas unreachable or no such session: null.
 // Scorecard cases share as-of dates, so a run given a question also matches the session by its
 // question, and by its seed companies when it was given slugs (looked up to ids; a lookup that
@@ -269,6 +372,8 @@ const fetchRows = async (base, path) => {
   return answer.ok ? rowsOf(await answer.json()) : null;
 };
 const atlasSession = async () => {
+  // An isolated run opened its session itself: that id, with no matching.
+  if (openedSession) return openedSession;
   try {
     const base = String(mcpUrl).replace(/\/mcp\/?$/, "");
     const items = await fetchRows(base, "/api/v1/sessions?limit=50");
@@ -304,6 +409,8 @@ const line = {
   cost_usd: object ? object.total_cost_usd ?? null : null,
   duration_ms: object ? object.duration_ms ?? null : null,
   wall_s: Number(wall),
+  started_at: startedAt,
+  finished_at: finishedAt,
   subtype: object ? object.subtype ?? null : null,
   is_error: object ? object.is_error ?? null : null,
   result: redact(first(object ? (typeof object.result === "string" ? object.result : JSON.stringify(object.result ?? null)) : "unparseable output: " + raw, 2000)),
@@ -321,5 +428,5 @@ process.exit(ok ? 0 : 1);
 })();
 '
 exit_code=0
-node -e "$summary_js" "$agent" "$result" "$errors" "$status" "$((finished - started))" "$mcp_url" "$as_of" "$question" "$seeds" || exit_code=$?
+node -e "$summary_js" "$agent" "$result" "$errors" "$status" "$((finished - started))" "$mcp_url" "$as_of" "$question" "$seeds" "$started_at" "$finished_at" "$atlas_session" || exit_code=$?
 exit "$exit_code"

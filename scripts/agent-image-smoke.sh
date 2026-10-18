@@ -27,7 +27,9 @@ run --entrypoint sh "$image" -c '
   test -f /opt/atlas-agent/.claude/skills/atlas-research/scout.md || exit 14
   test -x /opt/atlas-agent/agent/run.sh || exit 15
   node --version >/dev/null || exit 16
-' || fail "image layout (exit $?): /tmp writable, root read-only, skill folder, run.sh executable, node"
+  test -x /opt/atlas-agent/agent/scorecard-run.sh || exit 17
+  node -e '"'"'const r = JSON.parse(require("fs").readFileSync("/opt/atlas-agent/agent/scorecard/runs.json", "utf8")); if (!Array.isArray(r) || r.length === 0) process.exit(1)'"'"' || exit 18
+' || fail "image layout (exit $?): /tmp writable, root read-only, skill folder, run.sh and scorecard-run.sh executable, node, the scorecard run list"
 
 # A dry run, through the image's entrypoint, for each routine; with a fake token to prove the
 # dry run never prints one.

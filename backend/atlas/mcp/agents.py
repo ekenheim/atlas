@@ -12,10 +12,12 @@ the as-of time taken from the session's row, each a projection of an existing ro
   Issues, all bounded by the session's as-of time.
 - `examine_belief`: `POST /beliefs/{id}/examine`: record that this session tested a Belief
   (`confirmed`, `qualified`, `contradicted`, `nothing_new`); sets no judgement.
-- `list_beliefs`, `get_belief`, `examine_belief` and `list_issues` (and in `atlas.mcp.tools`
-  `next_issue`, `open_issue`, `narrow_issue`, `complete_issue`) are refused in an **isolated**
-  session (`isolated_session`, ticket 29a: `Ctx.refuse_isolated`), and `prior_work` is answered
-  empty by the route.
+- `list_beliefs`, `get_belief`, `examine_belief`, `list_issues`, `draft_hypothesis`,
+  `get_hypothesis` and `newest_documents` (and in `atlas.mcp.tools` `next_issue`, `open_issue`,
+  `narrow_issue`, `complete_issue`; in `atlas.mcp.signal_tools` `signal_leads`; in
+  `atlas.mcp.tradingview_tools` `upcoming_reports`) are refused in an **isolated** session
+  (`isolated_session`, ticket 29a, and 29b for the last three of those: `Ctx.refuse_isolated`),
+  and `prior_work` is answered empty by the route.
 - `get_belief`: `GET /beliefs/{id}`; a Belief after the session's time is refused
   (`belief_after_as_of`). What the later work added to it is left out: a citation of a document
   public after the session's time, a flag raised by such a citation, and a supersession link to a
@@ -92,6 +94,7 @@ class NewestDocumentsArgs(Bound):
     NewestDocumentsArgs,
 )
 async def newest_documents(ctx: Ctx, args: NewestDocumentsArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("newest_documents")
     theme = args.theme or (None if args.companies else ctx.bound.theme)
     if theme is not None and args.companies:
         raise Refusal("theme_or_companies", "name a theme or companies, not both")

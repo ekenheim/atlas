@@ -38,7 +38,15 @@ The runs file::
                "closed_book": "stated|hedged|not_stated",
                "code_rank": 3,                    # within-company top-20 rank, null: not in it
                "code_pooled_percentile": 0.97,    # optional
-               "fact_precision": 0.95, "trust_gate": 0.05}],   # optional guardrails
+               "fact_precision": 0.95, "trust_gate": 0.05,    # optional guardrails
+               "result_file": "out/claude-result.json",       # optional (ticket 29b): read for its
+                                                  # `permission_denials`, reported; a path from
+                                                  # the runs file's folder
+               "started_at": "2026-10-20T05:00:00Z",          # optional, together; a fallback only:
+               "finished_at": "2026-10-20T05:30:00Z"}],       # the window is the session's own
+                                                  # created time to its close (else its last
+                                                  # tool call), from Atlas; the other sessions
+                                                  # created inside are listed for the lead
      "not_run": [{"case": "raspberry-pi", "reason": "no documents reachable"}]}
 
 The marks file (the reviewers', then the lead's)::
@@ -56,7 +64,7 @@ import sys
 from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -179,6 +187,23 @@ MISS_CLASS_MEANING = {
 FACT_PRECISION_FLOOR = 0.92
 TRUST_GATE_CEILING = 0.10
 CODE_TOP = 20
+# The twelve Atlas tools an isolated run is allowed (`agent/run.sh`'s `isolated_tools`; a unit test
+# keeps the two the same) and the actor run.sh opens its session with.
+ISOLATED_TOOLS = (
+    "close_session",
+    "companies",
+    "search",
+    "read",
+    "locate",
+    "record_fact",
+    "get_fact",
+    "judge_statement",
+    "relate_facts",
+    "propose_belief",
+    "cite_belief",
+    "recall",
+)
+RESEARCHER_ACTOR = "atlas-researcher"
 
 
 class ScorecardError(ValueError):
@@ -200,6 +225,11 @@ class Run:
     code_pooled_percentile: float | None
     fact_precision: float | None
     trust_gate: float | None
+    # Ticket 29b: where run.sh left claude's result (its `permission_denials`), and the run's
+    # window (run.sh's log line: `started_at`, `finished_at`, UTC) to find other sessions in.
+    result_file: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
 
     @property
     def label(self) -> str:
@@ -223,6 +253,26 @@ def _list(value: Any, what: str) -> list[Any]:
     if not isinstance(value, list):
         raise ScorecardError(f"{what} must be a JSON list")
     return cast(list[Any], value)
+
+
+def _instant(value: str) -> datetime:
+    """A time with an offset (a `Z` is UTC), as Atlas and run.sh write them."""
+    try:
+        moment = datetime.fromisoformat(value)
+    except ValueError as error:
+        raise ScorecardError(f"{value!r} is not an ISO time") from error
+    if moment.tzinfo is None:
+        raise ScorecardError(f"{value!r} has no offset")
+    return moment
+
+
+def _optional_text(row: dict[str, Any], key: str, what: str) -> str | None:
+    value = row.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise ScorecardError(f"{what}: {key} must be a non-empty string or null")
+    return value
 
 
 def _optional_number(row: dict[str, Any], key: str, what: str) -> float | None:
@@ -264,6 +314,13 @@ def parse_runs(document: Any) -> Runs:
             raise ScorecardError(f"run {index}: {label} is listed twice")
         seen.add(label)
         what = f"run {label}"
+        started_at = _optional_text(row, "started_at", what)
+        finished_at = _optional_text(row, "finished_at", what)
+        if (started_at is None) != (finished_at is None):
+            raise ScorecardError(f"{what}: started_at and finished_at come together")
+        if started_at is not None and finished_at is not None:
+            if _instant(finished_at) < _instant(started_at):
+                raise ScorecardError(f"{what}: finished_at is before started_at")
         runs.append(
             Run(
                 case=case_id,
@@ -276,6 +333,9 @@ def parse_runs(document: Any) -> Runs:
                 code_pooled_percentile=_optional_number(row, "code_pooled_percentile", what),
                 fact_precision=_optional_number(row, "fact_precision", what),
                 trust_gate=_optional_number(row, "trust_gate", what),
+                result_file=_optional_text(row, "result_file", what),
+                started_at=started_at,
+                finished_at=finished_at,
             )
         )
     not_run: dict[str, str] = {}
@@ -357,12 +417,89 @@ def off_configuration(runs: Runs, run: Run) -> list[str]:
 # --- reading a run through the API -------------------------------------------------------------
 
 PAGE = 500
+# run.sh takes its two timestamps to the second, the end rounded down: a session opened in the
+# second after `finished_at` is still in the window.
+WINDOW_SLACK = timedelta(seconds=1)
 
 
-def collect_bundle(get: Get, run: Run) -> dict[str, Any]:
+def permission_denials(run: Run, base: Path | None) -> dict[str, Any] | None:
+    """The `permission_denials` of the run's `claude-result.json` (ticket 29b, L4): how many calls
+    Claude Code refused the agent and which tools they named. None when the runs file names no
+    result file; a file it names that cannot be read is an error, not a silent zero. A result
+    without the key reports `count` null: the run did not say."""
+    if run.result_file is None:
+        return None
+    path = Path(run.result_file)
+    if base is not None and not path.is_absolute():
+        path = base / path
+    try:
+        result = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise ScorecardError(f"{run.label}: cannot read the result file {path}: {error}") from error
+    document = _object(result, f"{run.label}: the result file")
+    if "permission_denials" not in document:
+        return {"count": None, "tools": []}
+    denials = _list(document["permission_denials"], f"{run.label}: permission_denials")
+    tools = sorted(
+        {str(_object(each, "a permission denial").get("tool_name", "?")) for each in denials}
+    )
+    return {"count": len(denials), "tools": tools}
+
+
+def run_window(run: Run, session: dict[str, Any], trace: list[Any]) -> dict[str, str] | None:
+    """The run's window, from Atlas's own record and not the pod's clock (ticket 29b): it starts
+    when the run's session was created and ends when the session was closed, else at its last
+    recorded tool call. Only a time Atlas lacks is taken from the runs file (`started_at`,
+    `finished_at`, the end a second late because run.sh takes it to the second). None when
+    neither has one."""
+    start = session.get("started_at") or run.started_at
+    end = session.get("finished_at")
+    source = "session closed"
+    if end is None and trace:
+        end = max((str(_object(call, "a tool call")["at"]) for call in trace), key=_instant)
+        source = "last tool call"
+    if end is None and run.finished_at is not None:
+        end = (_instant(run.finished_at) + WINDOW_SLACK).isoformat()
+        source = "runs file"
+    if start is None or end is None:
+        return None
+    return {"start": str(start), "end": str(end), "source": source}
+
+
+def sessions_in_window(get: Get, window: dict[str, str], own_id: str) -> list[dict[str, Any]]:
+    """Every OTHER Atlas session created inside the run's window (ticket 29b, N1): the run's
+    session is opened by run.sh, so these are unrelated sessions (another agent's, the lead's), and
+    the lead decides whether any of them touched the run."""
+    start = _instant(window["start"])
+    end = _instant(window["end"])
+    found: list[dict[str, Any]] = []
+    offset = 0
+    while True:
+        page = _object(get("/sessions", limit=PAGE, offset=offset), "the sessions")
+        items = _list(page.get("items"), "the sessions")
+        for item in items:
+            session = _object(item, "a session")
+            if str(session["id"]) == own_id:
+                continue
+            if start <= _instant(str(session["started_at"])) <= end:
+                found.append(
+                    {
+                        key: session.get(key)
+                        for key in ("id", "started_at", "isolated", "actor", "theme", "question")
+                    }
+                )
+        offset += len(items)
+        if not items or offset >= int(page.get("total", 0)):
+            break
+    return found
+
+
+def collect_bundle(get: Get, run: Run, base: Path | None = None) -> dict[str, Any]:
     """Everything the scorecard reads of one run, as Atlas answered it: the session (its Facts and
     card), its tool trace, its Beliefs in full and the day each cited or recorded document became
-    public. `get(path, **params)` is a GET of `/api/v1`; the tests hand in recorded answers."""
+    public, the permission denials of its result file (`base`: where a relative path is read from)
+    and the other sessions opened in its window. `get(path, **params)` is a GET of `/api/v1`; the
+    tests hand in recorded answers."""
     session = _object(get(f"/sessions/{run.session_id}"), "the session")
     trace = _list(get(f"/sessions/{run.session_id}/tool-calls"), "the tool trace")
     beliefs: list[dict[str, Any]] = []
@@ -392,12 +529,18 @@ def collect_bundle(get: Get, run: Run) -> dict[str, Any]:
             dates[version] = str(
                 _object(get(f"/source-versions/{version}"), "a version")["available_at"]
             )
+    window = run_window(run, session, trace)
     return {
         "run": run.label,
         "session": session,
         "tool_calls": trace,
         "beliefs": beliefs,
         "version_dates": dates,
+        "permission_denials": permission_denials(run, base),
+        "window": window,
+        "other_sessions_in_window": (
+            None if window is None else sessions_in_window(get, window, run.session_id)
+        ),
     }
 
 
@@ -549,7 +692,9 @@ def review_sheet(run: Run, bundle: dict[str, Any]) -> str:
     lines += [
         "## Trace summary",
         "",
-        f"- Isolated session: {'yes' if session.get('isolated') else 'NO (flag it)'}",
+        f"- Isolated session: {'yes' if session.get('isolated') else 'NO (not scored: flag it)'}",
+        f"- Permission denials: {_denials_text(bundle.get('permission_denials'))}",
+        f"- Other sessions opened during the run: {_others_text(bundle)}",
         f"- Tool calls: {summary['calls']} ({_inline(summary['by_tool'])});"
         f" outcomes {_inline(summary['by_outcome'])}",
         f"- Atlas refused or failed: {_inline(summary['refusals']) or 'nothing'}",
@@ -564,6 +709,37 @@ def review_sheet(run: Run, bundle: dict[str, Any]) -> str:
 
 def _inline(counts: dict[str, int]) -> str:
     return ", ".join(f"{key} {value}" for key, value in counts.items())
+
+
+def _denials_text(denials: Any) -> str:
+    """The run's permission denials in a line: the count and the tools they named."""
+    if denials is None:
+        return "not recorded (the runs file names no result file)"
+    row = _object(denials, "permission denials")
+    if row["count"] is None:
+        return "the result did not say"
+    tools = ", ".join(str(each) for each in _list(row["tools"], "denied tools"))
+    return f"{row['count']}" + (f" ({tools})" if row["count"] else "")
+
+
+def _others_text(bundle: dict[str, Any]) -> str:
+    """The other sessions Atlas created during the run's window, in a line."""
+    others = bundle.get("other_sessions_in_window")
+    if others is None:
+        return "not checked: no window (not scored)"
+    sessions = [_object(each, "a session") for each in _list(others, "other sessions")]
+    if not sessions:
+        return "none"
+    return f"{len(sessions)}: {_others_list(sessions)} (the lead decides)"
+
+
+def _others_list(sessions: Sequence[dict[str, Any]]) -> str:
+    """Other sessions by id, actor, theme and whether they were isolated."""
+    return ", ".join(
+        f"{each['id']} (actor {each.get('actor')}, theme {each.get('theme')},"
+        f" {'isolated' if each.get('isolated') else 'not isolated'})"
+        for each in sessions
+    )
 
 
 # --- the marks ---------------------------------------------------------------------------------
@@ -595,11 +771,32 @@ def resolve_run(
     case = KEY[run.case]
     beliefs = [str(_object(each, "a Belief")["id"]) for each in _list(bundle["beliefs"], "Beliefs")]
     problems: list[str] = []
+    session = _object(bundle["session"], "the session")
     changed = off_configuration(runs, run)
+    # Atlas's own record of the session, not the runs file's: the model and the actor it was
+    # opened with (run.sh opens it as `atlas-researcher`).
+    frozen_model = runs.frozen.get("agent_model")
+    if frozen_model is not None and session.get("model") != frozen_model:
+        changed.append(f"session model {session.get('model')!r}")
+    if session.get("actor") != RESEARCHER_ACTOR:
+        changed.append(f"session actor {session.get('actor')!r}")
     if changed:
         problems.append(f"another configuration than the frozen one: {', '.join(changed)}")
-    if not _object(bundle["session"], "the session").get("isolated"):
+    if not session.get("isolated"):
         problems.append("the session was not isolated")
+    # Amendment 2, Validity: no call outside the isolated tool list (`open_session` included: the
+    # runner opened the session, so the agent opening one is a second session).
+    outside = sorted(
+        {
+            str(_object(call, "a tool call")["tool"])
+            for call in _list(bundle["tool_calls"], "tool calls")
+        }
+        - set(ISOLATED_TOOLS)
+    )
+    if outside:
+        problems.append(f"the trace shows tools outside the isolated list: {', '.join(outside)}")
+    if bundle.get("window") is None:
+        problems.append("no window: the session has no start or end time and the runs file none")
     given = adjudication or {}
     decided = {
         str(k): str(v) for k, v in _object(given.get("belief_marks", {}), "belief_marks").items()
@@ -759,6 +956,15 @@ def build_report(
             )
         if case.positive and run.closed_book == "stated":
             flags.append("not discriminating: the closed-book model states it")
+        others = bundles[run.label].get("other_sessions_in_window")
+        if others:
+            flags.append(
+                f"{len(others)} other session(s) opened during the run's window (the lead"
+                f" decides): {', '.join(str(each['id']) for each in others)}"
+            )
+        denials = bundles[run.label].get("permission_denials")
+        if denials is not None and denials["count"]:
+            flags.append(f"permission denials: {_denials_text(denials)}")
         trace = trace_summary(bundles[run.label])
         rows.append(
             {
@@ -777,6 +983,9 @@ def build_report(
                 "beliefs": len(_list(bundles[run.label]["beliefs"], "Beliefs")),
                 "belief_marks": outcome.belief_marks,
                 "tool_calls": trace["calls"],
+                "permission_denials": denials,
+                "window": bundles[run.label].get("window"),
+                "other_sessions_in_window": bundles[run.label].get("other_sessions_in_window"),
                 "flags": flags,
             }
         )
@@ -830,8 +1039,9 @@ def render_report(result: dict[str, Any]) -> str:
         "## Per run",
         "",
         "| Run | Session | Raw | Closed book | Code rank (within company) |"
-        " Pooled percentile (k=20, 365 days) | Miss class | Beliefs | Calls | Flags |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        " Pooled percentile (k=20, 365 days) | Miss class | Beliefs | Calls |"
+        " Permission denials | Flags |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in result["runs"]:
         if not row["code_read"]:
@@ -842,6 +1052,9 @@ def render_report(result: dict[str, Any]) -> str:
             rank = str(row["code_rank"])
         if rank and row["code_rank_in_sample"]:
             rank += " (in-sample)"
+        denials = (
+            "" if row["permission_denials"] is None else _denials_text(row["permission_denials"])
+        )
         pooled = (
             ""
             if row["code_pooled_percentile"] is None
@@ -851,7 +1064,8 @@ def render_report(result: dict[str, Any]) -> str:
         lines.append(
             f"| {row['run']} | `{row['session_id']}` | {row['raw'] or 'not scored'} |"
             f" {row['closed_book'] or ''} | {rank} | {pooled} | {row['miss_class'] or ''} |"
-            f" {row['beliefs']} | {row['tool_calls']} | {'; '.join(row['flags'])} |"
+            f" {row['beliefs']} | {row['tool_calls']} |"
+            f" {denials} | {'; '.join(row['flags'])} |"
         )
     lines += [
         "",
@@ -873,6 +1087,17 @@ def render_report(result: dict[str, Any]) -> str:
                 else "no hit"
             )
             lines.append(f"- {KEY[case_id].name}: {text}")
+    during = [row for row in result["runs"] if row["other_sessions_in_window"]]
+    lines += [
+        "",
+        "## Other sessions during a run (the lead decides; not a reason to drop a run alone)",
+        "",
+    ]
+    lines += [
+        f"- {row['run']} ({row['window']['start']} to {row['window']['end']}, from"
+        f" {row['window']['source']}): {_others_list(row['other_sessions_in_window'])}"
+        for row in during
+    ] or ["- none"]
     lines += ["", "## Not run or missing", ""]
     gaps = [each for each in result["coverage"] if each["status"] != "run"]
     lines += [
@@ -922,7 +1147,7 @@ def command_sheets(arguments: argparse.Namespace) -> int:
         return response.json()
 
     for run in runs.runs:
-        bundle = collect_bundle(get, run)
+        bundle = collect_bundle(get, run, Path(arguments.runs).resolve().parent)
         (out / "bundles" / f"{run.label}.json").write_text(
             json.dumps(bundle, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )

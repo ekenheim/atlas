@@ -1,0 +1,15 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 1234,
+  "num_turns": 7,
+  "result": "all done",
+  "session_id": "3f1c0d2e",
+  "total_cost_usd": 0.5,
+  "permission_denials": [
+    {"tool_name": "Bash", "tool_use_id": "toolu_01", "tool_input": {"command": "ls"}},
+    {"tool_name": "WebSearch", "tool_use_id": "toolu_02", "tool_input": {"query": "sandisk nand"}},
+    {"tool_name": "Bash", "tool_use_id": "toolu_03", "tool_input": {"command": "cat key.md"}}
+  ]
+}

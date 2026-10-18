@@ -51,6 +51,7 @@ class SignalLeadsArgs(Bound):
     SignalLeadsArgs,
 )
 async def signal_leads(ctx: Ctx, args: SignalLeadsArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("signal_leads")
     theme = args.theme or ctx.bound.theme
     answer = await ctx.api.get(
         "/leads",

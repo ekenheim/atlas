@@ -55,7 +55,9 @@
       }
     ],
     "card": null,
-    "card_markdown": "# Card\n\nZephyr cut wafer starts to keep supply in balance.\n\nOpen: who else supplies?"
+    "card_markdown": "# Card\n\nZephyr cut wafer starts to keep supply in balance.\n\nOpen: who else supplies?",
+    "started_at": "2026-10-20T05:00:30Z",
+    "finished_at": "2026-10-20T05:30:00Z"
   },
   "/sessions/00000001-0000-4000-8000-000000000002": {
     "id": "00000001-0000-4000-8000-000000000002",
@@ -87,7 +89,9 @@
       }
     ],
     "card": null,
-    "card_markdown": null
+    "card_markdown": null,
+    "started_at": "2026-10-21T05:00:30Z",
+    "finished_at": "2026-10-21T05:30:00Z"
   },
   "/sessions/00000001-0000-4000-8000-000000000003": {
     "id": "00000001-0000-4000-8000-000000000003",
@@ -119,7 +123,9 @@
       }
     ],
     "card": null,
-    "card_markdown": null
+    "card_markdown": null,
+    "started_at": "2026-10-22T05:00:30Z",
+    "finished_at": "2026-10-22T05:30:00Z"
   },
   "/sessions/00000001-0000-4000-8000-000000000004": {
     "id": "00000001-0000-4000-8000-000000000004",
@@ -137,7 +143,9 @@
     "tool_calls": 3,
     "fact_items": [],
     "card": null,
-    "card_markdown": null
+    "card_markdown": null,
+    "started_at": "2026-10-23T05:00:30Z",
+    "finished_at": "2026-10-23T05:30:00Z"
   },
   "/sessions/00000001-0000-4000-8000-000000000005": {
     "id": "00000001-0000-4000-8000-000000000005",
@@ -169,7 +177,9 @@
       }
     ],
     "card": null,
-    "card_markdown": null
+    "card_markdown": null,
+    "started_at": "2026-10-24T05:00:30Z",
+    "finished_at": "2026-10-24T05:30:00Z"
   },
   "/sessions/00000001-0000-4000-8000-000000000006": {
     "id": "00000001-0000-4000-8000-000000000006",
@@ -187,7 +197,9 @@
     "tool_calls": 2,
     "fact_items": [],
     "card": null,
-    "card_markdown": null
+    "card_markdown": null,
+    "started_at": "2026-10-25T05:00:30Z",
+    "finished_at": "2026-10-25T05:30:00Z"
   },
   "/sessions/00000001-0000-4000-8000-000000000007": {
     "id": "00000001-0000-4000-8000-000000000007",
@@ -219,12 +231,14 @@
       }
     ],
     "card": null,
-    "card_markdown": null
+    "card_markdown": null,
+    "started_at": "2026-10-26T05:00:30Z",
+    "finished_at": "2026-10-26T05:30:00Z"
   },
   "/sessions/00000001-0000-4000-8000-000000000001/tool-calls": [
     {
       "id": "00000007-0000-4000-8000-000000000001",
-      "tool": "open_session",
+      "tool": "companies",
       "arguments": {
         "question": "q",
         "as_of": "2025-02-28T00:00:00Z",
@@ -236,7 +250,7 @@
     },
     {
       "id": "00000007-0000-4000-8000-000000000002",
-      "tool": "prior_work",
+      "tool": "get_fact",
       "arguments": {
         "session_id": "00000001-0000-4000-8000-000000000001"
       },
@@ -296,7 +310,7 @@
     },
     {
       "id": "00000007-0000-4000-8000-000000000007",
-      "tool": "list_beliefs",
+      "tool": "recall",
       "arguments": {
         "session_id": "00000001-0000-4000-8000-000000000001"
       },
@@ -331,7 +345,7 @@
   "/sessions/00000001-0000-4000-8000-000000000002/tool-calls": [
     {
       "id": "00000007-0000-4000-8000-000000000001",
-      "tool": "open_session",
+      "tool": "companies",
       "arguments": {
         "question": "q",
         "isolated": true
@@ -380,7 +394,7 @@
   "/sessions/00000001-0000-4000-8000-000000000003/tool-calls": [
     {
       "id": "00000007-0000-4000-8000-000000000001",
-      "tool": "open_session",
+      "tool": "companies",
       "arguments": {
         "question": "q",
         "isolated": true
@@ -417,7 +431,7 @@
   "/sessions/00000001-0000-4000-8000-000000000004/tool-calls": [
     {
       "id": "00000007-0000-4000-8000-000000000001",
-      "tool": "open_session",
+      "tool": "companies",
       "arguments": {
         "question": "q",
         "isolated": true
@@ -454,7 +468,7 @@
   "/sessions/00000001-0000-4000-8000-000000000005/tool-calls": [
     {
       "id": "00000007-0000-4000-8000-000000000001",
-      "tool": "open_session",
+      "tool": "companies",
       "arguments": {
         "question": "q",
         "isolated": true
@@ -491,7 +505,7 @@
   "/sessions/00000001-0000-4000-8000-000000000006/tool-calls": [
     {
       "id": "00000007-0000-4000-8000-000000000001",
-      "tool": "open_session",
+      "tool": "companies",
       "arguments": {
         "question": "q",
         "isolated": true
@@ -516,7 +530,7 @@
   "/sessions/00000001-0000-4000-8000-000000000007/tool-calls": [
     {
       "id": "00000007-0000-4000-8000-000000000001",
-      "tool": "open_session",
+      "tool": "companies",
       "arguments": {
         "question": "q",
         "isolated": true
@@ -1062,5 +1076,131 @@
     "source_document": {
       "title": "Ironwood Substrates 10-K"
     }
+  },
+  "/sessions": {
+    "items": [
+      {
+        "id": "00000001-0000-4000-8000-000000000007",
+        "question": "As of date, does anything constrain supply?",
+        "theme": "scorecard",
+        "seed_company_ids": [
+          "00000006-0000-4000-8000-000000000001"
+        ],
+        "as_of": "2025-08-31T00:00:00Z",
+        "kind": "claude",
+        "model": "claude-opus-5-5",
+        "actor": "atlas-researcher",
+        "isolated": true,
+        "facts": 1,
+        "tool_calls": 3,
+        "started_at": "2026-10-26T05:00:30Z",
+        "finished_at": "2026-10-26T05:30:00Z"
+      },
+      {
+        "id": "00000001-0000-4000-8000-000000000006",
+        "question": "As of date, does anything constrain supply?",
+        "theme": "scorecard",
+        "seed_company_ids": [
+          "00000006-0000-4000-8000-000000000001"
+        ],
+        "as_of": "2025-09-30T00:00:00Z",
+        "kind": "claude",
+        "model": "claude-opus-5-5",
+        "actor": "atlas-researcher",
+        "isolated": true,
+        "facts": 0,
+        "tool_calls": 2,
+        "started_at": "2026-10-25T05:00:30Z",
+        "finished_at": "2026-10-25T05:30:00Z"
+      },
+      {
+        "id": "00000001-0000-4000-8000-000000000005",
+        "question": "As of date, does anything constrain supply?",
+        "theme": "scorecard",
+        "seed_company_ids": [
+          "00000006-0000-4000-8000-000000000001"
+        ],
+        "as_of": "2025-08-31T00:00:00Z",
+        "kind": "claude",
+        "model": "claude-opus-5-5",
+        "actor": "atlas-researcher",
+        "isolated": true,
+        "facts": 1,
+        "tool_calls": 3,
+        "started_at": "2026-10-24T05:00:30Z",
+        "finished_at": "2026-10-24T05:30:00Z"
+      },
+      {
+        "id": "00000001-0000-4000-8000-000000000004",
+        "question": "As of date, does anything constrain supply?",
+        "theme": "scorecard",
+        "seed_company_ids": [
+          "00000006-0000-4000-8000-000000000001"
+        ],
+        "as_of": "2025-05-31T00:00:00Z",
+        "kind": "claude",
+        "model": "claude-opus-5-5",
+        "actor": "atlas-researcher",
+        "isolated": true,
+        "facts": 0,
+        "tool_calls": 3,
+        "started_at": "2026-10-23T05:00:30Z",
+        "finished_at": "2026-10-23T05:30:00Z"
+      },
+      {
+        "id": "00000001-0000-4000-8000-000000000003",
+        "question": "As of date, does anything constrain supply?",
+        "theme": "scorecard",
+        "seed_company_ids": [
+          "00000006-0000-4000-8000-000000000001"
+        ],
+        "as_of": "2025-03-31T00:00:00Z",
+        "kind": "claude",
+        "model": "claude-opus-5-5",
+        "actor": "atlas-researcher",
+        "isolated": true,
+        "facts": 1,
+        "tool_calls": 3,
+        "started_at": "2026-10-22T05:00:30Z",
+        "finished_at": "2026-10-22T05:30:00Z"
+      },
+      {
+        "id": "00000001-0000-4000-8000-000000000002",
+        "question": "As of date, does anything constrain supply?",
+        "theme": "scorecard",
+        "seed_company_ids": [
+          "00000006-0000-4000-8000-000000000001"
+        ],
+        "as_of": "2025-05-31T00:00:00Z",
+        "kind": "claude",
+        "model": "claude-opus-5-5",
+        "actor": "atlas-researcher",
+        "isolated": true,
+        "facts": 1,
+        "tool_calls": 4,
+        "started_at": "2026-10-21T05:00:30Z",
+        "finished_at": "2026-10-21T05:30:00Z"
+      },
+      {
+        "id": "00000001-0000-4000-8000-000000000001",
+        "question": "As of date, does anything constrain supply?",
+        "theme": "scorecard",
+        "seed_company_ids": [
+          "00000006-0000-4000-8000-000000000001"
+        ],
+        "as_of": "2025-02-28T00:00:00Z",
+        "kind": "claude",
+        "model": "claude-opus-5-5",
+        "actor": "atlas-researcher",
+        "isolated": true,
+        "facts": 3,
+        "tool_calls": 9,
+        "started_at": "2026-10-20T05:00:30Z",
+        "finished_at": "2026-10-20T05:30:00Z"
+      }
+    ],
+    "total": 7,
+    "limit": 500,
+    "offset": 0
   }
 }
