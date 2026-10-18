@@ -12,8 +12,15 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 # How `available_at` was determined (spec Part A, Source ledger). `sec_dissemination`: an
 # EDGAR filing accepted outside the dissemination window, public at the next opening.
+# `page_published_date`: a web page's own publication date (its HTML's `article:published_time`,
+# JSON-LD `datePublished` or `<time datetime>`); an explicit date given with the fetch is
+# `publisher_timestamp`, and a page with none is `observed_discovery` (the fetch time).
 AvailabilityBasis = Literal[
-    "sec_acceptance", "sec_dissemination", "publisher_timestamp", "observed_discovery"
+    "sec_acceptance",
+    "sec_dissemination",
+    "publisher_timestamp",
+    "observed_discovery",
+    "page_published_date",
 ]
 CandidateKind = Literal[
     "sec_filing_document",
@@ -21,6 +28,7 @@ CandidateKind = Literal[
     "exchange_announcement",
     "manual_import",
     "tradingview_transcript",
+    "web_page",
 ]
 
 
@@ -128,6 +136,30 @@ class TradingViewTranscript(_Frozen):
     owner_override: str  # the override every stored TradingView item records
 
 
+type WebDateSource = Literal["argument", "article_published_time", "json_ld", "fetch_time"]
+
+
+class WebPage(_Frozen):
+    """A page fetched from the web with `atlas sources fetch` (W3): a company's own
+    investor-relations or press page, a deck or slides, or another site the register allows. It
+    describes the Source Document the ledger records: provider `web`, Tier A when the site is the
+    company's own (the register's `own_site_of`), else Tier B."""
+
+    publisher: str  # the register's name for the site's publisher
+    site: str  # the register's key for the site
+    own_site: bool  # the site is the company's own, as the register says: Tier A
+    # The document's licence class: `public_issuer` for the company's own site, else what the
+    # register says for the site, else `third_party`.
+    license_class: str = "public_issuer"
+    # Where `available_at` came from: `argument` (the fetch was told), `article_published_time`
+    # or `json_ld` (the page's own date, when within a week before the fetch), or `fetch_time`
+    # (any other page: a page's older or later date is kept in `date_as_written`, not believed).
+    date_source: WebDateSource
+    date_as_written: str | None = None  # the date exactly as given or found, if any
+    page_date_tag: str | None = None  # the tag the page's own date was found in, if it had one
+    gate_reason: str | None = None  # why the fetch gate allowed it
+
+
 class SearchQuery(_Frozen):
     """What to discover. Each adapter uses the fields that apply to it."""
 
@@ -153,6 +185,7 @@ class SourceCandidate(_Frozen):
     announcement: ExchangeAnnouncement | None = None
     manual: ManualImport | None = None
     transcript: TradingViewTranscript | None = None
+    web: WebPage | None = None
     validators: HttpValidators | None = None  # from the last fetch; makes the next conditional
     # The document's language as the source declares it (ISO 639 primary subtag, e.g. "en",
     # "zh"), if it does; otherwise the ledger records the language the parse finds.

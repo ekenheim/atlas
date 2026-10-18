@@ -161,6 +161,10 @@ def _kind(source: SectionSource) -> str:
             f'This is {owner} document "{_clean(source.title)}",'
             f" imported by hand from {source.publisher}."
         )
+    if source.source_type == "web_page":
+        if _web(source).get("own_site"):
+            return f'This is {owner} web page "{_clean(source.title)}" on {source.publisher}.'
+        return f'This is a web page "{_clean(source.title)}" published by {source.publisher}.'
     if source.source_type == "exchange_announcement":
         return f'This is {owner} announcement "{_clean(source.title)}" on {source.publisher}.'
     form = source.form_type
@@ -199,6 +203,8 @@ def _speaker(source: SectionSource) -> str:
     name = source.company_name
     if source.source_type == "manual_import":
         return f"{source.publisher} published it and is taken as the speaker."
+    if source.source_type == "web_page" and not _web(source).get("own_site"):
+        return f"{source.publisher} published it and is taken as the speaker."
     if name is None:
         return ""
     if source.source_type == "transcript":
@@ -206,6 +212,8 @@ def _speaker(source: SectionSource) -> str:
             f"{name}'s management and analysts speak on the call;"
             f" an analyst's question is not a statement by {name}."
         )
+    if source.source_type == "web_page":
+        return f"{name} is speaking: this is its own page."
     return f"{name} is speaking: this is its own document."
 
 
@@ -223,6 +231,11 @@ def _clean(value: str) -> str:
 def _report_date(source: SectionSource) -> str | None:
     value = source.metadata.get("report_date")
     return str(value) if value else None
+
+
+def _web(source: SectionSource) -> Mapping[str, Any]:
+    value = source.metadata.get("web")
+    return cast(Mapping[str, Any], value) if isinstance(value, dict) else {}
 
 
 def _transcript(source: SectionSource) -> Mapping[str, Any]:

@@ -36,7 +36,7 @@ def test_migrate_upgrades_an_empty_database_to_head(
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
-    assert revision == "0119"
+    assert revision == "0120"
 
 
 def test_versions_recorded_before_0014_are_english(empty_database_url: str) -> None:
@@ -865,3 +865,39 @@ def test_reconciliations_from_0076_are_insert_only(empty_database_url: str) -> N
     engine.dispose()
     assert len(refused) == 5, refused
     assert rows == ["clean"]
+
+
+def test_0120_lets_a_search_stand_without_a_discovery_and_downgrades_only_when_empty(
+    empty_database_url: str,
+) -> None:
+    # 0120 (Chokepoint Watch W3): a web or filing search outside a discovery is a
+    # `discovery_query` with no discovery and a theme; a web page may be dated by its own date.
+    import pytest
+    from alembic import command
+
+    from atlas.db.migrate import alembic_config
+
+    upgrade(empty_database_url)
+    engine = create_engine(empty_database_url)
+    with engine.begin() as connection:
+        definition = connection.execute(
+            text(
+                "SELECT pg_get_constraintdef(oid) FROM pg_constraint"
+                " WHERE conname = 'source_version_available_at_basis_check'"
+            )
+        ).scalar_one()
+    assert "page_published_date" in definition and "observed_discovery" in definition
+    # A clean database goes down and up again.
+    command.downgrade(alembic_config(empty_database_url), "0119")
+    command.upgrade(alembic_config(empty_database_url), "head")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO discovery_query (id, discovery_id, position, query, status, theme,"
+                " searched_at) VALUES (gen_random_uuid(), NULL, 1, 'q', 'searched', 'photonics',"
+                " now())"
+            )
+        )
+    with pytest.raises(RuntimeError, match="ad hoc searches"):
+        command.downgrade(alembic_config(empty_database_url), "0119")
+    engine.dispose()

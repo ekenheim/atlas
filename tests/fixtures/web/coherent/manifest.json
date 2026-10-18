@@ -1,0 +1,47 @@
+{
+  "note": "Hand-written for the tests of `atlas sources fetch` (W3), not recorded: the same synthetic issuer page as ../lumentum, replayed for Coherent to show that another company's page on Lumentum's own site is Tier B, and two robots.txt files that redirect (to a site whose terms forbid automation, and to a host nobody onboarded), which the gate must not follow.",
+  "responses": [
+    {
+      "url": "https://ir.example-issuer.test/robots.txt",
+      "file": "../lumentum/ir/robots.txt",
+      "status": 200,
+      "headers": {"Content-Type": "text/plain"}
+    },
+    {
+      "url": "https://ir.example-issuer.test/news/explicit.html",
+      "file": "../lumentum/ir/news/explicit.html",
+      "status": 200,
+      "headers": {"Content-Type": "text/html; charset=utf-8"}
+    },
+    {
+      "url": "https://news.example-trade.test/robots.txt",
+      "file": "../lumentum/ir/news/moved.html",
+      "status": 301,
+      "headers": {"Content-Type": "text/html", "Location": "https://www.example-forbidden.test/robots.txt"}
+    },
+    {
+      "url": "https://news.example-trade.test/2026/lumentum-capacity.html",
+      "file": "../lumentum/press/lumentum-capacity.html",
+      "status": 200,
+      "headers": {"Content-Type": "text/html; charset=utf-8"}
+    },
+    {
+      "url": "https://licensed.example-trade.test/robots.txt",
+      "file": "../lumentum/ir/news/moved.html",
+      "status": 302,
+      "headers": {"Content-Type": "text/html", "Location": "https://elsewhere.example-offsite.test/robots.txt"}
+    },
+    {
+      "url": "https://licensed.example-trade.test/2026/note.html",
+      "file": "../lumentum/press/licensed-note.html",
+      "status": 200,
+      "headers": {"Content-Type": "text/html; charset=utf-8"}
+    },
+    {
+      "url": "https://www.example-forbidden.test/robots.txt",
+      "file": "../lumentum/ir/robots.txt",
+      "status": 200,
+      "headers": {"Content-Type": "text/plain"}
+    }
+  ]
+}

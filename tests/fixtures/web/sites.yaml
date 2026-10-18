@@ -1,0 +1,49 @@
+# The site register the tests of `atlas sources fetch` (W3) point at
+# (ATLAS_SOURCE_SITES_CONFIG). SYNTHETIC: the hosts are under the reserved `.test` TLD and
+# resolve nowhere; the pages are the hand-written fixtures beside this file. The production
+# register (configs/sources/sites.yaml) holds none of these.
+version: 1
+
+sites:
+  example-issuer:
+    publisher: Example Issuer plc (investor relations; synthetic)
+    hosts: [ir.example-issuer.test]
+    terms_url: https://ir.example-issuer.test/terms
+    terms_checked_on: 2026-10-18
+    automation: allowed
+    terms_note: >-
+      Synthetic: stands for an issuer site whose terms permit polite automated access to its
+      public investor-relations pages. No such terms exist.
+    rate_per_s: 1
+    own_site_of: [lumentum]
+
+  example-trade-press:
+    publisher: Example Trade Press (synthetic)
+    hosts: [news.example-trade.test]
+    terms_url: https://news.example-trade.test/terms
+    terms_checked_on: 2026-10-18
+    automation: allowed
+    terms_note: >-
+      Synthetic: stands for a third party's site (no company's own) whose terms permit polite
+      automated access. No such terms exist.
+    rate_per_s: 1
+
+  example-licensed-press:
+    publisher: Example Licensed Press (synthetic)
+    hosts: [licensed.example-trade.test]
+    terms_url: https://licensed.example-trade.test/terms
+    terms_checked_on: 2026-10-18
+    automation: allowed
+    terms_note: "Synthetic: a third party's site whose register entry names its licence class."
+    rate_per_s: 1
+    license_class: public_regulatory
+
+  example-forbidden:
+    publisher: Example Forbidding Site (synthetic)
+    hosts: [www.example-forbidden.test]
+    terms_url: https://www.example-forbidden.test/terms
+    terms_checked_on: 2026-10-18
+    automation: forbidden
+    terms_note: "Synthetic: the terms forbid automated access and no consent is recorded."
+    block_reason: "blocked: the synthetic site's terms forbid automated access"
+    rate_per_s: 1

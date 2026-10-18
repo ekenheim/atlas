@@ -262,10 +262,12 @@ ISOLATED_TOOLS = [
 ]
 BUILT_IN = ["Read", "Write", "Edit", "Glob"]
 
-# Tools the server gained after v0.6.14 (the Chokepoint Watch's board, ticket W1). Each refuses an
-# isolated session server-side (`isolated_session`, tests/integration/test_mcp_watch.py), so the
-# frozen isolated prompt neither lists nor names them: the scorecard's sessions see exactly what
-# they saw in v0.6.14. A tool added later goes here only if it too refuses isolated sessions.
+# Tools the server gained after v0.6.14 (the Chokepoint Watch: W1's board and memo, W4's bear
+# checks, W3's primary sources beyond filings). Each refuses an isolated session server-side
+# (`isolated_session`; tests/integration/test_mcp_watch.py, test_bear_checks.py and
+# test_mcp_watch_sources.py), so the frozen isolated prompt neither lists nor names them: the
+# scorecard's sessions see exactly what they saw in v0.6.14. A tool added later goes here only if
+# it too refuses isolated sessions.
 REFUSED_SERVER_SIDE_SINCE_0_6_14 = {
     "board",
     "get_chokepoint",
@@ -273,6 +275,9 @@ REFUSED_SERVER_SIDE_SINCE_0_6_14 = {
     "update_chokepoint",
     "write_memo",
     "bear_checks",
+    "filing_search",
+    "web_search",
+    "fetch_page",
 }
 ISOLATED_DRY_RUN_0_6_14 = ROOT / "tests" / "fixtures" / "scorecard" / "isolated-dry-run.v0.6.14.txt"
 
@@ -357,8 +362,9 @@ def test_an_isolated_run_tells_the_researcher_its_session_is_open_and_to_use_onl
 
 
 def test_the_isolated_prompt_names_every_tool_that_is_off_the_list(run: Run):
-    # The Tools line and the named list together are the server's tools, none twice: a tool the
-    # server gains is on neither, and this test fails until someone decides where it goes.
+    # The Tools line, the named list and the tools refused server-side (see
+    # REFUSED_SERVER_SIDE_SINCE_0_6_14) together are the server's tools, none twice: a tool the
+    # server gains is on none, and this test fails until someone decides where it goes.
     from atlas.mcp.server import McpServer
 
     prompt = scorecard_run(run, "--dry-run").stdout.split("prompt:\n", 1)[1]

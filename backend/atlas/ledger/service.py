@@ -37,7 +37,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import Connection, Engine, text
 
@@ -99,6 +99,41 @@ def canonical_url(url: str) -> str:
     return urlunsplit((parts.scheme.lower(), host, parts.path or "/", "", ""))
 
 
+_TRACKING = frozenset({"gclid", "fbclid", "msclkid", "mc_cid", "mc_eid", "igshid"})
+
+
+def web_canonical_url(url: str) -> str:
+    """A web page's identity: scheme and host lowercased, a default port, the fragment and
+    tracking parameters (`utm_*`, `gclid`, ...) dropped, the remaining query kept (sorted: a
+    page may be told apart by it) and a trailing `/` dropped from a non-root path. `www.` is
+    kept: the site register names the hosts."""
+    parts = urlsplit(url.strip())
+    host = (parts.hostname or "").lower()
+    if parts.port and not (
+        (parts.scheme == "https" and parts.port == 443)
+        or (parts.scheme == "http" and parts.port == 80)
+    ):
+        host = f"{host}:{parts.port}"
+    path = parts.path or "/"
+    if len(path) > 1:
+        path = path.rstrip("/") or "/"
+    query = urlencode(
+        sorted(
+            (key, value)
+            for key, value in parse_qsl(parts.query, keep_blank_values=True)
+            if key not in _TRACKING and not key.startswith("utm_")
+        )
+    )
+    return urlunsplit((parts.scheme.lower(), host, path, query, ""))
+
+
+def document_url(candidate: SourceCandidate) -> str:
+    """The canonical URL of the Source Document a candidate belongs to."""
+    if candidate.web is not None:
+        return web_canonical_url(candidate.url)
+    return canonical_url(candidate.url)
+
+
 def describe(candidate: SourceCandidate) -> DocumentIdentity:
     """The Source Document a candidate belongs to: an SEC EDGAR document, or a document an
     exchange feed lists (identified by its URL; the feed's category is its document type)."""
@@ -129,6 +164,20 @@ def describe(candidate: SourceCandidate) -> DocumentIdentity:
             publisher=manual.publisher,
             source_tier="A",
             license_class="public_regulatory",
+        )
+    web = candidate.web
+    if web is not None:
+        return DocumentIdentity(
+            provider=candidate.provider_id,
+            canonical_url=web_canonical_url(candidate.url),
+            accession=None,
+            form_type=None,
+            document_type=candidate.document_type,
+            source_type="web_page",
+            title=candidate.title,
+            publisher=web.publisher,
+            source_tier="A" if web.own_site else "B",
+            license_class=web.license_class,
         )
     transcript = candidate.transcript
     if transcript is not None:
@@ -200,7 +249,7 @@ class SourceLedger:
                     " WHERE d.provider = :provider AND d.canonical_url = :url"
                     " ORDER BY o.observed_at DESC, o.id LIMIT 1"
                 ),
-                {"provider": candidate.provider_id, "url": canonical_url(candidate.url)},
+                {"provider": candidate.provider_id, "url": document_url(candidate)},
             ).one_or_none()
         if row is None or (row.etag is None and row.last_modified is None):
             return None
@@ -214,6 +263,7 @@ class SourceLedger:
         job_id: uuid.UUID | None = None,
         gate_decision_id: uuid.UUID | None = None,
         owner_override: str | None = None,
+        session_id: uuid.UUID | None = None,
     ) -> RecordedFetch:
         """Record one fetch. `gate_decision_id` is the `allowed` fetch gate decision it was
         made under (`atlas.ledger.gates`), for a gated source; `owner_override` the owner's
@@ -319,17 +369,24 @@ class SourceLedger:
                 observation["gate_decision_id"] = gate_decision_id
             if owner_override is not None:
                 observation["owner_override"] = owner_override
+            if session_id is not None:  # the research session that asked for the fetch
+                observation["session_id"] = session_id
             connection.execute(
                 text(
                     "INSERT INTO fetch_observation (id, source_document_id, source_version_id,"
                     " job_id, outcome, url, fetched_at, raw_sha256, comparison_sha256,"
                     " object_uri, etag, last_modified, attempts, gate_decision_id,"
-                    " owner_override) VALUES (:id, :source_document_id, :source_version_id,"
-                    " :job_id, :outcome, :url, :fetched_at, :raw_sha256, :comparison_sha256,"
-                    " :object_uri, :etag, :last_modified, :attempts, :gate_decision_id,"
-                    " :owner_override)"
+                    " owner_override, session_id) VALUES (:id, :source_document_id,"
+                    " :source_version_id, :job_id, :outcome, :url, :fetched_at, :raw_sha256,"
+                    " :comparison_sha256, :object_uri, :etag, :last_modified, :attempts,"
+                    " :gate_decision_id, :owner_override, :session_id)"
                 ),
-                {"gate_decision_id": None, "owner_override": None, **observation},
+                {
+                    "gate_decision_id": None,
+                    "owner_override": None,
+                    "session_id": None,
+                    **observation,
+                },
             )
 
             # Audit last: appending takes the chain's lock until commit.
@@ -439,6 +496,8 @@ class SourceLedger:
                 if candidate.announcement
                 else candidate.available_at
                 if candidate.manual or candidate.transcript
+                else candidate.available_at
+                if candidate.web and candidate.web.date_source != "fetch_time"
                 else None
             ),
             "available_at": available_at,
@@ -563,6 +622,8 @@ def _metadata(fetched: FetchedDocument) -> dict[str, Any]:
         metadata["announcement"] = candidate.announcement.model_dump(mode="json")
     if candidate.manual is not None:
         metadata["manual_import"] = candidate.manual.model_dump(mode="json")
+    if candidate.web is not None:
+        metadata["web"] = candidate.web.model_dump(mode="json")
     if candidate.transcript is not None:
         metadata["tradingview"] = candidate.transcript.model_dump(mode="json")
         metadata["owner_override"] = candidate.transcript.owner_override

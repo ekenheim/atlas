@@ -276,6 +276,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/web-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Web */
+        get: operations["search_web_api_v1_web_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/filing-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Filings */
+        get: operations["search_filings_api_v1_filing_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fetch Source */
+        post: operations["fetch_source_api_v1_sources_fetch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/archive-search": {
         parameters: {
             query?: never;
@@ -6135,6 +6186,86 @@ export interface components {
             gate_decision_id: string | null;
             /** Owner Override */
             owner_override?: string | null;
+            /** Session Id */
+            session_id?: string | null;
+        };
+        /** FetchRequest */
+        FetchRequest: {
+            /**
+             * Company
+             * @description the company's slug
+             */
+            company: string;
+            /** Url */
+            url: string;
+            /**
+             * Published At
+             * @description when the page became public, if you know (with its UTC offset); else its own date (if within a week before the fetch), else the fetch time
+             */
+            published_at?: string | null;
+            /**
+             * Session Id
+             * @description the research session asking: a page fetched after a session's as-of time is read only by the session that fetched it
+             */
+            session_id?: string | null;
+        };
+        /** FetchedPage */
+        FetchedPage: {
+            /** Outcome */
+            outcome: string;
+            /** Company */
+            company: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Url */
+            url: string;
+            /** Final Url */
+            final_url: string;
+            /** Canonical Url */
+            canonical_url: string;
+            /**
+             * Source Document Id
+             * Format: uuid
+             */
+            source_document_id: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /**
+             * Observation Id
+             * Format: uuid
+             */
+            observation_id: string;
+            /**
+             * Available At
+             * Format: date-time
+             */
+            available_at: string;
+            /** Available At Basis */
+            available_at_basis: string;
+            /** Date Source */
+            date_source: string | null;
+            /** Date As Written */
+            date_as_written: string | null;
+            /** Tier */
+            tier: string;
+            /** License Class */
+            license_class: string;
+            /** Site */
+            site: string;
+            /** Media Type */
+            media_type: string;
+            /** Title */
+            title: string;
+            /** Gate Decision Id */
+            gate_decision_id: string | null;
+            /** Retain Jobs */
+            retain_jobs: string[] | null;
         };
         /**
          * Filing
@@ -6168,6 +6299,70 @@ export interface components {
             source_version_id: string | null;
             /** Ingestable */
             ingestable: boolean;
+        };
+        /** FilingResult */
+        FilingResult: {
+            /** Position */
+            position: number;
+            /**
+             * Lead Id
+             * Format: uuid
+             */
+            lead_id: string;
+            /** Cik */
+            cik: string;
+            /** Filer */
+            filer: string;
+            /** Ticker */
+            ticker: string | null;
+            /** Form */
+            form: string;
+            /** File Type */
+            file_type: string | null;
+            /**
+             * File Date
+             * Format: date
+             */
+            file_date: string;
+            /** Period Ending */
+            period_ending: string | null;
+            /** Accession */
+            accession: string;
+            /** Document */
+            document: string;
+            /** Url */
+            url: string;
+            /** New */
+            new: boolean;
+            /** Company */
+            company: string | null;
+            /** Source Version Id */
+            source_version_id: string | null;
+            /** Ingestable */
+            ingestable: boolean;
+        };
+        /** FilingSearchResult */
+        FilingSearchResult: {
+            /** Query */
+            query: string;
+            /** Forms */
+            forms: string[];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Total */
+            total: number;
+            /** New Leads */
+            new_leads: number;
+            /** Results */
+            results: components["schemas"]["FilingResult"][];
         };
         /** @enum {string} */
         FinalStatus: "completed" | "failed" | "cancelled";
@@ -12543,6 +12738,49 @@ export interface components {
              */
             available_at: string;
         };
+        /** WebHit */
+        WebHit: {
+            /** Position */
+            position: number;
+            /**
+             * Lead Id
+             * Format: uuid
+             */
+            lead_id: string;
+            /** Url */
+            url: string;
+            /** Canonical Url */
+            canonical_url: string;
+            /** Title */
+            title: string;
+            /** Snippet */
+            snippet: string;
+            /** Published Date */
+            published_date: string | null;
+            /** Engines */
+            engines: string[];
+            /** New */
+            new: boolean;
+        };
+        /** WebSearchResult */
+        WebSearchResult: {
+            /** Query */
+            query: string;
+            /** Engines */
+            engines: string[];
+            /** Language */
+            language: string;
+            /** Total */
+            total: number;
+            /** New Leads */
+            new_leads: number;
+            /** Dropped After Bound */
+            dropped_after_bound: number;
+            /** Unresponsive Engines */
+            unresponsive_engines: components["schemas"]["UnresponsiveEngine"][];
+            /** Results */
+            results: components["schemas"]["WebHit"][];
+        };
         /** @enum {string} */
         WatchMode: "architect" | "delta";
         /** WatchRun */
@@ -13342,6 +13580,209 @@ export interface operations {
             };
         };
     };
+    search_web_api_v1_web_search_get: {
+        parameters: {
+            query: {
+                /** @description the search query */
+                q: string;
+                /** @description the theme the leads belong to */
+                theme?: string | null;
+                session_id?: string | null;
+                /** @description leave out results that date themselves after this day */
+                published_by?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebSearchResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    search_filings_api_v1_filing_search_get: {
+        parameters: {
+            query: {
+                /** @description an exact phrase; or several, each in double quotes (all must match) */
+                q: string;
+                /** @description comma-separated form types (default: the 10-K family) */
+                forms?: string | null;
+                /** @description first filing date (default: a year back) */
+                start?: string | null;
+                /** @description last filing date (default: today) */
+                end?: string | null;
+                /** @description the theme the leads belong to */
+                theme?: string | null;
+                session_id?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilingSearchResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    fetch_source_api_v1_sources_fetch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FetchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FetchedPage"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     search_api_v1_archive_search_get: {
         parameters: {
             query: {
@@ -13353,6 +13794,8 @@ export interface operations {
                 as_of?: string | null;
                 top?: number;
                 per_document?: number;
+                /** @description the research session asking (web pages: see the module) */
+                session_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -13392,6 +13835,8 @@ export interface operations {
                 /** @description a form, document or source type to keep (10-Q, 8-K, transcript) */
                 kind?: string[] | null;
                 limit?: number;
+                /** @description the research session asking (web pages: see the module) */
+                session_id?: string | null;
             };
             header?: never;
             path?: never;
