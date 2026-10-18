@@ -155,6 +155,22 @@ export function changeWeight(change: Pick<ThemeChange, "kind" | "text">): 0 | 1 
   return /^(disproven|superseded|withdrawn)\b/i.test(change.text) ? 0 : 1;
 }
 
+/** A theme's changes for its own page: inside the window (since the last visit, or the week)
+ * the important ones first and then the newest; what is older follows, newest first. */
+export function orderChanges(
+  changes: readonly ThemeChange[],
+  mark: Date | null,
+  now: Date,
+): ThemeChange[] {
+  const start = windowStart(mark, now).getTime();
+  const inside = (change: ThemeChange) => new Date(change.at).getTime() >= start;
+  const newest = (a: ThemeChange, b: ThemeChange) => b.at.localeCompare(a.at);
+  return [
+    ...changes.filter(inside).sort((a, b) => changeWeight(a) - changeWeight(b) || newest(a, b)),
+    ...changes.filter((change) => !inside(change)).sort(newest),
+  ];
+}
+
 export interface ChangeView {
   /** "Since last visit", or "This week" with no mark. */
   label: string;

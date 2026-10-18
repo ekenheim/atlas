@@ -1,15 +1,19 @@
 "use client";
 
-// The theme page's lead (atlas-beliefs ticket 21): the theme's Hypotheses, then, after its
-// Beliefs, what changed. Both in few words; each row opens the record it is about.
+// The theme page's lists: its Hypotheses (in the Records) and what changed (above them). Both in
+// few words; each row opens the record it is about.
 import Link from "next/link";
+import { useState } from "react";
 
-import { api } from "../lib/api/client";
-import { evidenceDay } from "../lib/format";
-import { words } from "../lib/hypotheses";
+import { type Hypothesis, type ThemeChange, api } from "../lib/api/client";
+import { activity, plainDay } from "../lib/format";
 import { routes } from "../lib/routes";
-import { CHANGE_KINDS, changeHref, hypothesisThesis, themeHypotheses } from "../lib/themes";
+import { isUnseen } from "../lib/seen";
+import { lifecycleWord, publishedVersion } from "../lib/status";
+import { changeHref, hypothesisThesis, themeHypotheses } from "../lib/themes";
+import { orderChanges } from "../lib/today";
 import { useApi } from "../lib/use-api";
+import { Status } from "./status";
 import { Load } from "./ui";
 
 const loadHypotheses = async () => (await api.hypotheses()).items;
@@ -23,25 +27,25 @@ export function ThemeHypotheses({ theme }: { theme: string }) {
         Hypotheses
       </h2>
       <Load loaded={loaded} what="the Hypotheses">
-        {(all) => {
+        {(all: Hypothesis[]) => {
           const mine = themeHypotheses(all, theme);
           return mine.length === 0 ? (
             <p className="muted">No Hypothesis on this theme yet.</p>
           ) : (
             <ul className="reader-rows" aria-label="Hypotheses">
               {mine.map((hypothesis) => {
-                const published = hypothesis.versions.filter((each) => each.published);
+                const published = publishedVersion(hypothesis);
                 const thesis = hypothesisThesis(hypothesis);
                 return (
                   <li className="reader-row" key={hypothesis.id} aria-label={thesis}>
                     <div>
-                      <div className="reader-row-title">
+                      <div className="row-title">
                         <Link href={routes.hypothesis(hypothesis.id)}>{thesis}</Link>
                       </div>
-                      <div className="reader-row-sub">
-                        {published.length === 0
+                      <div className="reader-row-sub row-secondary">
+                        {published === null
                           ? "not published"
-                          : `published ${evidenceDay(hypothesis.first_published_at ?? "")}`}
+                          : `Published ${plainDay(hypothesis.first_published_at ?? published.published_at)}`}
                         {" · "}
                         {hypothesis.versions.length}{" "}
                         {hypothesis.versions.length === 1 ? "version" : "versions"}
@@ -56,7 +60,9 @@ export function ThemeHypotheses({ theme }: { theme: string }) {
                         )}
                       </div>
                     </div>
-                    <span className="reader-pill reader-unknown">{words(hypothesis.status)}</span>
+                    <span className="row-verdict">
+                      <Status word={lifecycleWord(hypothesis.status)} />
+                    </span>
                   </li>
                 );
               })}
@@ -68,39 +74,59 @@ export function ThemeHypotheses({ theme }: { theme: string }) {
   );
 }
 
+/** Rows shown before `All N`. */
+export const CHANGES_SHOWN = 7;
+
 const loadChanges = (theme: string) => api.themeChanges(theme);
 
-/** What changed on the theme, newest first. */
-export function ThemeChanges({ theme }: { theme: string }) {
+/** What changed on the theme: the window's important changes first, then the newest. A dot marks
+ * what is newer than the last visit. */
+export function ChangedList({ theme, mark }: { theme: string; mark: Date | null }) {
   const loaded = useApi(theme, loadChanges);
+  const [all, setAll] = useState(false);
   return (
     <section aria-labelledby="changed">
       <h2 className="reader-label" id="changed">
-        What changed
+        Changed
       </h2>
       <Load loaded={loaded} what="the changes">
-        {(changes) =>
-          changes.length === 0 ? (
-            <p className="muted">Nothing has changed yet.</p>
-          ) : (
-            <ul className="reader-rows" aria-label="Changes, newest first">
-              {changes.map((change, index) => {
-                const href = changeHref(change);
-                return (
-                  <li className="reader-row" key={`${change.at}-${index}`}>
-                    <div>
-                      <div className="reader-row-title">
-                        {href ? <Link href={href}>{change.text}</Link> : change.text}
+        {(changes: ThemeChange[]) => {
+          if (changes.length === 0) return <p className="muted">Nothing has changed yet.</p>;
+          const now = new Date();
+          const ordered = orderChanges(changes, mark, now);
+          const shown = all ? ordered : ordered.slice(0, CHANGES_SHOWN);
+          return (
+            <>
+              <ul className="reader-rows change-rows change-compact" aria-label="Changes, newest first">
+                {shown.map((change, index) => {
+                  const href = changeHref(change);
+                  return (
+                    <li className="reader-row change-row" key={`${change.at}-${index}`}>
+                      <div>
+                        <div className="row-title">
+                          {isUnseen(change.at, mark) ? <span className="unseen-dot" aria-label="new" /> : null}
+                          {href ? (
+                            <Link href={href} title={change.text}>
+                              {change.text}
+                            </Link>
+                          ) : (
+                            change.text
+                          )}
+                        </div>
+                        <div className="reader-row-sub">{activity(change.at, now)}</div>
                       </div>
-                      <div className="reader-row-sub">{evidenceDay(change.at)}</div>
-                    </div>
-                    <span className="reader-pill reader-unknown">{CHANGE_KINDS[change.kind]}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          )
-        }
+                    </li>
+                  );
+                })}
+              </ul>
+              {!all && ordered.length > CHANGES_SHOWN ? (
+                <button type="button" className="show-all show-all-flush" onClick={() => setAll(true)}>
+                  All {ordered.length}
+                </button>
+              ) : null}
+            </>
+          );
+        }}
       </Load>
     </section>
   );
