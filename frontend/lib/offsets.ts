@@ -129,6 +129,29 @@ export function selectedSpan(root: Node, text: string, selection: Selection): Sp
   return spanFromUtf16(text, start, end);
 }
 
+/** A passage named by its offsets in one parse (a bear check's quote has no Assertion). */
+export interface OffsetSpan {
+  from: number;
+  to: number;
+  /** The parser version the offsets index; null: the recorded parse. */
+  parse: string | null;
+}
+
+/** `?from=&to=&parse=` as a span, or null when absent or not a span (`from` < `to`, both
+ * non-negative integers). */
+export function spanFromSearch(search: URLSearchParams): OffsetSpan | null {
+  const from = search.get("from");
+  const to = search.get("to");
+  if (from === null || to === null || !/^\d+$/.test(from) || !/^\d+$/.test(to)) return null;
+  const span = { from: Number(from), to: Number(to), parse: search.get("parse") || null };
+  return span.from < span.to ? span : null;
+}
+
+/** How many code points `text` has (the API's offsets count code points). */
+export function codePointLength(text: string): number {
+  return Array.from(text).length;
+}
+
 /**
  * `text` split around the code-point span [`start`, `end`) (an Assertion's offsets): the
  * text before it, the span itself and the text after, as UTF-16 strings to render.

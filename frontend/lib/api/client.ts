@@ -107,6 +107,9 @@ export type StepState = Schemas["StepState"];
 export type Holder = Schemas["Holder"];
 export type WatchRun = Schemas["WatchRun"];
 export type BoardFilter = Schemas["BoardFilter"];
+export type BearChecks = Schemas["BearChecks"];
+export type BearCheck = Schemas["BearCheck"];
+export type BearCheckSource = Schemas["BearCheckSource"];
 export type ExportFormat = NonNullable<
   NonNullable<Params<"/api/v1/hypotheses/{hypothesis_id}/export">["query"]>["format"]
 >;

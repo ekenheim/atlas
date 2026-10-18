@@ -2,6 +2,7 @@
 // ok is verified or met, warn needs attention, gap is wrong, muted is neutral and the default.
 // `unit/status.test.ts` fails when a value of a backend enum has no word here.
 import type {
+  BearCheck,
   BeliefSummary,
   BoardFilter,
   Call,
@@ -323,4 +324,36 @@ export const OWNER_TOKENS: Record<string, string> = {
   customer_concentration: "largest customer",
   going_concern: "going-concern warning",
   net_cash: "net cash",
+};
+
+// --- a company's bear checks (round 3, §10.6) ---------------------------------------------
+
+export type CheckKeyName = BearCheck["key"];
+export type CheckStatusName = BearCheck["status"];
+
+/** A check's word beside its value: only a flag or an unknown says anything. */
+export const BEAR_STATUS_WORDS: Record<CheckStatusName, Word | null> = {
+  flag: { word: "Flag", tone: "warn" },
+  clear: null,
+  unknown: { word: "Unknown", tone: "muted" },
+};
+
+/** The six checks, in the one order the page shows them (Y7). */
+export const BEAR_LABELS: Record<CheckKeyName, string> = {
+  dilution: "Share count growth",
+  shelf_or_atm: "Shelf or offering filings",
+  gaap_gross_margin: "Gross margin, last four quarters",
+  customer_concentration: "Largest customer",
+  going_concern: "Going-concern warning",
+  net_cash: "Net cash or debt",
+};
+
+/** Why a check is unknown, written here until W8's `unknown_reason`. */
+export const BEAR_UNKNOWN_REASONS: Record<CheckKeyName, string> = {
+  dilution: "no comparable share counts",
+  shelf_or_atm: "not in the filings Atlas collects",
+  gaap_gross_margin: "no usable quarterly figures",
+  customer_concentration: "no customer share stated",
+  going_concern: "no report fully read",
+  net_cash: "no complete balance sheet",
 };

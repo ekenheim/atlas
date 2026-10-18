@@ -9,7 +9,14 @@ import { SourceDocumentRows } from "../../components/source-document";
 import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import { api, type Assertion, type SourceVersionDetail } from "../../lib/api/client";
 import { evidenceDay } from "../../lib/format";
-import { domPosition, splitAtSpan, utf16Index } from "../../lib/offsets";
+import {
+  type OffsetSpan,
+  codePointLength,
+  domPosition,
+  spanFromSearch,
+  splitAtSpan,
+  utf16Index,
+} from "../../lib/offsets";
 import { formatCount, plural } from "../../lib/memory";
 import { routes } from "../../lib/routes";
 import { versionMemory } from "../../lib/version-memory";
@@ -61,10 +68,13 @@ function VersionLink({ id, label }: { id: string | null; label: string }) {
 function Provenance({ version }: { version: SourceVersionDetail }) {
   const sourceDocument = version.source_document;
   const highlighted = useHighlightedAssertion();
+  const offsets = useHighlightedOffsets();
   const quoted =
     highlighted?.state === "ready" && highlighted.data.source_version_id === version.id
       ? highlighted.data
-      : null;
+      : offsets
+        ? { span_start: offsets.from, span_end: offsets.to }
+        : null;
   return (
     <section aria-labelledby="provenance">
       <h2 id="provenance">Provenance</h2>
@@ -381,6 +391,28 @@ function useHighlightedAssertion(): Loaded<Assertion> | null {
   return id ? loaded : null;
 }
 
+/**
+ * The passage named by `?from=&to=&parse=` (a quote with no Assertion, such as a bear check's),
+ * or null; `?assertion=` takes priority.
+ */
+function useHighlightedOffsets(): OffsetSpan | null {
+  const search = useSearchParams();
+  return search.get("assertion") ? null : spanFromSearch(search);
+}
+
+/** Where the passage named by its offsets is, or why it can't be shown. */
+function OffsetsNote({ version, shown }: { version: SourceVersionDetail; shown: boolean }) {
+  if (!shown) {
+    return <p role="alert">The passage is not in this text, so no span is highlighted.</p>;
+  }
+  return (
+    <p id="highlighted-span-hint">
+      Quoted passage · {version.source_document.form_type ?? version.source_document.document_type ?? "document"} · filed{" "}
+      {evidenceDay(version.available_at)}
+    </p>
+  );
+}
+
 /** Where the highlighted span is, or why it can't be shown. */
 function HighlightNote({
   assertion,
@@ -424,14 +456,18 @@ function HighlightNote({
 function Content({ version }: { version: SourceVersionDetail }) {
   const parsed = version.content_sha256 !== null;
   const highlighted = useHighlightedAssertion();
+  const offsets = useHighlightedOffsets();
   // An Assertion is checked against the parse it was made on: highlighting one made on a
-  // re-parse shows that parse's text; otherwise the text is the recorded parse.
+  // re-parse shows that parse's text; so do offsets that name another parse. Otherwise the
+  // text is the recorded parse.
   const reparse =
     highlighted?.state === "ready" &&
     highlighted.data.source_version_id === version.id &&
     highlighted.data.parser_version !== version.parser_version
       ? highlighted.data.parser_version
-      : null;
+      : offsets?.parse && offsets.parse !== version.parser_version
+        ? offsets.parse
+        : null;
   const recordedText = useApi(parsed && !reparse ? version.id : null, api.parsedText);
   const reparseText = useApi(reparse ? `${version.id} ${reparse}` : null, api.parseText);
   const text = reparse ? reparseText : recordedText;
@@ -446,6 +482,7 @@ function Content({ version }: { version: SourceVersionDetail }) {
     textElement.scrollIntoView({ block: "start" });
   }, [mark, textElement]);
   const split = (whole: string) => {
+    if (offsets) return offsets.to <= codePointLength(whole) ? splitAtSpan(whole, offsets.from, offsets.to) : null;
     if (highlighted?.state !== "ready") return null;
     const assertion = highlighted.data;
     if (assertion.source_version_id !== version.id) return null;
@@ -476,12 +513,15 @@ function Content({ version }: { version: SourceVersionDetail }) {
             {(text) => {
               const parts = split(text);
               const quote = highlighted?.state === "ready" ? highlighted.data.quote : null;
-              const shown = parts && parts[1] === quote ? parts : null;
+              // Offsets carry no quote to check against: the span is shown when it is inside
+              // the text.
+              const shown = parts && (offsets !== null || parts[1] === quote) ? parts : null;
               return (
                 <>
                   <p id="parsed-text-hint">
                     Select a passage to quote it in a new Assertion (below).
                   </p>
+                  {offsets && <OffsetsNote version={version} shown={shown !== null} />}
                   {highlighted && (
                     <HighlightNote
                       assertion={highlighted}
