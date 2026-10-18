@@ -316,14 +316,14 @@ export function parseMarkdown(source: string): Block[] {
       continue;
     }
     const current: { ordered: boolean; items: string[] } | null = list;
-    if (current !== null && indented) {
-      // A continuation of the last item (a deeper item would have matched above).
+    const head = heading(raw);
+    if (current !== null && head === null && !RULE.test(raw)) {
+      // A continuation of the last item, indented or not (a deeper item matched above).
       const last = current.items.length - 1;
       current.items[last] = `${current.items[last] ?? ""} ${raw.trim()}`;
       continue;
     }
     if (indented && paragraph.length === 0) continue; // an indented code block
-    const head = heading(raw);
     if (head !== null) {
       endParagraph();
       endList();
@@ -335,7 +335,6 @@ export function parseMarkdown(source: string): Block[] {
       endList();
       continue;
     }
-    if (current !== null) endList();
     paragraph.push(raw.trim().replace(/^>\s?/, ""));
   }
   endParagraph();

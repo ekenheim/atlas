@@ -18,6 +18,7 @@ import { StepRows, stepRowsOf } from "../../components/step-rows";
 import { Status, ThesisCheck } from "../../components/status";
 import { ChangedList, ThemeHypotheses } from "../../components/theme-feed";
 import { Code, Missing, Row, Timestamp } from "../../components/ui";
+import { WatchRunRows } from "../../components/watch-run-records";
 import {
   api,
   type BeliefSummary,
@@ -34,8 +35,7 @@ import { boardCounts, boardParts, humanise, layerName } from "../../lib/chokepoi
 import { routes } from "../../lib/routes";
 import { readMark } from "../../lib/seen";
 import { layeredEdges, layerlessByCompany } from "../../lib/themes";
-import { evidenceDay, exactTime, plainDay } from "../../lib/format";
-import { WATCH_MODE_WORDS } from "../../lib/status";
+import { evidenceDay, plainDay } from "../../lib/format";
 import { buildCard, newestEvidence, startingStatus, themeBeliefs } from "../../lib/today";
 import { type Loaded, useApi, useIdParam } from "../../lib/use-api";
 import { stoppedWatch, themeLayout } from "../../lib/watch";
@@ -183,7 +183,7 @@ function BoardLed({
         </section>
       ) : null}
       <RecordsFold counts={`${runs.length} watch ${runs.length === 1 ? "run" : "runs"}`}>
-        <WatchRunRecords runs={runs} />
+        <WatchRunRows runs={runs} />
         {summary ? (
           <>
             {summary.description ? <p className="measure">{summary.description}</p> : null}
@@ -203,34 +203,6 @@ function BoardLed({
         ) : null}
       </RecordsFold>
     </div>
-  );
-}
-
-/** The Watch's runs of a theme, newest first, each opening its memo. */
-function WatchRunRecords({ runs }: { runs: WatchRun[] }) {
-  if (runs.length === 0) return null;
-  return (
-    <>
-      <h2>Watch runs</h2>
-      <ul className="reader-rows" aria-label="Watch runs">
-        {runs.map((run) => {
-          const mode = WATCH_MODE_WORDS[run.mode];
-          const cost = run.cost_usd === null ? null : `$${run.cost_usd.toFixed(2)}`;
-          return (
-            <li className="reader-row" key={run.id}>
-              <div className="row-title">
-                <Link href={routes.watchRun(run.id)}>
-                  {[evidenceDay(run.run_date), mode, `${run.tool_calls} tool calls`, cost]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </Link>
-              </div>
-              <div className="reader-row-sub row-secondary">{exactTime(run.created_at)}</div>
-            </li>
-          );
-        })}
-      </ul>
-    </>
   );
 }
 

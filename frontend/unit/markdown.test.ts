@@ -32,6 +32,13 @@ test("headings, paragraphs and lists", () => {
   expect((blocks[4] as Extract<Block, { kind: "list" }>).ordered).toBe(true);
 });
 
+test("a list item's wrapped lines continue it, indented or not", () => {
+  const blocks = parseMarkdown("- [A](https://a.io): first line\n  wraps here\nand here\n- second\n\nAfter.");
+  expect(blocks.map((block) => block.kind)).toEqual(["list", "paragraph"]);
+  const list = blocks[0] as Extract<Block, { kind: "list" }>;
+  expect(list.items.map(plainText)).toEqual(["A: first line wraps here and here", "second"]);
+});
+
 test("emphasis, strong, and unbalanced markers stay literal", () => {
   const [first] = parseMarkdown("A **bold** and *soft* and _lean_ word, 2 * 3 and **open");
   expect(first?.kind).toBe("paragraph");
