@@ -17,6 +17,7 @@ import {
   changeWeight,
   coverageLine,
   leadHypothesis,
+  orderChanges,
   orderThemes,
   recordLine,
   selectChanges,
@@ -241,6 +242,21 @@ test("since last visit: only the window, the important first, then the newest, w
   expect(view.shown.map((each) => each.text)).toEqual(["disproven 3", "proven 2", "proven 1"]);
   expect(view.more).toBe(1);
   expect(view.unseen).toBe(4);
+});
+
+test("on a theme's page the window's important changes lead and older ones follow, newest first", () => {
+  const changes = [
+    change("judged", "old", "2026-10-01T09:00:00Z"),
+    change("judged", "proven", "2026-10-18T10:00:00Z"),
+    change("flagged", "flagged", "2026-10-16T10:00:00Z"),
+    change("judged", "older", "2026-09-01T09:00:00Z"),
+  ];
+  expect(orderChanges(changes, null, NOW).map((each) => each.text)).toEqual([
+    "flagged",
+    "proven",
+    "old",
+    "older",
+  ]);
 });
 
 test("with no mark the window is the week and nothing is called new", () => {

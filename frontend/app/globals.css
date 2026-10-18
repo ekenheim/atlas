@@ -1678,3 +1678,152 @@ blockquote.quote-clamped {
     overflow-wrap: normal;
   }
 }
+
+/* Page titles and the thesis block of a theme. */
+h1,
+.page-title {
+  font-size: 1.75rem;
+  line-height: 1.25;
+  margin: var(--s4) 0 var(--s3);
+}
+
+.thesis-block {
+  margin-bottom: var(--s5);
+}
+
+.thesis-line {
+  font-size: 1.35rem;
+  line-height: 1.3;
+  margin: 0 0 var(--s2);
+}
+
+.thesis-line a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.thesis-line a:hover {
+  text-decoration: underline;
+}
+
+.thesis-status {
+  align-items: baseline;
+  color: var(--text-2);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  gap: 0 var(--s2);
+  margin: 0 0 var(--s3);
+}
+
+.thesis-part::before {
+  content: "· ";
+  margin-right: var(--s1);
+}
+
+.thesis-part {
+  color: var(--text-2);
+}
+
+.thesis-status a.thesis-part {
+  text-decoration: none;
+}
+
+.thesis-status a.thesis-part:hover {
+  text-decoration: underline;
+}
+
+.starting-block {
+  margin-bottom: var(--s5);
+}
+
+.starting-block p {
+  margin: 0 0 var(--s2);
+}
+
+/* Two columns, then three, once the frame is wide enough; stacked below. */
+.band {
+  display: grid;
+  gap: var(--s5);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 64rem) {
+  .band-2 {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+
+  .band-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.band .reader-label {
+  margin-top: var(--s5);
+}
+
+.show-all-flush {
+  margin-left: 0;
+}
+
+/* The layer matrix: one row per layer, a coverage dot before each company. */
+.layer-matrix th {
+  color: var(--text-2);
+  font-weight: 400;
+}
+
+.company-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.company-links li {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.cov-dot {
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  display: inline-block;
+  flex: none;
+  height: 8px;
+  width: 8px;
+}
+
+.cov-dot-full {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+.sk-h1 {
+  height: 1.75rem;
+  margin: var(--s4) 0 var(--s3);
+  width: 55%;
+}
+
+/* A theme page's change list: one line a row, the date at the right. */
+.change-compact .reader-row > div {
+  align-items: baseline;
+  display: flex;
+  gap: var(--s3);
+}
+
+.change-compact .row-title {
+  -webkit-line-clamp: unset;
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.change-compact .reader-row-sub {
+  flex: none;
+}
