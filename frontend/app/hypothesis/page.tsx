@@ -24,6 +24,7 @@ import {
   OpenIssues,
   VersionStepRows,
 } from "../../components/hypothesis-steps";
+import { CheckThesisButton } from "../../components/check-thesis";
 import { RecordsFold } from "../../components/records-fold";
 import { edgeLabel } from "../../components/relationships";
 import { Status, ThesisCheck } from "../../components/status";
@@ -47,6 +48,7 @@ import {
   chosenVersion,
   explainBlock,
   explainFailure,
+  needsThesisCheck,
   versionLabel,
   words,
 } from "../../lib/hypotheses";
@@ -492,6 +494,15 @@ function GateBanner({
         Version {data.version} is not published.
       </p>
       <GateChecks gate={data} plain />
+      {needsThesisCheck(data) && data.version !== null && (
+        <p>
+          <CheckThesisButton
+            hypothesisId={hypothesis.id}
+            version={data.version}
+            onChecked={onChanged}
+          />
+        </p>
+      )}
       {canPublish && (
         <p>
           <button

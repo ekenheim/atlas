@@ -16,11 +16,11 @@ import { useApi } from "../lib/use-api";
 import { Status } from "./status";
 import { Load } from "./ui";
 
-const loadHypotheses = async () => (await api.hypotheses()).items;
+const loadHypotheses = async (theme: string) => (await api.hypothesesFor(theme)).items;
 
 /** The theme's Hypotheses, the published first: the thesis, its status and when it last changed. */
 export function ThemeHypotheses({ theme }: { theme: string }) {
-  const loaded = useApi("hypotheses", loadHypotheses);
+  const loaded = useApi(theme, loadHypotheses);
   return (
     <section aria-labelledby="hypotheses">
       <h2 className="reader-label" id="hypotheses">

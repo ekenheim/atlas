@@ -121,7 +121,7 @@ type PostPath = {
 }[keyof paths];
 type PostOperation<P extends PostPath> = NonNullable<paths[P]["post"]>;
 type Body<P extends PostPath> = PostOperation<P> extends {
-  requestBody: { content: { "application/json": infer B } };
+  requestBody?: { content: { "application/json": infer B } };
 }
   ? B
   : never;
@@ -208,11 +208,13 @@ export type PredictionStateName = Prediction["state"];
 
 const listHypotheses = () => get("/api/v1/hypotheses", { query: PAGE });
 let hypothesesMemo: Promise<HypothesesPage> | null = null;
+const hypothesesByTheme = new Map<string, Promise<HypothesesPage>>();
 const themeMaps = new Map<string, Promise<ThemeMap>>();
 
 /** Drop the shared Hypotheses read: after a publication, a correction or a proposed update. */
 export function forgetHypotheses(): void {
   hypothesesMemo = null;
+  hypothesesByTheme.clear();
 }
 
 export const api = {
@@ -397,6 +399,29 @@ export const api = {
       throw error;
     });
     return hypothesesMemo;
+  },
+  /** One theme's Hypotheses, read by the API (`?theme=`), shared like the whole list. */
+  hypothesesFor: (theme: string): Promise<HypothesesPage> => {
+    let pending = hypothesesByTheme.get(theme);
+    if (pending === undefined) {
+      pending = get("/api/v1/hypotheses", { query: { theme, ...PAGE } }).catch((error: unknown) => {
+        hypothesesByTheme.delete(theme);
+        throw error;
+      });
+      hypothesesByTheme.set(theme, pending);
+    }
+    return pending;
+  },
+  /** Judge a Belief-backed version's thesis against its Beliefs' quotes (a published version
+   * too: it never changes, its effective verdict does). Answers the whole Hypothesis. */
+  judgeThesis: async (id: string, version: number) => {
+    const judged = await post(
+      "/api/v1/hypotheses/{hypothesis_id}/versions/{version}/judge-thesis",
+      { path: { hypothesis_id: id, version: String(version) } },
+      {},
+    );
+    forgetHypotheses();
+    return judged;
   },
   hypothesis: (id: string) =>
     get("/api/v1/hypotheses/{hypothesis_id}", { path: { hypothesis_id: id } }),

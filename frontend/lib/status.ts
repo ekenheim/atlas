@@ -93,7 +93,7 @@ export function lifecycleWord(status: HypothesisStatus): Word {
   return LIFECYCLE_WORDS[status];
 }
 
-export type ThesisCheckKind = "checked" | "overreaches" | "not_checked_since_correction" | "not_yet_checked";
+export type ThesisCheckKind = "checked" | "overreaches" | "not_checked";
 
 export interface ThesisCheckWord extends Word {
   kind: ThesisCheckKind;
@@ -102,25 +102,20 @@ export interface ThesisCheckWord extends Word {
 const CHECK_WORDS: Record<ThesisCheckKind, Word> = {
   checked: { word: "Checked", tone: "ok" },
   overreaches: { word: "Overreaches", tone: "gap" },
-  not_checked_since_correction: { word: "Not checked since correction", tone: "warn" },
-  not_yet_checked: { word: "Not yet checked", tone: "warn" },
+  not_checked: { word: "Not checked", tone: "warn" },
 };
 
-/** Whether the thesis was checked against its quotes. A version of an investigation (no steps)
- * has no such check: null. */
+/** Whether the thesis was checked against its quotes. Only the version's effective verdict
+ * (`thesis_judgement`, resolved by the backend) is read: supported is Checked, misstated is
+ * Overreaches, unjudged or none is Not checked. A version of an investigation (no steps) has no
+ * such check: null. */
 export function thesisCheckWord(
-  version: Pick<HypothesisVersion, "origin" | "content">,
+  version: Pick<HypothesisVersion, "content" | "thesis_judgement">,
 ): ThesisCheckWord | null {
   if ((version.content.steps ?? []).length === 0) return null;
-  const judged = version.content.thesis_judged;
+  const verdict = version.thesis_judgement?.verdict;
   const kind: ThesisCheckKind =
-    judged === "supported"
-      ? "checked"
-      : judged === "misstated"
-        ? "overreaches"
-        : version.origin === "correction"
-          ? "not_checked_since_correction"
-          : "not_yet_checked";
+    verdict === "supported" ? "checked" : verdict === "misstated" ? "overreaches" : "not_checked";
   return { kind, ...CHECK_WORDS[kind] };
 }
 

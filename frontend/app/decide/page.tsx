@@ -4,11 +4,14 @@
 // open proposed update, a Belief to judge. Each row opens the object's page, where the controls
 // are. Edge exceptions, Candidates and identity reviews are the lead's delegated work: counts.
 import Link from "next/link";
+import { useState } from "react";
 
+import { CheckThesisButton } from "../../components/check-thesis";
 import { StatStrip } from "../../components/stat-strip";
 import { api, type Hypothesis, type PublishGate } from "../../lib/api/client";
-import { beliefsToJudge, whyToJudge } from "../../lib/decide";
+import { beliefsToJudge, forgetDecideCount, whyToJudge } from "../../lib/decide";
 import { activity } from "../../lib/format";
+import { needsThesisCheck } from "../../lib/hypotheses";
 import { gateFailureText } from "../../lib/status";
 import { proposition, draftedProposition } from "../../lib/thesis";
 import { routes } from "../../lib/routes";
@@ -60,7 +63,9 @@ async function loadGates(): Promise<{ rows: GateRow[]; failed: number }> {
 }
 
 export default function DecidePage() {
-  const gates = useApi("gates", loadGates);
+  const [revision, setRevision] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+  const gates = useApi(`gates#${revision}`, loadGates);
   const updates = useApi("updates", loadUpdates);
   const beliefs = useApi("beliefs", loadBeliefs);
   const exceptions = useApi("exceptions", api.exceptionsTotal);
@@ -84,6 +89,11 @@ export default function DecidePage() {
   return (
     <div className="decide-page">
       <h1>Decide</h1>
+      {notice ? (
+        <p role="status" aria-live="polite">
+          {notice}
+        </p>
+      ) : null}
       <StatStrip
         stats={[
           {
@@ -114,6 +124,19 @@ export default function DecidePage() {
                     ? "ready to publish"
                     : row.gate.failures.map((failure) => gateFailureText(failure)).join(" · ")}
                 </div>
+                {needsThesisCheck(row.gate) && row.gate.version !== null ? (
+                  <div className="row-secondary">
+                    <CheckThesisButton
+                      hypothesisId={row.hypothesis.id}
+                      version={row.gate.version}
+                      onChecked={(message) => {
+                        setNotice(message);
+                        forgetDecideCount();
+                        setRevision((each) => each + 1);
+                      }}
+                    />
+                  </div>
+                ) : null}
               </div>
               <span className="reader-pill reader-disputed">Publish</span>
             </li>

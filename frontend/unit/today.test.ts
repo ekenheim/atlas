@@ -16,6 +16,7 @@ import {
   buildCard,
   changeWeight,
   coverageLine,
+  newestEvidence,
   leadHypothesis,
   orderChanges,
   orderThemes,
@@ -76,6 +77,7 @@ function belief(step: BeliefSummary["step"], confidence: number, over: Partial<B
     last_examined_at: null,
     last_examined_as_of: null,
     last_examined_outcome: null,
+    newest_evidence_at: null,
     ...over,
   };
 }
@@ -162,7 +164,7 @@ test("the photonics card: proposition, lifecycle, the unchecked correction and t
   expect(card.starting).toBe(false);
   expect(card.proposition).toBe("Indium phosphide substrate supply may be a chokepoint");
   expect(card.lifecycle).toEqual({ text: "Published 18 Oct", tone: "ok" });
-  expect(card.check?.word).toBe("Not checked since correction");
+  expect(card.check?.word).toBe("Not checked");
   expect(card.weakest).toEqual({ step: "control", confidence: 0.6 });
   expect(card.beliefCount).toBe(5);
   expect(card.findings).toBeNull();
@@ -259,6 +261,19 @@ test("on a theme's page the window's important changes lead and older ones follo
   ]);
 });
 
+test("the theme's newest evidence is the latest document any active Belief cites", () => {
+  const b = (day: string | null, status: "active" | "superseded" = "active") =>
+    belief("constraint", 0.5, { newest_evidence_at: day, status });
+  expect(newestEvidence([b("2026-08-14T00:00:00Z"), b("2026-09-02T00:00:00Z"), b(null)])).toBe(
+    "2026-09-02T00:00:00Z",
+  );
+  expect(newestEvidence([b("2026-10-01T00:00:00Z", "superseded"), b("2026-08-14T00:00:00Z")])).toBe(
+    "2026-08-14T00:00:00Z",
+  );
+  expect(newestEvidence([b(null)])).toBeNull();
+  expect(newestEvidence([])).toBeNull();
+});
+
 test("with no mark the window is the week and nothing is called new", () => {
   const changes = [
     change("judged", "recent", "2026-10-15T10:00:00Z"),
@@ -271,9 +286,18 @@ test("with no mark the window is the week and nothing is called new", () => {
 });
 
 const session = (over: Partial<SessionSummary>): SessionSummary =>
-  ({ started_at: "2026-10-17T10:00:00Z", facts: 0, isolated: false, ...over }) as SessionSummary;
+  ({
+    started_at: "2026-10-17T10:00:00Z",
+    agent: "scout",
+    facts: 0,
+    beliefs_proposed: 0,
+    beliefs_examined: { confirmed: 0, qualified: 0, contradicted: 0, nothing_new: 0 },
+    issues_opened: 0,
+    isolated: false,
+    ...over,
+  }) as SessionSummary;
 
-test("the agents line counts the week's runs, their Facts and the runs that found nothing", () => {
+test("the agents line reads each agent's week: runs, what they added and the runs that found nothing", () => {
   const week = agentsWeek(
     [
       session({ facts: 3 }),
@@ -281,12 +305,22 @@ test("the agents line counts the week's runs, their Facts and the runs that foun
       session({ facts: 0 }),
       session({ facts: 9, isolated: true }),
       session({ facts: 5, started_at: "2026-09-01T00:00:00Z" }),
+      session({ agent: "skeptic", beliefs_examined: { confirmed: 0, qualified: 0, contradicted: 0, nothing_new: 2 } }),
+      session({ agent: "skeptic", beliefs_examined: { confirmed: 1, qualified: 0, contradicted: 0, nothing_new: 0 } }),
+      session({ agent: "researcher", facts: 2, beliefs_proposed: 3, issues_opened: 1 }),
     ],
     NOW,
   );
-  expect(week).toEqual({ runs: 3, facts: 7, nothingNew: 1 });
-  expect(agentsLine(week)).toBe("This week: 3 runs · 7 Facts · 1 found nothing new");
-  expect(agentsLine({ runs: 1, facts: 1, nothingNew: 0 })).toBe("This week: 1 run · 1 Fact");
+  expect(week.map((each) => each.agent)).toEqual(["scout", "researcher", "skeptic"]);
+  expect(week[0]).toMatchObject({ runs: 3, facts: 7, nothingNew: 1 });
+  expect(week[2]).toMatchObject({ runs: 2, examined: 3, nothingNew: 1 });
+  expect(agentsLine(week)).toBe(
+    "This week: Scout 3 runs · 7 Facts · 1 found nothing new · " +
+      "Researcher 1 run · 2 Facts · 3 Beliefs proposed · 1 Issue opened · " +
+      "Skeptic 2 runs · examined 3 Beliefs · 1 found nothing new",
+  );
+  expect(agentsWeek([session({ agent: "lead", facts: 1 })], NOW).map((each) => each.agent)).toEqual(["lead"]);
+  expect(agentsWeek([], NOW)).toEqual([]);
 });
 
 test("the record line names the open calls, the first checkpoint and the predictions due", () => {

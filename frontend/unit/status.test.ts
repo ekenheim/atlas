@@ -84,44 +84,42 @@ test("every call state, unpriced reason and prediction state has a word", () => 
   }
 });
 
-test("every value the thesis judge can give has a check word", () => {
-  const judged = propertyEnum("HypothesisContent", "thesis_judged");
-  expect(sorted(judged)).toEqual(["misstated", "supported"]);
-  const words = (thesis_judged: string | null | undefined, origin: "editor_draft" | "correction") =>
-    thesisCheckWord(version(origin, thesis_judged))?.word;
-  expect(words("supported", "correction")).toBe("Checked");
-  expect(words("misstated", "editor_draft")).toBe("Overreaches");
-  expect(words(null, "correction")).toBe("Not checked since correction");
-  expect(words(undefined, "correction")).toBe("Not checked since correction");
-  expect(words(null, "editor_draft")).toBe("Not yet checked");
+test("every verdict the backend resolves has a check word; only the effective verdict is read", () => {
+  const verdicts = schemas["ThesisJudgement"]?.properties?.verdict?.enum ?? [];
+  expect(sorted(verdicts)).toEqual(["misstated", "supported", "unjudged"]);
+  const words = (verdict: string | null) => thesisCheckWord(version(verdict))?.word;
+  expect(words("supported")).toBe("Checked");
+  expect(words("misstated")).toBe("Overreaches");
+  expect(words("unjudged")).toBe("Not checked");
+  expect(words(null)).toBe("Not checked");
 });
 
-function version(
-  origin: "editor_draft" | "correction",
-  thesisJudged: string | null | undefined,
-): Pick<HypothesisVersion, "origin" | "content"> {
+function version(verdict: string | null): Pick<HypothesisVersion, "content" | "thesis_judgement"> {
   return {
-    origin,
+    // The content still says "supported": it is not read.
     content: {
       steps: [{ step: "constraint", beliefs: [] }],
-      thesis_judged: thesisJudged,
+      thesis_judged: "supported",
     } as unknown as HypothesisVersion["content"],
+    thesis_judgement:
+      verdict === null
+        ? null
+        : ({ verdict, reason: null, at: "", by: "x", source: "draft" } as HypothesisVersion["thesis_judgement"]),
   };
 }
 
 test("a version of an investigation has no thesis check", () => {
   expect(
     thesisCheckWord({
-      origin: "editor_draft",
       content: { findings: [] } as unknown as HypothesisVersion["content"],
     }),
   ).toBeNull();
 });
 
 test("a thesis that was never checked is a warning, not a pass", () => {
-  expect(thesisCheckWord(version("correction", null))?.tone).toBe("warn");
-  expect(thesisCheckWord(version("editor_draft", "supported"))?.tone).toBe("ok");
-  expect(thesisCheckWord(version("editor_draft", "misstated"))?.tone).toBe("gap");
+  expect(thesisCheckWord(version(null))?.tone).toBe("warn");
+  expect(thesisCheckWord(version("supported"))?.tone).toBe("ok");
+  expect(thesisCheckWord(version("misstated"))?.tone).toBe("gap");
 });
 
 const failure = (code: string, ids: Partial<Record<"relationship_ids" | "assertion_ids" | "belief_ids", string[]>> = {}) => ({

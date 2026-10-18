@@ -111,19 +111,14 @@ export type ThesisCheck = {
  * investigation has no such check: null. */
 export function thesisCheck(version: HypothesisVersion): ThesisCheck | null {
   if (stepsOf(version).length === 0) return null;
-  // The version's effective verdict (ticket 30): a later judging of it, else what its content
-  // records. A judging that found nothing to judge it against is no check.
+  // The backend resolves the version's effective verdict (a later judging, else the draft's or
+  // the correction's): only `thesis_judgement` is read. `unjudged` or none is no check.
   const effective = version.thesis_judgement;
   const judged =
-    effective === undefined || effective === null
-      ? version.content.thesis_judged
-      : effective.verdict === "unjudged"
-        ? null
-        : effective.verdict;
-  const reason =
-    effective === undefined || effective === null
-      ? version.content.thesis_misstated_reason
-      : effective.reason;
+    effective === undefined || effective === null || effective.verdict === "unjudged"
+      ? null
+      : effective.verdict;
+  const reason = effective?.reason ?? null;
   if (judged === "supported") {
     return { state: "supported", text: "Checked against its Beliefs' quotes." };
   }

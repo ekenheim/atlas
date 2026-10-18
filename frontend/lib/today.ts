@@ -105,6 +105,17 @@ export function buildCard(
   };
 }
 
+/** The day of the newest document any active Belief of the theme cites (ISO), or null. */
+export function newestEvidence(
+  beliefs: readonly Pick<BeliefSummary, "status" | "newest_evidence_at">[],
+): string | null {
+  const days = beliefs
+    .filter((each) => each.status === "active" && each.newest_evidence_at)
+    .map((each) => each.newest_evidence_at as string)
+    .sort();
+  return days.at(-1) ?? null;
+}
+
 /** Themes in the order the API gives them (theme config order), starting themes last. */
 export function orderThemes<T extends { id: string }>(
   themes: readonly T[],
@@ -205,30 +216,76 @@ export function selectChanges(
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
-export interface AgentsWeek {
+export type AgentName = SessionSummary["agent"];
+
+/** The agents in the order the line reads them. */
+export const AGENTS: Record<AgentName, string> = {
+  scout: "Scout",
+  researcher: "Researcher",
+  skeptic: "Skeptic",
+  editor: "Editor",
+  lead: "Lead",
+};
+
+export interface AgentWeek {
+  agent: AgentName;
   runs: number;
   facts: number;
-  /** Runs that recorded no Fact. */
+  beliefsProposed: number;
+  /** Beliefs the runs examined, whatever they found. */
+  examined: number;
+  issuesOpened: number;
+  /** Runs that added nothing: no Fact, Belief or Issue, and no examination that found anything. */
   nothingNew: number;
 }
 
-/** The week's runs, leaving out the held-out runs of the scorecard. */
-export function agentsWeek(sessions: readonly SessionSummary[], now: Date): AgentsWeek {
+const examinedTotal = (session: SessionSummary) => {
+  const each = session.beliefs_examined;
+  return each.confirmed + each.qualified + each.contradicted + each.nothing_new;
+};
+
+const addedSomething = (session: SessionSummary) =>
+  session.facts > 0 ||
+  session.beliefs_proposed > 0 ||
+  (session.issues_opened ?? 0) > 0 ||
+  session.beliefs_examined.confirmed +
+    session.beliefs_examined.qualified +
+    session.beliefs_examined.contradicted >
+    0;
+
+/** The week's runs by agent, in the line's order, leaving out the held-out runs of the
+ * scorecard and any agent with no run. */
+export function agentsWeek(sessions: readonly SessionSummary[], now: Date): AgentWeek[] {
   const since = now.getTime() - 7 * 86_400_000;
   const week = sessions.filter(
     (session) => !session.isolated && new Date(session.started_at).getTime() >= since,
   );
-  return {
-    runs: week.length,
-    facts: week.reduce((sum, session) => sum + session.facts, 0),
-    nothingNew: week.filter((session) => session.facts === 0).length,
-  };
+  return (Object.keys(AGENTS) as AgentName[])
+    .map((agent) => {
+      const mine = week.filter((session) => session.agent === agent);
+      return {
+        agent,
+        runs: mine.length,
+        facts: mine.reduce((sum, session) => sum + session.facts, 0),
+        beliefsProposed: mine.reduce((sum, session) => sum + session.beliefs_proposed, 0),
+        examined: mine.reduce((sum, session) => sum + examinedTotal(session), 0),
+        issuesOpened: mine.reduce((sum, session) => sum + (session.issues_opened ?? 0), 0),
+        nothingNew: mine.filter((session) => !addedSomething(session)).length,
+      };
+    })
+    .filter((each) => each.runs > 0);
 }
 
-/** "This week: 3 runs · 7 Facts · 1 found nothing new". */
-export function agentsLine(week: AgentsWeek): string {
-  const parts = [plural(week.runs, "run"), plural(week.facts, "Fact")];
-  if (week.nothingNew > 0) parts.push(`${week.nothingNew} found nothing new`);
+/** "This week: Scout 3 runs · 7 Facts · Skeptic 4 runs · examined 6 Beliefs · 3 found nothing new". */
+export function agentsLine(weeks: readonly AgentWeek[]): string {
+  const parts = weeks.flatMap((week) => [
+    `${AGENTS[week.agent]} ${plural(week.runs, "run")}`,
+    ...(week.facts > 0 ? [plural(week.facts, "Fact")] : []),
+    ...(week.beliefsProposed > 0 ? [`${plural(week.beliefsProposed, "Belief", "Beliefs")} proposed`] : []),
+    ...(week.examined > 0 ? [`examined ${plural(week.examined, "Belief", "Beliefs")}`] : []),
+    ...(week.issuesOpened > 0 ? [`${plural(week.issuesOpened, "Issue")} opened`] : []),
+    ...(week.nothingNew > 0 ? [`${week.nothingNew} found nothing new`] : []),
+  ]);
   return `This week: ${parts.join(" · ")}`;
 }
 

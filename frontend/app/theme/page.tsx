@@ -28,7 +28,8 @@ import { COMPANY_LAYERS } from "../../lib/relationships";
 import { routes } from "../../lib/routes";
 import { readMark } from "../../lib/seen";
 import { layeredEdges, layerlessByCompany } from "../../lib/themes";
-import { buildCard, startingStatus, themeBeliefs } from "../../lib/today";
+import { evidenceDay } from "../../lib/format";
+import { buildCard, newestEvidence, startingStatus, themeBeliefs } from "../../lib/today";
 import { useApi, useIdParam } from "../../lib/use-api";
 
 export default function ThemePage() {
@@ -44,7 +45,7 @@ const GAPS: Record<ThemeCompany["gaps"][number], string> = {
   no_sources: "no sources",
 };
 
-const loadHypotheses = async () => (await api.hypotheses()).items;
+const loadHypotheses = async (theme: string) => (await api.hypothesesFor(theme)).items;
 const loadCalls = async (theme: string) => (await api.calls(theme)).items;
 const loadPredictions = async () => (await api.predictions("open")).items;
 const loadLeads = async () =>
@@ -89,7 +90,7 @@ function Theme() {
 }
 
 function Body({ theme, beliefs }: { theme: ThemeSummary; beliefs: BeliefSummary[] }) {
-  const hypotheses = useApi("hypotheses", loadHypotheses);
+  const hypotheses = useApi(theme.id, loadHypotheses);
   const calls = useApi(theme.id, loadCalls);
   const predictions = useApi("predictions", loadPredictions);
   const leads = useApi("leads", loadLeads);
@@ -98,6 +99,7 @@ function Body({ theme, beliefs }: { theme: ThemeSummary; beliefs: BeliefSummary[
   const active = themeBeliefs(beliefs, theme.id);
   const starting = active.length === 0;
   const steps = argumentOf(beliefs);
+  const newest = newestEvidence(beliefs);
   const card = buildCard(theme, hypotheses.state === "ready" ? hypotheses.data : [], beliefs);
   const now = new Date();
   const callList = calls.state === "ready" ? calls.data : [];
@@ -130,6 +132,7 @@ function Body({ theme, beliefs }: { theme: ThemeSummary; beliefs: BeliefSummary[
               {card.version ? <span className="thesis-part">v{card.version.version}</span> : null}
               {card.version ? <ThesisCheck version={card.version} /> : null}
               {card.weakest ? <span className="thesis-part">{weakestText(card.weakest)}</span> : null}
+              {newest ? <span className="thesis-part">newest evidence {evidenceDay(newest)}</span> : null}
               {card.otherDrafts > 0 ? (
                 <a className="thesis-part" href="#records">
                   {card.otherDrafts} {card.otherDrafts === 1 ? "draft" : "drafts"}

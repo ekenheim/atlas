@@ -2001,3 +2001,10 @@ h1,
 .crumbs a:hover {
   text-decoration: underline;
 }
+
+/* A control inside a list row sits above the row's link overlay. */
+.reader-row .row-secondary button,
+.reader-row .row-secondary .check-thesis {
+  position: relative;
+  z-index: 1;
+}

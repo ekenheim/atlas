@@ -228,7 +228,7 @@ function TodayCard({
 function AgentsLine({ sessions }: { sessions: Loaded<Awaited<ReturnType<typeof loadSessions>>> }) {
   if (sessions.state !== "ready") return null;
   const week = agentsWeek(sessions.data, new Date());
-  if (week.runs === 0) return null;
+  if (week.length === 0) return null;
   return (
     <p className="today-line">
       <Link href={routes.sessions}>

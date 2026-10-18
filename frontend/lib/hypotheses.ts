@@ -47,7 +47,7 @@ const GATE_EXPLANATIONS: Record<string, string> = {
     "The thesis says more than its Beliefs' quotes. Rewrite it in a correction.",
   thesis_unchecked:
     "No judge has checked the thesis against its Beliefs' quotes (the judge was off or " +
-    "unreachable). Judge it again, or rewrite it in a correction.",
+    "unreachable). Use Check the thesis, or rewrite it in a correction.",
   relationship_review_pending:
     "Some Assertions the findings cite haven't been machine-reviewed into Relationships yet, " +
     "so they may still form an edge the owner hasn't seen. Run the relationship review first.",
@@ -161,4 +161,38 @@ export function summarizeSnapshot(content: Record<string, unknown>): SnapshotSum
     roleCalls: count(content.role_calls),
     memoryUsed: record(content.memory).used === true,
   };
+}
+
+// --- checking a thesis again ------------------------------------------------------------------
+
+/** Whether the gate holds a version for a thesis nobody has checked. */
+export function needsThesisCheck(gate: Pick<PublishGate, "failures">): boolean {
+  return gate.failures.some((failure) => failure.code === "thesis_unchecked");
+}
+
+/** Why a request to check the thesis was refused, in words, and what to do instead. */
+export function thesisJudgeRefusal(code: string): string {
+  switch (code) {
+    case "not_belief_backed":
+      return "Only a version drafted from Beliefs has a thesis to check against their quotes.";
+    case "thesis_misstated_stands":
+      return (
+        "The judge already found that the thesis says more than its quotes, and the same words " +
+        "will be judged the same way. Only a correction changes it: write one that says no more " +
+        "than the quotes."
+      );
+    case "judge_unavailable":
+      return "The judge is not available now. Try again later.";
+    default:
+      return "The thesis could not be checked.";
+  }
+}
+
+/** What a check found, for the line the page shows after it. */
+export function thesisJudgedMessage(version: number, verdict: string | undefined): string {
+  if (verdict === "supported") return `Checked the thesis of version ${version}: it holds.`;
+  if (verdict === "misstated") {
+    return `Checked the thesis of version ${version}: it says more than its quotes. A correction changes it.`;
+  }
+  return `The thesis of version ${version} could not be judged: nothing to judge it against.`;
 }
