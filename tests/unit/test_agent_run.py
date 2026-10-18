@@ -272,6 +272,7 @@ REFUSED_SERVER_SIDE_SINCE_0_6_14 = {
     "add_chokepoint",
     "update_chokepoint",
     "write_memo",
+    "bear_checks",
 }
 ISOLATED_DRY_RUN_0_6_14 = ROOT / "tests" / "fixtures" / "scorecard" / "isolated-dry-run.v0.6.14.txt"
 

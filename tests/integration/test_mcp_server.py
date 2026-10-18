@@ -92,6 +92,7 @@ TOOLS = {
     "add_chokepoint",
     "update_chokepoint",
     "write_memo",
+    "bear_checks",
 }
 NO_SESSION_REQUIRED = {"open_session", "companies", "next_issue"}
 
