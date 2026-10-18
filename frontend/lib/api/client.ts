@@ -100,6 +100,13 @@ export type Lead = Schemas["Lead"];
 export type ProposedUpdate = Schemas["ProposedUpdate"];
 export type IssueProduct = Schemas["IssueProduct"];
 export type FactRecord = Schemas["atlas__facts__service__Fact"];
+export type Chokepoint = Schemas["Chokepoint"];
+export type ChokepointDetail = Schemas["ChokepointDetail"];
+export type ChokepointEvent = Schemas["ChokepointEvent"];
+export type StepState = Schemas["StepState"];
+export type Holder = Schemas["Holder"];
+export type WatchRun = Schemas["WatchRun"];
+export type BoardFilter = Schemas["BoardFilter"];
 export type ExportFormat = NonNullable<
   NonNullable<Params<"/api/v1/hypotheses/{hypothesis_id}/export">["query"]>["format"]
 >;
@@ -212,6 +219,33 @@ const listHypotheses = () => get("/api/v1/hypotheses", { query: PAGE });
 let hypothesesMemo: Promise<HypothesesPage> | null = null;
 const hypothesesByTheme = new Map<string, Promise<HypothesesPage>>();
 const themeMaps = new Map<string, Promise<Partial<ThemeMap>>>();
+let companiesMemo: Promise<CompaniesIndex> | null = null;
+
+/** The universe looked up three ways: by slug, by CIK (unpadded) and by case-folded name. */
+export interface CompaniesIndex {
+  bySlug: ReadonlyMap<string, Company>;
+  byCik: ReadonlyMap<string, Company>;
+  byName: ReadonlyMap<string, Company>;
+}
+
+/** A CIK without its leading zeros, so "0001633978" and "1633978" are one key. */
+export const cikKey = (cik: string) => cik.replace(/^0+/, "");
+/** A name as the holder match compares it. */
+export const nameKey = (name: string) => name.trim().toLowerCase();
+
+function indexCompanies(companies: readonly Company[]): CompaniesIndex {
+  const bySlug = new Map<string, Company>();
+  const byCik = new Map<string, Company>();
+  const byName = new Map<string, Company>();
+  for (const company of companies) {
+    bySlug.set(company.slug, company);
+    if (company.cik) byCik.set(cikKey(company.cik), company);
+    for (const name of [company.display_name, company.legal_name]) {
+      if (name && !byName.has(nameKey(name))) byName.set(nameKey(name), company);
+    }
+  }
+  return { bySlug, byCik, byName };
+}
 
 /** The sections of a theme's map a page can ask for. */
 export type ThemeSection =
@@ -233,6 +267,16 @@ export function forgetHypotheses(): void {
 
 export const api = {
   companies: () => get("/api/v1/companies", { query: PAGE }),
+  /** The companies, indexed for matching a chokepoint's holders; one read per session. */
+  companiesIndex: (): Promise<CompaniesIndex> => {
+    companiesMemo ??= get("/api/v1/companies", { query: PAGE })
+      .then((page) => indexCompanies(page.items))
+      .catch((error: unknown) => {
+        companiesMemo = null;
+        throw error;
+      });
+    return companiesMemo;
+  },
   company: (id: string) => get("/api/v1/companies/{company_id}", { path: { company_id: id } }),
   /** A company's dossier: identity, reviews, themes, sources, edges, financials as of now. */
   dossier: (id: string) =>
@@ -347,6 +391,21 @@ export const api = {
     forgetHypotheses();
     return dismissed;
   },
+  /** The Watch's board: chokepoints, the latest event first (the API's largest page). */
+  chokepoints: (query: { theme?: string; limit?: number } = {}) =>
+    get("/api/v1/chokepoints", {
+      query: { ...(query.theme ? { theme: query.theme } : {}), limit: query.limit ?? 500, offset: 0 },
+    }),
+  /** One chokepoint: its state and every event, oldest first. */
+  chokepoint: (id: string) =>
+    get("/api/v1/chokepoints/{chokepoint_id}", { path: { chokepoint_id: id }, query: {} }),
+  /** The Watch's runs, newest first. */
+  watchRuns: (query: { theme?: string; limit?: number } = {}) =>
+    get("/api/v1/watch-runs", {
+      query: { ...(query.theme ? { theme: query.theme } : {}), limit: query.limit ?? 50, offset: 0 },
+    }),
+  /** One run of the Watch, with its memo. */
+  watchRun: (id: string) => get("/api/v1/watch-runs/{run_id}", { path: { run_id: id } }),
   /** Open proposed updates to published Hypotheses (waiting on the owner). */
   proposedUpdates: (state: "open" | "accepted" | "dismissed" = "open") =>
     get("/api/v1/proposed-updates", { query: { state, ...PAGE } }),

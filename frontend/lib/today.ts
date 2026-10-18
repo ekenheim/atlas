@@ -13,7 +13,7 @@ import type {
 import { type StepArgument, type Weakest, argumentOf, weakestStep } from "./argument";
 import { dueRows } from "./due";
 import { isoDay, plainDay } from "./format";
-import { COMPANY_LAYERS } from "./relationships";
+import { layerName } from "./chokepoints";
 import { isUnseen, windowStart } from "./seen";
 import { type ThesisCheckWord, publishedVersion, thesisCheckWord } from "./status";
 import { themeHypotheses } from "./themes";
@@ -142,7 +142,7 @@ export function startingLine(theme: ThemeSummary): string {
 
 /** The Theme page's longer form, naming the layers. */
 export function startingStatus(theme: ThemeSummary): string {
-  const names = theme.empty_layers.map((layer) => COMPANY_LAYERS[layer]).join(", ");
+  const names = theme.empty_layers.map((layer) => layerName(layer)).join(", ");
   return (
     `Starting · ${withDocuments(theme)} of ${theme.company_count} companies have documents in the archive` +
     ` · ${layers(theme.empty_layers.length)} without a company${names ? ` (${names})` : ""}`

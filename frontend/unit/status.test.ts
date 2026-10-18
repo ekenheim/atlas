@@ -6,15 +6,25 @@ import { expect, test } from "@playwright/test";
 import type { HypothesisVersion, Prediction } from "../lib/api/client";
 import {
   BELIEF_STATE_WORDS,
+  BELOW_THE_BAR,
+  BOARD_FILTER_WORDS,
   CALL_WORDS,
+  CHOKEPOINT_WORDS,
+  CROWDING_WORDS,
   GATE_CODES,
   JUDGEMENT_WORDS,
   LIFECYCLE_WORDS,
+  NEEDS_QUESTION,
+  OWNER_TOKENS,
   PREDICTION_WORDS,
+  STEP_MARKS,
+  STEP_STATUS_WORDS,
   UNPRICED_REASONS,
+  WATCH_MODE_WORDS,
   beliefWords,
   callText,
   gateFailureText,
+  gateMissingText,
   lifecycleWord,
   predictionWord,
   thesisCheckWord,
@@ -203,4 +213,33 @@ test("flags and confirmations are modifiers beside the judgement", () => {
   const superseded = beliefWords(belief("proven", { status: "superseded" }));
   expect(superseded.main.word).toBe("Superseded");
   expect(superseded.struck).toBe(true);
+});
+
+// --- the Chokepoint Watch (round 3) -----------------------------------------------------------
+
+test("every chokepoint status, step status, crowding, watch mode and board filter has a word", () => {
+  expect(sorted(Object.keys(CHOKEPOINT_WORDS))).toEqual(sorted(enumOf("ChokepointStatus")));
+  expect(sorted(Object.keys(STEP_STATUS_WORDS))).toEqual(sorted(enumOf("StepStatus")));
+  expect(sorted(Object.keys(STEP_MARKS))).toEqual(sorted(enumOf("StepStatus")));
+  expect(sorted(Object.keys(CROWDING_WORDS))).toEqual(sorted(enumOf("Crowding")));
+  expect(sorted(Object.keys(WATCH_MODE_WORDS))).toEqual(sorted(enumOf("WatchMode")));
+  expect(sorted(Object.keys(BOARD_FILTER_WORDS))).toEqual(sorted(enumOf("BoardFilter")));
+  expect(CHOKEPOINT_WORDS.lead.word).toBe("Spotted");
+  expect(CHOKEPOINT_WORDS.killed).toEqual({ word: "Ruled out", tone: "gap" });
+  expect(STEP_STATUS_WORDS.lead.word).toBe("Unquoted");
+  expect(CROWDING_WORDS.consensus.word).toBe("Crowded");
+  expect(WATCH_MODE_WORDS.delta).toBeNull();
+});
+
+test("the thesis gate's codes read as what is still needed", () => {
+  expect(gateMissingText("step_b_primary")).toBe("a quote for demand against supply");
+  expect(gateMissingText("kill_criteria")).toBe("a falsifier");
+  expect(gateMissingText("open_issue")).toBe("an open question");
+  expect(NEEDS_QUESTION).toEqual({ word: "Needs a new open question", tone: "warn" });
+  expect(BELOW_THE_BAR.tone).toBe("warn");
+  // The memo pass's tokens are codes, never plain words, and none maps to a code.
+  for (const [token, word] of Object.entries(OWNER_TOKENS)) {
+    expect(token).toMatch(/_|^unexamined$/);
+    expect(word).not.toMatch(/_/);
+  }
 });

@@ -22,6 +22,15 @@ export const routes = {
   /** A Source Version with one Assertion's span highlighted and scrolled into view. */
   span: (versionId: string, assertionId: string) =>
     `${withId("version")(versionId)}&assertion=${encodeURIComponent(assertionId)}`,
+  /** A Source Version with a span highlighted by its offsets in one parse (no Assertion). */
+  spanAt: (versionId: string, from: number, to: number, parse: string) =>
+    `${withId("version")(versionId)}&from=${from}&to=${to}&parse=${encodeURIComponent(parse)}`,
+  /** One chokepoint of the Watch's board. */
+  chokepoint: withId("chokepoint"),
+  /** One run of the Watch: its memo. */
+  watchRun: withId("watch-run"),
+  /** A theme's board, on its page. */
+  board: (theme: string) => `${withId("theme")(theme)}#board`,
   /** The edge table; `search` is its filters and sort (`tableSearch`). */
   relationships: (search = "") => (search ? `/relationships/?${search}` : "/relationships/"),
   relationship: withId("relationship"),

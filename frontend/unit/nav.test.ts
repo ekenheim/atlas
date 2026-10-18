@@ -16,6 +16,8 @@ test("each path belongs to one section", () => {
     ["/hypothesis/", "themes"],
     ["/belief/", "themes"],
     ["/company/", "themes"],
+    ["/chokepoint/", "themes"],
+    ["/watch-run/", "themes"],
     ["/record/", "record"],
     ["/decide/", "decide"],
     ["/system/", "system"],

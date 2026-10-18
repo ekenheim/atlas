@@ -3,13 +3,18 @@
 // `unit/status.test.ts` fails when a value of a backend enum has no word here.
 import type {
   BeliefSummary,
+  BoardFilter,
   Call,
+  Chokepoint,
   GateFailure,
   Hypothesis,
   HypothesisStatus,
   HypothesisVersion,
   Prediction,
+  StepState,
+  WatchRun,
 } from "./api/client";
+import { plainDay } from "./format";
 
 export type Tone = "ok" | "warn" | "gap" | "muted";
 
@@ -210,3 +215,112 @@ export function predictionWord(prediction: Pick<Prediction, "state" | "settlemen
   }
   return prediction.state === "lapsed" ? PREDICTION_WORDS.Lapsed : PREDICTION_WORDS.Open;
 }
+
+// --- the Chokepoint Watch (round 3, §10.2) ------------------------------------------------
+
+export type ChokepointStatusName = Chokepoint["status"];
+export type StepStatusName = StepState["status"];
+export type CrowdingName = NonNullable<Chokepoint["crowding"]>;
+export type WatchModeName = WatchRun["mode"];
+
+/** A chokepoint's status, as last set. "Lead" is a record (a lead), never a chokepoint's state. */
+export const CHOKEPOINT_WORDS: Record<ChokepointStatusName, Word> = {
+  lead: { word: "Spotted", tone: "muted" },
+  candidate: { word: "Candidate", tone: "muted" },
+  thesis_ready: { word: "Thesis-ready", tone: "ok" },
+  killed: { word: "Ruled out", tone: "gap" },
+};
+
+/** A thesis-ready chokepoint whose gate lapsed: a thesis step lost its quote, or the
+ * falsifiers were cleared. */
+export const BELOW_THE_BAR: Word = { word: "Below the bar", tone: "warn" };
+
+/** A thesis-ready chokepoint whose gate lapsed only because its last open question was
+ * answered: it needs the next one. */
+export const NEEDS_QUESTION: Word = { word: "Needs a new open question", tone: "warn" };
+
+/** No evidence-bearing change for eight weeks (the API's `stale`), read from the last one. */
+export function quietWord(lastEvidenceAt: string, now: Date = new Date()): Word {
+  return { word: `Quiet since ${plainDay(lastEvidenceAt, now)}`, tone: "muted" };
+}
+
+/** A step's status. The label's brightness and the mark carry it (`STEP_MARKS`). */
+export const STEP_STATUS_WORDS: Record<StepStatusName, Word> = {
+  primary: { word: "Quoted", tone: "muted" },
+  lead: { word: "Unquoted", tone: "muted" },
+  unexamined: { word: "Not examined", tone: "muted" },
+  contradicted: { word: "Contradicted", tone: "gap" },
+};
+
+export const STEP_MARKS: Record<StepStatusName, string> = {
+  primary: "●",
+  lead: "○",
+  unexamined: "",
+  contradicted: "✕",
+};
+
+export const CROWDING_TITLE = "Atlas's guess at how widely it is known";
+
+export const CROWDING_WORDS: Record<CrowdingName, Word> = {
+  early: { word: "Early", tone: "muted" },
+  emerging: { word: "Emerging", tone: "muted" },
+  consensus: { word: "Crowded", tone: "muted" },
+};
+
+export const CROWDING_NONE = "Crowding not judged";
+
+/** Only the first survey is named; a weekly run is the default and has no word. */
+export const WATCH_MODE_WORDS: Record<WatchModeName, string | null> = {
+  architect: "First survey",
+  delta: null,
+};
+
+/** What the thesis gate finds missing, in words that follow "Still needs:". */
+export const GATE_MISSING: Record<string, string> = {
+  step_a_primary: "a quote for the constraint",
+  step_b_primary: "a quote for demand against supply",
+  step_d_primary: "a quote for control",
+  kill_criteria: "a falsifier",
+  open_issue: "an open question",
+};
+
+/** One missing item in words; an unknown code is "something else, needs review", with a
+ * console warning so a new backend code is noticed. */
+export function gateMissingText(code: string): string {
+  const known = GATE_MISSING[code];
+  if (known !== undefined) return known;
+  console.warn(`Unknown thesis gate code: ${code}`);
+  return "something else, needs review";
+}
+
+/** The board's route filter. The UI does not filter by these; they are named for coverage. */
+export const BOARD_FILTER_WORDS: Record<BoardFilter, string> = {
+  lead: CHOKEPOINT_WORDS.lead.word,
+  candidate: CHOKEPOINT_WORDS.candidate.word,
+  thesis_ready: CHOKEPOINT_WORDS.thesis_ready.word,
+  killed: CHOKEPOINT_WORDS.killed.word,
+  stale: "Quiet",
+  needs_review: BELOW_THE_BAR.word,
+};
+
+/**
+ * The codes a memo may still carry, each with the owner's word (the memo's owner-words pass,
+ * `lib/markdown.ts`, reads this). Only tokens that are never ordinary English: "lead", "early"
+ * or "candidate" in a memo's prose mean what they say, so they are left alone.
+ */
+export const OWNER_TOKENS: Record<string, string> = {
+  thesis_ready: "thesis-ready",
+  needs_review: "below the bar",
+  unexamined: "not examined",
+  demand_vs_supply: "demand against supply",
+  kill_criteria: "falsifiers",
+  open_issue: "open question",
+  step_a_primary: GATE_MISSING.step_a_primary ?? "",
+  step_b_primary: GATE_MISSING.step_b_primary ?? "",
+  step_d_primary: GATE_MISSING.step_d_primary ?? "",
+  shelf_or_atm: "shelf or offering filings",
+  gaap_gross_margin: "gross margin",
+  customer_concentration: "largest customer",
+  going_concern: "going-concern warning",
+  net_cash: "net cash",
+};

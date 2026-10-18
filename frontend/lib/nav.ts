@@ -21,7 +21,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
 /** A route is under `/name` when it is `/name` or `/name/...` (so `/themes` is not `/theme`). */
 const under = (path: string, name: string) => path === name || path.startsWith(`${name}/`);
 
-const THEME_ROUTES = ["/themes", "/theme", "/hypothesis", "/belief", "/company"];
+const THEME_ROUTES = [
+  "/themes",
+  "/theme",
+  "/hypothesis",
+  "/belief",
+  "/company",
+  "/chokepoint",
+  "/watch-run",
+];
 
 /** The section a path belongs to. The path is `location.pathname`: `/`, `/theme/`, `/memory/`. */
 export function sectionOf(pathname: string): Section {
