@@ -3,18 +3,23 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { Quote } from "../../components/quote";
+import { RecordsFold } from "../../components/records-fold";
 import { Load, Missing, Row, Timestamp } from "../../components/ui";
 import { api, type ResearchSession } from "../../lib/api/client";
+import { activity } from "../../lib/format";
 import { routes } from "../../lib/routes";
 import {
   cardView,
   costText,
   factsById,
   KINDS,
+  outcomeText,
   statusLabel,
   usageParts,
   type CardFactRef,
 } from "../../lib/sessions";
+import { AGENTS } from "../../lib/today";
 import { useApi, useIdParam } from "../../lib/use-api";
 
 export default function SessionPage() {
@@ -40,21 +45,23 @@ function Session() {
         {(session) => (
           <>
             <h1>{session.question}</h1>
-            <p>
-              {KINDS[session.kind]} session{session.model ? ` on ${session.model}` : ""}, as of{" "}
-              {session.as_of.slice(0, 10)}. {session.facts} Facts, {costText(session.usage)}.
-              {session.finished_at ? "" : " Still open."}
+            <p className="reader-meta">
+              {AGENTS[session.agent]} · {outcomeText(session)} · {activity(session.started_at)}
+              {session.finished_at ? "" : " · still open"}
             </p>
             <Card session={session} />
-            <Facts facts={session.fact_items} />
-            <Record
-              session={session}
-              seeds={
-                companies.state === "ready"
-                  ? new Map(companies.data.items.map((each) => [each.id, each.display_name]))
-                  : new Map()
-              }
-            />
+            <FactQuotes facts={session.fact_items} />
+            <RecordsFold>
+              <Facts facts={session.fact_items} />
+              <Record
+                session={session}
+                seeds={
+                  companies.state === "ready"
+                    ? new Map(companies.data.items.map((each) => [each.id, each.display_name]))
+                    : new Map()
+                }
+              />
+            </RecordsFold>
           </>
         )}
       </Load>
@@ -62,25 +69,50 @@ function Session() {
   );
 }
 
+/** The Facts a card statement cites, each as its quote (a Fact the session no longer holds is its
+ * statement alone). */
 function Cited({ refs, facts }: { refs: CardFactRef[]; facts: Map<string, SessionFact> }) {
   return (
-    <ul>
+    <div>
       {refs.map((ref, index) => {
         const fact = ref.id ? facts.get(ref.id) : undefined;
-        return (
-          <li key={`${ref.id ?? "x"}-${index}`}>
+        return fact ? (
+          <Quote
+            key={`${ref.id}-${index}`}
+            statement={ref.statement}
+            quote={fact.assertion.quote}
+            document={ref.detail || undefined}
+            href={routes.span(fact.assertion.source_version_id, fact.id)}
+          />
+        ) : (
+          <p key={`${ref.id ?? "x"}-${index}`} className="quote-statement">
             {ref.statement}
-            {ref.detail && <span className="muted-small"> [{ref.detail}]</span>}
-            {fact && (
-              <>
-                {" "}
-                <Link href={routes.span(fact.assertion.source_version_id, fact.id)}>span</Link>
-              </>
-            )}
-          </li>
+          </p>
         );
       })}
-    </ul>
+    </div>
+  );
+}
+
+/** Every Fact the session recorded, as its quote. */
+function FactQuotes({ facts }: { facts: SessionFact[] }) {
+  return (
+    <section aria-labelledby="fact-quotes">
+      <h2 id="fact-quotes">Facts</h2>
+      {facts.length === 0 ? (
+        <p className="muted">None recorded.</p>
+      ) : (
+        facts.map((fact) => (
+          <Quote
+            key={fact.id}
+            statement={fact.statement}
+            quote={fact.assertion.quote}
+            document={fact.step.split("_").join(" ")}
+            href={routes.span(fact.assertion.source_version_id, fact.id)}
+          />
+        ))
+      )}
+    </section>
   );
 }
 
@@ -152,7 +184,7 @@ function Card({ session }: { session: ResearchSession }) {
 function Facts({ facts }: { facts: SessionFact[] }) {
   return (
     <>
-      <h2>Facts</h2>
+      <h2>Facts recorded</h2>
       {facts.length === 0 ? (
         <p>None recorded.</p>
       ) : (
@@ -200,11 +232,19 @@ function Record({ session, seeds }: { session: ResearchSession; seeds: Map<strin
             )}
           </Row>
           <Row name="Researcher">{session.actor}</Row>
+          <Row name="Kind">
+            {KINDS[session.kind]}
+            {session.model ? ` on ${session.model}` : ""}
+          </Row>
+          <Row name="As of">
+            <Timestamp value={session.as_of} mode="exact" />
+          </Row>
+          <Row name="Tool calls">{session.tool_calls}</Row>
           <Row name="Started">
-            <Timestamp value={session.started_at} />
+            <Timestamp value={session.started_at} mode="exact" />
           </Row>
           <Row name="Finished">
-            <Timestamp value={session.finished_at} />
+            <Timestamp value={session.finished_at} mode="exact" />
           </Row>
           <Row name="Usage">
             {costText(session.usage)}

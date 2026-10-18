@@ -278,15 +278,20 @@ export function agentsWeek(sessions: readonly SessionSummary[], now: Date): Agen
 
 /** "This week: Scout 3 runs · 7 Facts · Skeptic 4 runs · examined 6 Beliefs · 3 found nothing new". */
 export function agentsLine(weeks: readonly AgentWeek[]): string {
-  const parts = weeks.flatMap((week) => [
-    `${AGENTS[week.agent]} ${plural(week.runs, "run")}`,
+  const parts = weeks.flatMap((week) => [`${AGENTS[week.agent]} ${agentParts(week).join(" · ")}`]);
+  return `This week: ${parts.join(" · ")}`;
+}
+
+/** One agent's week in parts: "3 runs", "7 Facts", "1 found nothing new". */
+export function agentParts(week: AgentWeek): string[] {
+  return [
+    plural(week.runs, "run"),
     ...(week.facts > 0 ? [plural(week.facts, "Fact")] : []),
     ...(week.beliefsProposed > 0 ? [`${plural(week.beliefsProposed, "Belief", "Beliefs")} proposed`] : []),
     ...(week.examined > 0 ? [`examined ${plural(week.examined, "Belief", "Beliefs")}`] : []),
     ...(week.issuesOpened > 0 ? [`${plural(week.issuesOpened, "Issue")} opened`] : []),
     ...(week.nothingNew > 0 ? [`${week.nothingNew} found nothing new`] : []),
-  ]);
-  return `This week: ${parts.join(" · ")}`;
+  ];
 }
 
 /** "22 calls open · first checkpoint 18 Nov · 4 predictions due 30 Nov"; null when empty. */

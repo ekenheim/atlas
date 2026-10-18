@@ -187,3 +187,55 @@ export function newestFirst<T extends Pick<SessionSummary, "started_at" | "quest
 export function factsById<T extends { id: string }>(facts: T[]): Map<string, T> {
   return new Map(facts.map((fact) => [fact.id, fact]));
 }
+
+// --- the Agents page: runs as outcome sentences ----------------------------------------------
+
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** What a run came to, in a few words: what it recorded, proposed, examined or opened, or that
+ * it found nothing new. A Skeptic's examination reads as its outcomes ("1 confirmed, 1 nothing
+ * new"). */
+export function outcomeText(
+  session: Pick<
+    SessionSummary,
+    "facts" | "beliefs_proposed" | "beliefs_examined" | "issues_opened"
+  >,
+): string {
+  const { confirmed, qualified, contradicted, nothing_new } = session.beliefs_examined;
+  const examined = confirmed + qualified + contradicted + nothing_new;
+  const parts: string[] = [];
+  if (session.facts > 0) parts.push(`recorded ${count(session.facts, "Fact")}`);
+  if (session.beliefs_proposed > 0) parts.push(`proposed ${count(session.beliefs_proposed, "Belief", "Beliefs")}`);
+  if (examined > 0) {
+    const found = [
+      confirmed > 0 ? `${confirmed} confirmed` : "",
+      qualified > 0 ? `${qualified} qualified` : "",
+      contradicted > 0 ? `${contradicted} contradicted` : "",
+    ].filter((each) => each !== "");
+    parts.push(
+      `examined ${count(examined, "Belief", "Beliefs")}: ${found.length > 0 ? found.join(", ") : "nothing new"}`,
+    );
+  }
+  if ((session.issues_opened ?? 0) > 0) parts.push(`opened ${count(session.issues_opened ?? 0, "Issue")}`);
+  return parts.length > 0 ? parts.join(", ") : "found nothing new";
+}
+
+export interface RunGroup {
+  /** The newest run of the group. */
+  session: SessionSummary;
+  /** How many runs asked the same question as the same agent. */
+  runs: number;
+}
+
+/** Runs newest first, the same agent's repeats of one question collapsed into the newest, with
+ * their count. */
+export function collapseRuns(sessions: readonly SessionSummary[]): RunGroup[] {
+  const groups = new Map<string, RunGroup>();
+  for (const session of newestFirst([...sessions])) {
+    const key = `${session.agent}|${session.question}`;
+    const found = groups.get(key);
+    if (found) found.runs += 1;
+    else groups.set(key, { session, runs: 1 });
+  }
+  return [...groups.values()];
+}

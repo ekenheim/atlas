@@ -2054,3 +2054,21 @@ h1,
   font-variant-numeric: tabular-nums;
   margin: var(--s1) 0;
 }
+
+/* The agents: one cell per agent for the week, then each run as a row. */
+.agent-strip {
+  display: grid;
+  gap: var(--s2);
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  list-style: none;
+  margin: 0 0 var(--s5);
+  padding: 0;
+}
+
+.agent-rows .reader-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.agent-rows .row-title {
+  overflow-wrap: anywhere;
+}
