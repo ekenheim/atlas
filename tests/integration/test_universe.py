@@ -45,6 +45,12 @@ MEMORY_PACKAGING = {
     "micron": ("memory-dram", "sec", "0000723125", None),
     "sk-hynix": ("memory-dram", "sec", "0002120882", ["F-1", "424B4", "6-K", "20-F"]),
     "sandisk": ("memory-nand", "sec", "0002023554", None),
+    # Ticket 33's scan: five buyers squeezed by memory supply, admitted with no layer.
+    "extreme-networks": (None, "sec", "0001078271", None),
+    "pacific-biosciences": (None, "sec", "0001299130", None),
+    "napco": (None, "sec", "0000069633", None),
+    "aerovironment": (None, "sec", "0001368622", None),
+    "brady": (None, "sec", "0000746598", None),
     "camtek": ("process-control", "sec", "0001109138", ["20-F", "6-K"]),
     "formfactor": ("test", "sec", "0001039399", None),
     "ase-technology": ("osat", "sec", "0001122411", ["20-F", "6-K"]),
@@ -195,7 +201,7 @@ def test_the_memory_packaging_theme_seeds_the_seven_sec_path_companies(
     assert (one["layer"], one["legal_name"]) == ("memory-dram", "Micron Technology, Inc.")
     themes = {theme["id"]: theme for theme in universe.get("/api/v1/themes")}
     assert sorted(themes) == ["memory-packaging", "photonics", "scorecard"]
-    assert themes["memory-packaging"]["company_count"] == 7
+    assert themes["memory-packaging"]["company_count"] == 12
     assert universe.get("/api/v1/themes/memory-packaging/map")["theme"]["id"] == "memory-packaging"
 
 
@@ -214,7 +220,7 @@ def test_the_scorecard_theme_seeds_sandisk_and_four_unlayered_companies(
     assert companies["sandisk"]["layer"] == "memory-nand"
     themes = {theme["id"]: theme for theme in universe.get("/api/v1/themes")}
     assert themes["scorecard"]["company_count"] == 5
-    assert themes["memory-packaging"]["company_count"] == 7
+    assert themes["memory-packaging"]["company_count"] == 12
     scorecard = universe.get("/api/v1/themes/scorecard/map")
     assert [layer["layer"] for layer in scorecard["layers"]] == ["memory-nand"]
     assert [c["slug"] for c in scorecard["layers"][0]["companies"]] == ["sandisk"]
@@ -239,9 +245,10 @@ def test_seeding_again_changes_nothing_and_audits_nothing(universe: Universe) ->
     events = universe.count("audit_event")
     second = universe.seed()
 
-    # 23 companies (the three themes) plus Lumentum's one security, each created once.
-    assert sum(each["changes"] for each in first) == events == 24
-    assert [each["changes"] for each in second] == [0] * 23
+    # 28 companies (the three themes; ticket 33 added five memory buyers) plus Lumentum's one
+    # security, each created once.
+    assert sum(each["changes"] for each in first) == events == 29
+    assert [each["changes"] for each in second] == [0] * 28
     assert universe.count("audit_event") == events
 
 

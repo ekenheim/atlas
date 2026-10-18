@@ -286,7 +286,7 @@ MEMORY_PACKAGING = {
 def test_the_second_theme_s_map_has_its_own_layers_and_companies(atlas: ExplorerAtlas) -> None:
     summary = {t["id"]: t for t in atlas.get("/api/v1/themes")}["memory-packaging"]
     assert summary["title"] == "Memory and advanced packaging for AI"
-    assert (summary["company_count"], summary["companies_without_sources"]) == (7, 7)
+    assert (summary["company_count"], summary["companies_without_sources"]) == (12, 12)
     assert summary["empty_layers"] == [
         "controller",
         "bond-equipment",
@@ -300,7 +300,14 @@ def test_the_second_theme_s_map_has_its_own_layers_and_companies(atlas: Explorer
     assert {
         layer["layer"]: sorted(c["slug"] for c in layer["companies"]) for layer in memory["layers"]
     } == MEMORY_PACKAGING
-    assert memory["unlayered"] == []
+    # The five buyers ticket 33's scan admitted sit in the theme with no layer.
+    assert sorted(c["slug"] for c in memory["unlayered"]) == [
+        "aerovironment",
+        "brady",
+        "extreme-networks",
+        "napco",
+        "pacific-biosciences",
+    ]
     assert all(c["seeded"] for layer in memory["layers"] for c in layer["companies"])
     assert all(layer["covers"] for layer in memory["layers"])
     # Each theme's map holds only its own companies; photonics' layers are unchanged.

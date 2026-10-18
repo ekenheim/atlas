@@ -29,7 +29,7 @@
 # Listings (securities) need a primary-source start date, so they are added with ticket 03.
 #
 # Bump `version` on any change, so a run can record which universe it used.
-version: 8
+version: 9
 name: ai-infrastructure
 
 companies:
@@ -329,6 +329,66 @@ companies:
     source_path: sec
     tradingview_symbol: "NASDAQ:AMKR"  # unverified
 
+
+  # ===== Admitted by the first bottleneck scan (atlas ticket 33, 2026-10-18) =====
+  # docs/research/bottleneck-scan-2026-10-18.md: a market-wide EDGAR full-text scan, read blind by
+  # two readers (holder / squeezed / noise). Admitted as found, with no price looked at. The
+  # memory-squeeze buyers sit in memory-packaging with no layer: their own filings are evidence
+  # that the input is short (the squeezed side of the constraint), never a thesis on themselves.
+  # The two power-equipment holders wait for layers from config (Watch W6a). CIKs, forms and tickers are SEC's
+  # submissions as read on 2026-10-18; TradingView symbols are unverified.
+
+  extreme-networks:
+    legal_name: Extreme Networks, Inc.
+    display_name: Extreme Networks
+    # EXTR on Nasdaq. Scan: older-generation memory and semiconductor components short (squeezed).
+    cik: "0001078271"
+    country: US
+    website: https://www.extremenetworks.com
+    source_path: sec
+    tradingview_symbol: "NASDAQ:EXTR"  # unverified
+
+  pacific-biosciences:
+    legal_name: Pacific Biosciences of California, Inc.
+    display_name: PacBio
+    # PACB on Nasdaq. Scan: memory chips and semiconductor materials short (squeezed).
+    cik: "0001299130"
+    country: US
+    website: https://www.pacb.com
+    source_path: sec
+    tradingview_symbol: "NASDAQ:PACB"  # unverified
+
+  napco:
+    legal_name: Napco Security Technologies, Inc.
+    display_name: Napco
+    # NSSC on Nasdaq. Scan: semiconductor component capacity going to AI customers (squeezed).
+    cik: "0000069633"
+    country: US
+    website: https://www.napcosecurity.com
+    source_path: sec
+    tradingview_symbol: "NASDAQ:NSSC"  # unverified
+
+  aerovironment:
+    legal_name: AeroVironment, Inc.
+    display_name: AeroVironment
+    # AVAV on Nasdaq. Scan: memory components (squeezed, forward-looking).
+    cik: "0001368622"
+    country: US
+    website: https://www.avinc.com
+    source_path: sec
+    tradingview_symbol: "NASDAQ:AVAV"  # unverified
+
+  brady:
+    legal_name: Brady Corporation
+    display_name: Brady
+    # BRC on NYSE. Scan: memory and semiconductor components (squeezed, forward-looking; the lead's
+    # call where the two readers split).
+    cik: "0000746598"
+    country: US
+    website: https://www.bradyid.com
+    source_path: sec
+    tradingview_symbol: "NYSE:BRC"  # unverified
+
   # ===== The scorecard theme: the early-call scorecard's companies (ticket 29a) =====
   # SanDisk (above, also memory-packaging's), then four companies the scorecard's answer key
   # names (.scratch/atlas-beliefs/issues/29-the-early-call-scorecard.md). CIKs and forms are
@@ -449,6 +509,12 @@ themes:
       - formfactor
       - ase-technology
       - amkor
+      # Buyers squeezed by memory supply (ticket 33's scan): unlayered, evidence of the constraint.
+      - extreme-networks
+      - pacific-biosciences
+      - napco
+      - aerovironment
+      - brady
 
   # The early-call scorecard's theme (atlas-beliefs ticket 29a; docs/decisions.md, "Isolated
   # sessions for the scorecard"). Never a scheduled agent's theme: the runs are the lead's, each

@@ -58,12 +58,17 @@ def setting(slug: str, layer: str) -> Callable[[dict[str, Any]], None]:
     return change
 
 
+SQUEEZED_BUYERS = {"extreme-networks", "pacific-biosciences", "napco", "aerovironment", "brady"}
+
+
 def test_the_universe_loads_with_both_themes_and_the_seven_seeds() -> None:
     universe = load_universe(THEMES)
 
     assert sorted(universe.themes) == ["memory-packaging", "photonics", "scorecard"]
     assert len(universe.themes["photonics"].companies) == 12
-    assert set(universe.themes["memory-packaging"].companies) == set(SEEDS)
+    # Ticket 33's scan admitted five buyers squeezed by memory supply, with no layer.
+    assert set(universe.themes["memory-packaging"].companies) == set(SEEDS) | SQUEEZED_BUYERS
+    assert all(universe.companies[slug].layer is None for slug in SQUEEZED_BUYERS)
     assert universe.themes["memory-packaging"].title == "Memory and advanced packaging for AI"
     assert {slug: universe.companies[slug].cik for slug in SEEDS} == SEEDS
     assert {universe.companies[slug].source_path for slug in SEEDS} == {"sec"}
