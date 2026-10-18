@@ -5,13 +5,10 @@
 // questions it linked, and the session or run that created it. Rendered only inside the fold.
 import Link from "next/link";
 
-import { api, type ChokepointDetail, cikKey, type Issue } from "../lib/api/client";
+import { type ChokepointDetail, cikKey } from "../lib/api/client";
 import { historyRows } from "../lib/chokepoints";
 import { evidenceDay, exactTime } from "../lib/format";
 import { routes } from "../lib/routes";
-import { useApi } from "../lib/use-api";
-
-const loadIssues = async () => (await api.issues()).items;
 
 /** A filer's page on EDGAR. */
 export const edgarFiler = (cik: string) =>
@@ -19,11 +16,7 @@ export const edgarFiler = (cik: string) =>
 
 export function ChokepointRecords({ chokepoint }: { chokepoint: ChokepointDetail }) {
   const rows = historyRows(chokepoint.history);
-  const issues = useApi("issues", loadIssues);
-  const closed: Issue[] =
-    issues.state === "ready"
-      ? issues.data.filter((each) => chokepoint.issue_ids.includes(each.id) && each.status !== "active")
-      : [];
+  const closed = chokepoint.issues.filter((issue) => issue.status !== "active");
   const withCik = chokepoint.holders.filter((holder) => holder.cik);
   return (
     <>

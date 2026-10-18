@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { expect, test } from "@playwright/test";
 
-import type { Chokepoint, ChokepointEvent, CompaniesIndex, Company, StepState } from "../lib/api/client";
+import type { Chokepoint, ChokepointDetail, ChokepointEvent, StepState } from "../lib/api/client";
 import {
   badges,
   barLine,
@@ -12,6 +12,8 @@ import {
   boardLine,
   boardParts,
   clampWords,
+  headlineOf,
+  leadHref,
   historyRows,
   holderNames,
   holderView,
@@ -22,9 +24,9 @@ import {
   rowSecondary,
   statusSince,
   stepCounts,
+  stepFacts,
   stepViews,
   themeTitle,
-  thesisHeadlineFactIds,
 } from "../lib/chokepoints";
 
 const NOW = new Date("2026-10-18T12:00:00Z");
@@ -60,6 +62,7 @@ function cp(over: Partial<Chokepoint> = {}): Chokepoint {
     holders: [],
     status: "lead",
     status_reason: null,
+    status_set_at: "2026-10-01T00:00:00Z",
     thesis_gate: { holds: false, missing: ["step_a_primary", "step_b_primary", "step_d_primary", "kill_criteria", "open_issue"] },
     needs_review: false,
     stale: false,
@@ -164,10 +167,13 @@ test("groups: lapsed thesis-ready first, quiet rows last, ruled out apart", () =
   expect(groups.killed.map((each) => each.id)).toEqual(["killed"]);
 });
 
-test("the board counts its active chokepoints; below the bar is the step or falsifier lapse", () => {
-  const counts = boardCounts([READY, BELOW, QUESTION, CANDIDATE, KILLED]);
-  expect(counts).toEqual({ active: 4, ready: 3, below: 1, killed: 1 });
-  expect(boardLine(counts)).toBe("4 chokepoints · 3 thesis-ready · 1 below the bar");
+test("the board line reads the API's counts: active ones, thesis-ready, every lapsed gate below the bar", () => {
+  const counts = boardCounts([READY, BELOW, QUESTION, CANDIDATE, KILLED, QUIET]);
+  expect(counts).toEqual({ lead: 0, candidate: 2, thesis_ready: 3, killed: 1, stale: 1, needs_review: 2 });
+  expect(boardLine(counts)).toBe("5 chokepoints · 3 thesis-ready · 2 below the bar");
+  expect(boardLine({ lead: 4, candidate: 0, thesis_ready: 1, killed: 2, stale: 0, needs_review: 0 })).toBe(
+    "5 chokepoints · 1 thesis-ready",
+  );
   expect(boardParts(counts).map((part) => part.tone)).toEqual(["muted", "muted", "warn"]);
   expect(boardLine(boardCounts([CANDIDATE]))).toBe("1 chokepoint");
   expect(boardLine(boardCounts([KILLED]))).toBe("");
@@ -214,48 +220,43 @@ test("a step's counts and the page's step sections", () => {
   expect(views[0]?.examined).toBe(false);
 });
 
-test("on mount the page reads at most the first Fact of each thesis step", () => {
-  const ids = thesisHeadlineFactIds(
-    cp({ steps: steps({ a: primary("f1", "f2"), b: primary("f1"), c: primary("f7"), d: primary("f3", "f4") }) }),
-  );
-  expect(ids).toEqual(["f1", "f3"]);
-  expect(thesisHeadlineFactIds(cp({ steps: steps({ a: primary("f1"), b: primary("f2"), d: primary("f3") }) }))).toEqual([
-    "f1",
-    "f2",
-    "f3",
-  ]);
-  expect(thesisHeadlineFactIds(cp())).toEqual([]);
+const fact = (id: string, statement: string) => ({
+  id,
+  assertion_id: `a-${id}`,
+  statement,
+  quote: `"${statement}"`,
+  company_name: "Lumentum",
+  document_title: "10-Q",
+  available_at: "2026-05-06T20:00:00Z",
+  source_version_id: "sv-1",
 });
 
-const COMPANIES: Company[] = [
-  { id: "c-lumentum", slug: "lumentum", cik: "0001633978", display_name: "Lumentum", legal_name: "Lumentum Holdings Inc." },
-  { id: "c-axt", slug: "axt", cik: "1051627", display_name: "AXT", legal_name: "AXT, Inc." },
-].map((each) => each as unknown as Company);
+test("a step's Facts come from the detail, in the step's order; a thesis step's headline is its first", () => {
+  const detail = { facts: [fact("f1", "One"), fact("f2", "Two"), fact("f3", "Three")] } as Pick<ChokepointDetail, "facts">;
+  const step = { evidence: { fact_ids: ["f3", "f1", "missing"], lead_ids: [], issue_ids: [] } };
+  expect(stepFacts(detail, step).map((each) => each.id)).toEqual(["f3", "f1"]);
+  // A step may cite a Fact by its assertion's id.
+  expect(stepFacts(detail, { evidence: { fact_ids: ["a-f2"] } }).map((each) => each.id)).toEqual(["f2"]);
+  expect(headlineOf(detail, "control", step)).toBe("Three");
+  expect(headlineOf(detail, "relief", step)).toBeNull();
+  expect(headlineOf(detail, "constraint", null)).toBeNull();
+});
 
-const INDEX: CompaniesIndex = {
-  byId: new Map(COMPANIES.map((each) => [each.id, each])),
-  bySlug: new Map(COMPANIES.map((each) => [each.slug, each])),
-  byCik: new Map(COMPANIES.map((each) => [(each.cik ?? "").replace(/^0+/, ""), each])),
-  byName: new Map(
-    COMPANIES.flatMap((each) => [
-      [each.display_name.toLowerCase(), each],
-      [each.legal_name.toLowerCase(), each],
-    ]),
-  ),
-};
+test("a lead links out only over http(s)", () => {
+  expect(leadHref("https://www.sec.gov/x")).toBe("https://www.sec.gov/x");
+  expect(leadHref("javascript:alert(1)")).toBeNull();
+  expect(leadHref("/system/")).toBeNull();
+});
 
-test("a holder is matched by slug, else CIK, else exact name", () => {
-  const view = holderView(
-    [
-      { name: "Lumentum Holdings", slug: "lumentum" },
-      { name: "Somebody", cik: "0001051627" },
-      { name: "  axt, inc. " },
-      { name: "Outside Holder Co" },
-    ],
-    INDEX,
-  );
-  expect(view.map((each) => each.companyId)).toEqual(["c-lumentum", "c-axt", "c-axt", null]);
-  expect(holderView([{ name: "Lumentum" }], null)[0]?.companyId).toBeNull();
+test("a holder links by the company the API resolved", () => {
+  const view = holderView([
+    { name: "Lumentum Holdings", company_id: "c-lumentum" },
+    { name: "Outside Holder Co", company_id: null },
+  ]);
+  expect(view).toEqual([
+    { name: "Lumentum Holdings", companyId: "c-lumentum" },
+    { name: "Outside Holder Co", companyId: null },
+  ]);
   expect(holderNames([{ name: "A" }, { name: "B" }, { name: "C" }])).toBe("A, B +1");
   expect(holderNames([])).toBeNull();
 });
@@ -263,7 +264,11 @@ test("a holder is matched by slug, else CIK, else exact name", () => {
 test("a row's second line: holders, layer, crowding, relief", () => {
   expect(
     rowSecondary({
-      holders: [{ name: "AXT" }, { name: "Sumitomo Electric" }, { name: "JX" }],
+      holders: [
+        { name: "AXT", company_id: "c-axt" },
+        { name: "Sumitomo Electric", company_id: null },
+        { name: "JX", company_id: null },
+      ],
       layer: "substrate",
       crowding: "early",
       relief_horizon: { horizon: "2028, once the new crystal growers are qualified", basis: "x" },
@@ -314,18 +319,8 @@ test("the history replays the events into sentences that know the value before",
   for (const row of rows) expect(row.text).not.toMatch(/thesis_ready|unexamined|step d|kill_criteria/);
 });
 
-test("the status was set at its last status event, else at creation", () => {
-  expect(statusSince({ created_at: "2026-10-01T00:00:00Z", history: [] })).toBe("2026-10-01T00:00:00Z");
-  expect(
-    statusSince({
-      created_at: "2026-10-01T00:00:00Z",
-      history: [
-        event("status_set", { status: "candidate" }, { at: "2026-10-03T00:00:00Z" }),
-        event("note", { text: "x" }, { at: "2026-10-05T00:00:00Z" }),
-        event("status_set", { status: "thesis_ready" }, { at: "2026-10-04T00:00:00Z" }),
-      ],
-    }),
-  ).toBe("2026-10-04T00:00:00Z");
+test("the status was set when the API says", () => {
+  expect(statusSince({ status_set_at: "2026-10-04T00:00:00Z" })).toBe("2026-10-04T00:00:00Z");
 });
 
 test("a real board answer: groups, counts and quiet read from it", () => {
@@ -347,9 +342,11 @@ test("a real board answer: groups, counts and quiet read from it", () => {
   expect(photonics.spotted).toHaveLength(1);
   expect(photonics.killed[0]?.status_reason).toBe("Supply added faster than demand.");
   const counts = boardCounts(board.items);
-  expect(counts.active).toBe(board.items.filter((each) => each.status !== "killed").length);
+  expect(counts.lead + counts.candidate + counts.thesis_ready).toBe(
+    board.items.filter((each) => each.status !== "killed").length,
+  );
   expect(boardLine(boardCounts(board.items.filter((each) => each.theme === "photonics")))).toBe(
-    "5 chokepoints · 3 thesis-ready · 1 below the bar",
+    "5 chokepoints · 3 thesis-ready · 2 below the bar",
   );
   // Quiet is clock-derived: the API's `stale` against a fixed now.
   for (const each of board.items) {

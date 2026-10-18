@@ -1,12 +1,28 @@
 // The Watch across themes (spec §10.3.1, §10.3.2): which themes are watched, Today's Watch rows
 // and cards, and which layout a theme's page takes. Keyed by theme slug: a watched theme need not
 // be one of `/themes`. Pure, so each rule is tested.
-import type { BeliefSummary, Chokepoint, ThemeSummary, WatchRun } from "./api/client";
-import { type BoardCounts, boardCounts, boardLine, themeTitle } from "./chokepoints";
+import type { BeliefSummary, BoardCounts, Chokepoint, ThemeSummary, WatchRun } from "./api/client";
+import { activeCount, boardCounts, boardLine, themeTitle } from "./chokepoints";
 import { plainDay } from "./format";
 import { memoExcerpt } from "./markdown";
 import { isUnseen } from "./seen";
 import { themeBeliefs } from "./today";
+
+/** A theme summary as the Watch reads it: `board` is the API's count of its chokepoints (absent
+ * from a server before 0.6.18, when the board is counted here instead). */
+export type WatchedTheme = Pick<ThemeSummary, "id" | "title"> & Partial<Pick<ThemeSummary, "board">>;
+
+/** A theme's board counts: its summary's, else counted from the board read. */
+export function countsFor(
+  slug: string,
+  themes: readonly WatchedTheme[],
+  board: readonly Chokepoint[],
+): BoardCounts {
+  return (
+    themes.find((each) => each.id === slug)?.board ??
+    boardCounts(board.filter((each) => each.theme === slug))
+  );
+}
 
 export interface LatestRuns {
   latest: WatchRun;
@@ -61,8 +77,8 @@ export interface Named {
 }
 
 /**
- * What Today names on a theme's Watch row: the chokepoints that became thesis-ready (as their
- * current state, until W8's `status_set_at`), were spotted, or were ruled out since the previous
+ * What Today names on a theme's Watch row: the chokepoints that became thesis-ready (and still
+ * are), were spotted, or were ruled out since the previous
  * run (a first run has no lower bound), at most `shown`. Each chokepoint is named once, under the
  * first label that applies; within a label the API's order (latest event first) holds. The window
  * has no upper bound: the browser's clock may run behind the server's.
@@ -75,9 +91,9 @@ export function namedOnBoard(
   const from = runs?.previous ? Date.parse(runs.previous.created_at) : Number.NEGATIVE_INFINITY;
   const inside = (at: string) => Date.parse(at) > from;
   const rules: [NamedLabel, (cp: Chokepoint) => boolean][] = [
-    ["Thesis-ready", (cp) => cp.status === "thesis_ready" && inside(cp.last_event_at)],
+    ["Thesis-ready", (cp) => cp.status === "thesis_ready" && inside(cp.status_set_at)],
     ["New", (cp) => cp.status !== "killed" && inside(cp.created_at)],
-    ["Ruled out", (cp) => cp.status === "killed" && inside(cp.last_event_at)],
+    ["Ruled out", (cp) => cp.status === "killed" && inside(cp.status_set_at)],
   ];
   const taken = new Set<string>();
   const all: { label: NamedLabel; cp: Chokepoint }[] = [];
@@ -113,7 +129,7 @@ export interface WatchRow {
 /** Today's Watch rows: in the cards' theme order, then the watched slugs `/themes` does not
  * list, alphabetically. Only watched themes have a row. */
 export function watchRows(
-  themes: readonly Pick<ThemeSummary, "id" | "title">[],
+  themes: readonly WatchedTheme[],
   board: readonly Chokepoint[],
   runs: readonly WatchRun[],
   mark: Date | null,
@@ -130,7 +146,7 @@ export function watchRows(
       slug,
       title: themeTitle(slug, themes),
       runs: theirs,
-      counts: boardCounts(mine),
+      counts: countsFor(slug, themes, board),
       named: namedOnBoard(mine, theirs),
       excerpt: theirs ? memoExcerpt(theirs.latest.memo) : "",
       unseen: theirs ? isUnseen(theirs.latest.created_at, mark) : false,
@@ -193,20 +209,25 @@ export interface ThemesCard<T> {
  * list, alphabetically. A theme with no active Belief that the Watch is on reads `Watching` with
  * its last watch and board; one with no company and nothing watched reads `Not started`.
  */
-export function themesCards<T extends Pick<ThemeSummary, "id" | "title" | "company_count">>(
+export function themesCards<T extends WatchedTheme & Pick<ThemeSummary, "company_count">>(
   themes: readonly T[],
   beliefs: readonly BeliefSummary[] | null,
   board: readonly Chokepoint[],
   runs: readonly WatchRun[],
   now: Date = new Date(),
 ): ThemesCard<T>[] {
-  const watched = watchedSlugs(board, runs);
+  // A theme of `/themes` is watched by its own count or a run; a slug it does not list, by the
+  // board read.
+  const watched = new Set([
+    ...watchedSlugs(board, runs),
+    ...themes.filter((theme) => theme.board && activeCount(theme.board) > 0).map((theme) => theme.id),
+  ]);
   const latest = latestByTheme(runs);
   const watchLine = (slug: string) => {
     const run = latest.get(slug)?.latest;
     const parts = [
       run ? `last watch ${plainDay(run.run_date, now)}` : null,
-      boardLine(boardCounts(board.filter((each) => each.theme === slug))) || null,
+      boardLine(countsFor(slug, themes, board)) || null,
     ].filter((part): part is string => part !== null);
     return parts.join(" · ");
   };

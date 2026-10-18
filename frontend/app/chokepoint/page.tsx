@@ -11,12 +11,12 @@ import { ChokepointRecords } from "../../components/chokepoint-records";
 import { ChokepointSteps, IssueRows } from "../../components/chokepoint-steps";
 import { RecordsFold } from "../../components/records-fold";
 import { Status } from "../../components/status";
-import { ApiError, api, type ChokepointDetail, type CompaniesIndex, type Issue } from "../../lib/api/client";
+import { ApiError, api, type ChokepointDetail } from "../../lib/api/client";
 import { badges, barLine, holderView, layerName, statusSince, themeTitle } from "../../lib/chokepoints";
 import { plainDay } from "../../lib/format";
 import { routes } from "../../lib/routes";
 import { CHOKEPOINT_WORDS, CROWDING_NONE, CROWDING_TITLE, CROWDING_WORDS } from "../../lib/status";
-import { type Loaded, useApi, useIdParam } from "../../lib/use-api";
+import { useApi, useIdParam } from "../../lib/use-api";
 
 export default function ChokepointPage() {
   return (
@@ -36,8 +36,6 @@ const loadDetail = async (id: string): Promise<ChokepointDetail | null> => {
   }
 };
 const loadThemes = () => api.themes();
-const loadCompanies = () => api.companiesIndex();
-const loadIssues = async () => (await api.issues()).items;
 
 function ChokepointView() {
   const id = useIdParam();
@@ -62,9 +60,9 @@ function ChokepointView() {
   return <Body chokepoint={detail.data} />;
 }
 
-function Holders({ chokepoint, companies }: { chokepoint: ChokepointDetail; companies: Loaded<CompaniesIndex> }) {
+function Holders({ chokepoint }: { chokepoint: ChokepointDetail }) {
   if (chokepoint.holders.length === 0) return <p className="holders muted">Holder not yet named</p>;
-  const view = holderView(chokepoint.holders, companies.state === "ready" ? companies.data : null);
+  const view = holderView(chokepoint.holders);
   return (
     <p className="holders">
       Held by{" "}
@@ -154,25 +152,20 @@ function Band({ chokepoint }: { chokepoint: ChokepointDetail }) {
 
 /** The linked questions still open; none, and the section is left out (the bar line says so). */
 function OpenQuestions({ chokepoint }: { chokepoint: ChokepointDetail }) {
-  const issues = useApi("issues", loadIssues);
-  if (issues.state !== "ready") return null;
-  const open = chokepoint.issue_ids.filter((id) =>
-    issues.data.some((each: Issue) => each.id === id && each.status === "active"),
-  );
+  const open = chokepoint.issues.filter((issue) => issue.status === "active");
   if (open.length === 0) return null;
   return (
     <section aria-labelledby="open-questions">
       <h2 className="reader-label" id="open-questions">
         Open questions
       </h2>
-      <IssueRows ids={open} label="Open questions" />
+      <IssueRows issues={open} label="Open questions" />
     </section>
   );
 }
 
 function Body({ chokepoint }: { chokepoint: ChokepointDetail }) {
   const themes = useApi("themes", loadThemes);
-  const companies = useApi("companies", loadCompanies);
   const now = new Date();
   const title = themeTitle(chokepoint.theme, themes.state === "ready" ? themes.data : []);
   const bar = barLine(chokepoint);
@@ -185,7 +178,7 @@ function Body({ chokepoint }: { chokepoint: ChokepointDetail }) {
         <div className="reader-kicker">Chokepoint · {layerName(chokepoint.layer)}</div>
         <h1 className="reader-headline measure">{chokepoint.constraint}</h1>
       </header>
-      <Holders chokepoint={chokepoint} companies={companies} />
+      <Holders chokepoint={chokepoint} />
       <Verdict chokepoint={chokepoint} now={now} />
       {bar ? <p className={`bar-line status-${bar.tone}`}>{bar.text}</p> : null}
 
@@ -193,7 +186,7 @@ function Body({ chokepoint }: { chokepoint: ChokepointDetail }) {
         <h2 className="reader-label" id="argument">
           The argument
         </h2>
-        <ChokepointSteps chokepoint={chokepoint} companies={companies.state === "ready" ? companies.data : null} now={now} />
+        <ChokepointSteps chokepoint={chokepoint} now={now} />
       </section>
 
       <Band chokepoint={chokepoint} />

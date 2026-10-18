@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import type { BeliefSummary, Chokepoint, ThemeSummary, WatchRun } from "../lib/api/client";
 import {
+  countsFor,
   latestByTheme,
   namedOnBoard,
   stoppedWatch,
@@ -43,6 +44,7 @@ function cp(over: Partial<Chokepoint> = {}): Chokepoint {
     holders: [],
     status: "lead",
     status_reason: null,
+    status_set_at: "2026-10-24T08:10:00Z",
     thesis_gate: { holds: false, missing: ["open_issue"] },
     needs_review: false,
     stale: false,
@@ -68,6 +70,7 @@ const theme = (id: string, company_count = 12): ThemeSummary => ({
   empty_layers: [],
   relationship_count: 0,
   open_candidate_count: 0,
+  board: { lead: 0, candidate: 0, thesis_ready: 0, killed: 0, stale: 0, needs_review: 0 },
 });
 
 const belief = (theme: string) =>
@@ -189,9 +192,11 @@ test("Themes keeps every card: Watching for a watched theme with no Belief, Not 
     ["memory-packaging", null],
     ["robotics", { watching: false, line: "The first watch has not run." }],
   ]);
-  // After the first survey, and with a watched slug that /themes does not list.
+  // After the first survey, and with a watched slug that /themes does not list. A theme of
+  // /themes is counted by its summary's `board`; the other slug, from the board read.
+  const counted = { lead: 1, candidate: 0, thesis_ready: 1, killed: 0, stale: 0, needs_review: 0 };
   const cards = themesCards(
-    themes,
+    [themes[0] as ThemeSummary, themes[1] as ThemeSummary, { ...theme("robotics", 0), board: counted }],
     beliefs,
     [cp(), cp({ id: "2", status: "thesis_ready" }), cp({ theme: "zeta" })],
     [run()],
@@ -207,4 +212,22 @@ test("Themes keeps every card: Watching for a watched theme with no Belief, Not 
   expect(cards[3]?.title).toBe("Zeta");
   // While the Beliefs are unknown no card is replaced.
   expect(themesCards(themes, null, [], [run()], NOW).map((card) => card.watch)).toEqual([null, null, null]);
+});
+
+test("a theme's counts are its summary's; without one (an older server, an unlisted slug) the board read's", () => {
+  const counted = { lead: 2, candidate: 1, thesis_ready: 0, killed: 0, stale: 0, needs_review: 0 };
+  const listed = [{ id: "robotics", title: "Robotics manufacturing", board: counted }];
+  expect(countsFor("robotics", listed, [cp()])).toBe(counted);
+  expect(countsFor("robotics", [{ id: "robotics", title: "Robotics" }], [cp(), cp({ id: "k", status: "killed" })])).toEqual({
+    lead: 1,
+    candidate: 0,
+    thesis_ready: 0,
+    killed: 1,
+    stale: 0,
+    needs_review: 0,
+  });
+  // Today names what became thesis-ready by when its status was set, not its latest event.
+  const previous = run({ created_at: "2026-10-20T00:00:00Z" });
+  const old = cp({ id: "old", status: "thesis_ready", status_set_at: "2026-10-10T00:00:00Z", created_at: "2026-10-01T00:00:00Z", last_event_at: "2026-10-23T00:00:00Z" });
+  expect(namedOnBoard([old], { previous })).toEqual({ parts: [], more: 0 });
 });

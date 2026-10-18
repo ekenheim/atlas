@@ -22,6 +22,7 @@ import { WatchRunRows } from "../../components/watch-run-records";
 import {
   api,
   type BeliefSummary,
+  type BoardCounts,
   type Bottlenecks,
   type Candidate,
   type Chokepoint,
@@ -131,7 +132,7 @@ function Theme() {
 
 /** "Watching · last watch 24 Oct · 4 chokepoints · 1 thesis-ready"; the date is warn once the
  * Watch has stopped. */
-function WatchingLine({ board, runs, now }: { board: Chokepoint[]; runs: WatchRun[]; now: Date }) {
+function WatchingLine({ counts, runs, now }: { counts: BoardCounts; runs: WatchRun[]; now: Date }) {
   const latest = runs[0];
   return (
     <p className="thesis-status">
@@ -141,7 +142,7 @@ function WatchingLine({ board, runs, now }: { board: Chokepoint[]; runs: WatchRu
           last watch {plainDay(latest.run_date, now)}
         </span>
       ) : null}
-      {boardParts(boardCounts(board)).map((part) => (
+      {boardParts(counts).map((part) => (
         <span key={part.text} className={`thesis-part${part.tone === "warn" ? " status-warn" : ""}`}>
           {part.text}
         </span>
@@ -167,7 +168,7 @@ function BoardLed({
   return (
     <div className="reader theme-page">
       <h1 className="page-title">{summary?.title ?? humanise(slug)}</h1>
-      <WatchingLine board={items} runs={runs} now={now} />
+      <WatchingLine counts={summary?.board ?? boardCounts(items)} runs={runs} now={now} />
       {board.state === "error" ? (
         <p className="muted">Chokepoints unavailable</p>
       ) : (

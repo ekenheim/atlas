@@ -1,23 +1,19 @@
 // The Watch's board in the owner's words (spec §10.3): the groups, the badges, the step strip,
 // what a chokepoint still needs, its history as sentences and who holds it. Pure, so each rule is
-// tested. The board's own state is the API's fold; nothing here re-derives the gate.
-//
-// Seams for the backend's W8 (each in one place, so the swap is small):
-// - `statusSince` reads the history until `Chokepoint.status_set_at` exists;
-// - `holderView` matches a holder by slug, CIK and name until `Holder.company_id` exists;
-// - `thesisHeadlineFactIds` / `factIdsOf` name the Facts the page reads until the detail
-//   resolves its evidence (`facts[]`);
-// - `boardCounts` folds the list until `/chokepoints/counts` and the theme's board count exist.
+// tested. The board's own state is the API's fold; nothing here re-derives the gate. The board's
+// counts are the API's (`BoardCounts`: a theme summary's `board`, `/chokepoints/counts`); the
+// detail resolves its evidence (`facts`, `leads`, `issues`), its holders' companies and when the
+// status was set.
 import type {
+  BoardCounts,
   Chokepoint,
   ChokepointDetail,
   ChokepointEvent,
-  CompaniesIndex,
   CompanyLayer,
+  EvidenceFact,
   Holder,
   StepState,
 } from "./api/client";
-import { cikKey, nameKey } from "./api/client";
 import { ARGUMENT_ORDER, STEP_LABELS, type StepName, isAgainst } from "./argument";
 import { STEPS } from "./beliefs";
 import { COMPANY_LAYERS } from "./relationships";
@@ -151,34 +147,36 @@ export function boardGroups<T extends Chokepoint>(items: readonly T[]): BoardGro
   };
 }
 
-export interface BoardCounts {
-  /** Not ruled out. */
-  active: number;
-  ready: number;
-  /** Thesis-ready below the bar (a lapsed step or falsifier; not the open-question case). */
-  below: number;
-  killed: number;
-}
-
-/** A theme's board counted (W8: `/chokepoints/counts` replaces this). */
-export function boardCounts(items: readonly Gated[]): BoardCounts {
+/** A board counted as the API counts it, for a slug no theme summary carries (a watched theme
+ * that `/themes` does not list): the same object as `/chokepoints/counts`. */
+export function boardCounts(
+  items: readonly Pick<Chokepoint, "status" | "stale" | "needs_review">[],
+): BoardCounts {
+  const of = (status: Chokepoint["status"]) => items.filter((each) => each.status === status).length;
   return {
-    active: items.filter((each) => each.status !== "killed").length,
-    ready: items.filter((each) => each.status === "thesis_ready").length,
-    below: items.filter((each) => each.status === "thesis_ready" && lapse(each) === "below").length,
-    killed: items.filter((each) => each.status === "killed").length,
+    lead: of("lead"),
+    candidate: of("candidate"),
+    thesis_ready: of("thesis_ready"),
+    killed: of("killed"),
+    stale: items.filter((each) => each.stale && each.status !== "killed").length,
+    needs_review: items.filter((each) => each.needs_review).length,
   };
 }
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
-/** "4 chokepoints · 1 thesis-ready · 1 below the bar", in parts with their tones. Zero parts
- * drop out; none at all is an empty list. */
+/** The chokepoints not ruled out. */
+export const activeCount = (counts: BoardCounts) => counts.lead + counts.candidate + counts.thesis_ready;
+
+/** "4 chokepoints · 1 thesis-ready · 1 below the bar", in parts with their tones: active ones
+ * only, and below the bar is every thesis-ready one whose gate lapsed (the API's `needs_review`;
+ * its row and page say which). Zero parts drop out; none at all is an empty list. */
 export function boardParts(counts: BoardCounts): Line[] {
   const parts: Line[] = [];
-  if (counts.active > 0) parts.push({ text: plural(counts.active, "chokepoint"), tone: "muted" });
-  if (counts.ready > 0) parts.push({ text: `${counts.ready} thesis-ready`, tone: "muted" });
-  if (counts.below > 0) parts.push({ text: `${counts.below} below the bar`, tone: "warn" });
+  const active = activeCount(counts);
+  if (active > 0) parts.push({ text: plural(active, "chokepoint"), tone: "muted" });
+  if (counts.thesis_ready > 0) parts.push({ text: `${counts.thesis_ready} thesis-ready`, tone: "muted" });
+  if (counts.needs_review > 0) parts.push({ text: `${counts.needs_review} below the bar`, tone: "warn" });
   return parts;
 }
 
@@ -238,47 +236,46 @@ export function stepCounts(step: Pick<StepState, "evidence">): string {
 /** The steps a thesis rests on: constraint, demand against supply, control. */
 export const THESIS_STEPS: readonly StepName[] = ["constraint", "demand_vs_supply", "control"];
 
-/** The Facts a step cites, in order. */
-export const factIdsOf = (step: Pick<StepState, "evidence"> | undefined): string[] =>
-  step?.evidence.fact_ids ?? [];
+/** A step's Facts, in the order the step cites them, from the detail's resolved `facts` (a step
+ * cites a Fact by its id). A Fact the detail did not resolve is left out. */
+export function stepFacts(
+  cp: Pick<ChokepointDetail, "facts">,
+  step: Pick<StepState, "evidence"> | null | undefined,
+): EvidenceFact[] {
+  const byId = new Map(cp.facts.flatMap((fact) => [[fact.id, fact] as const, [fact.assertion_id, fact] as const]));
+  return (step?.evidence.fact_ids ?? [])
+    .map((id) => byId.get(id))
+    .filter((fact): fact is EvidenceFact => fact !== undefined);
+}
 
-/** What the page reads on mount: the first Fact of each thesis step, at most three (W8: the
- * detail's resolved `facts[]` replaces the reads). */
-export function thesisHeadlineFactIds(cp: Pick<Chokepoint, "steps">): string[] {
-  const byName = stepsByName(cp.steps);
-  const ids = THESIS_STEPS.map((name) => factIdsOf(byName.get(name))[0]).filter(
-    (id): id is string => id !== undefined,
-  );
-  return [...new Set(ids)].slice(0, 3);
+/** A thesis step's headline: its first Fact's statement; none for the other steps. */
+export function headlineOf(
+  cp: Pick<ChokepointDetail, "facts">,
+  name: StepName,
+  step: Pick<StepState, "evidence"> | null | undefined,
+): string | null {
+  return THESIS_STEPS.includes(name) ? (stepFacts(cp, step)[0]?.statement ?? null) : null;
+}
+
+/** A lead's link, only to the web (http or https); anything else is its title alone. */
+export function leadHref(url: string): string | null {
+  return /^https?:\/\/\S+$/i.test(url) ? url : null;
 }
 
 // --- the page ------------------------------------------------------------------------------
 
-/** When the status was last set: the last `status_set` event, else the creation (W8:
- * `status_set_at`). */
-export function statusSince(cp: Pick<ChokepointDetail, "history" | "created_at">): string {
-  const set = [...cp.history].reverse().find((event) => event.kind === "status_set");
-  return set?.at ?? cp.created_at;
-}
+/** When the status was last set. */
+export const statusSince = (cp: Pick<Chokepoint, "status_set_at">): string => cp.status_set_at;
 
 export interface HolderView {
   name: string;
-  /** The universe company it matched, or null: "not yet researched". */
+  /** The universe company it is, or null: "not yet researched". */
   companyId: string | null;
 }
 
-/** Each holder matched against the universe by slug, else CIK, else exact case-folded name
- * (W8: `Holder.company_id` replaces this). */
-export function holderView(holders: readonly Holder[], index: CompaniesIndex | null): HolderView[] {
-  return holders.map((holder) => {
-    const found =
-      index === null
-        ? undefined
-        : ((holder.slug ? index.bySlug.get(holder.slug) : undefined) ??
-          (holder.cik ? index.byCik.get(cikKey(holder.cik)) : undefined) ??
-          index.byName.get(nameKey(holder.name)));
-    return { name: holder.name, companyId: found?.id ?? null };
-  });
+/** Each holder with the universe company the API resolved it to, if any. */
+export function holderView(holders: readonly Pick<Holder, "name" | "company_id">[]): HolderView[] {
+  return holders.map((holder) => ({ name: holder.name, companyId: holder.company_id }));
 }
 
 /** "AXT, Sumitomo Electric +1": up to two names, then the rest counted. */

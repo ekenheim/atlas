@@ -2427,6 +2427,11 @@ textarea {
   margin: 0 0 var(--s2);
 }
 
+.lead-rows {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
 /* The Watch's memo: prose at the reading measure. */
 .memo h3 {
   font-size: 1.1rem;

@@ -158,7 +158,8 @@ test("A: waiting for proof, its holders, and the quote in two clicks from the bo
   await expect(page.getByRole("link", { name: "Outside Holder Co" })).toHaveCount(0);
   await expect(page.locator(".holders")).toContainText("Outside Holder Co not yet researched");
   await expect(page.locator(".step-headline").first()).toBeVisible();
-  expect(reads.length).toBeLessThanOrEqual(3);
+  // The detail resolves its Facts: the page reads none on its own.
+  expect(reads).toEqual([]);
 
   const constraint = page.getByRole("region", { name: "Constraint" });
   await constraint.locator("summary").click(); // a disclosure, not a navigation

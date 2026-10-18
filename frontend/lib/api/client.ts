@@ -104,11 +104,17 @@ export type Chokepoint = Schemas["Chokepoint"];
 export type ChokepointDetail = Schemas["ChokepointDetail"];
 export type ChokepointEvent = Schemas["ChokepointEvent"];
 export type StepState = Schemas["StepState"];
-export type Holder = Schemas["Holder"];
+export type Holder = Schemas["HolderState"];
+export type BoardCounts = Schemas["BoardCounts"];
+export type EvidenceFact = Schemas["EvidenceFact"];
+export type EvidenceLead = Schemas["EvidenceLead"];
+export type EvidenceIssue = Schemas["EvidenceIssue"];
 export type WatchRun = Schemas["WatchRun"];
 export type BoardFilter = Schemas["BoardFilter"];
 export type BearChecks = Schemas["BearChecks"];
-export type BearCheck = Schemas["BearCheck"];
+/** One check: a union discriminated by `key`, each with its own value model. */
+export type BearCheck = BearChecks["checks"][number];
+export type UnknownReason = Schemas["UnknownReason"];
 export type BearCheckSource = Schemas["BearCheckSource"];
 export type ExportFormat = NonNullable<
   NonNullable<Params<"/api/v1/hypotheses/{hypothesis_id}/export">["query"]>["format"]
@@ -222,36 +228,10 @@ const listHypotheses = () => get("/api/v1/hypotheses", { query: PAGE });
 let hypothesesMemo: Promise<HypothesesPage> | null = null;
 const hypothesesByTheme = new Map<string, Promise<HypothesesPage>>();
 const themeMaps = new Map<string, Promise<Partial<ThemeMap>>>();
-let companiesMemo: Promise<CompaniesIndex> | null = null;
+const bearChecksMemo = new Map<string, Promise<BearChecks | null>>();
 
-/** The universe looked up by id, and three ways for a holder: by slug, by CIK (unpadded) and by
- * case-folded name. */
-export interface CompaniesIndex {
-  byId: ReadonlyMap<string, Company>;
-  bySlug: ReadonlyMap<string, Company>;
-  byCik: ReadonlyMap<string, Company>;
-  byName: ReadonlyMap<string, Company>;
-}
-
-/** A CIK without its leading zeros, so "0001633978" and "1633978" are one key. */
+/** A CIK without its leading zeros, as EDGAR's filer page takes it. */
 export const cikKey = (cik: string) => cik.replace(/^0+/, "");
-/** A name as the holder match compares it. */
-export const nameKey = (name: string) => name.trim().toLowerCase();
-
-function indexCompanies(companies: readonly Company[]): CompaniesIndex {
-  const byId = new Map(companies.map((company) => [company.id, company]));
-  const bySlug = new Map<string, Company>();
-  const byCik = new Map<string, Company>();
-  const byName = new Map<string, Company>();
-  for (const company of companies) {
-    bySlug.set(company.slug, company);
-    if (company.cik) byCik.set(cikKey(company.cik), company);
-    for (const name of [company.display_name, company.legal_name]) {
-      if (name && !byName.has(nameKey(name))) byName.set(nameKey(name), company);
-    }
-  }
-  return { byId, bySlug, byCik, byName };
-}
 
 /** The sections of a theme's map a page can ask for. */
 export type ThemeSection =
@@ -273,15 +253,22 @@ export function forgetHypotheses(): void {
 
 export const api = {
   companies: () => get("/api/v1/companies", { query: PAGE }),
-  /** The companies, indexed for matching a chokepoint's holders; one read per session. */
-  companiesIndex: (): Promise<CompaniesIndex> => {
-    companiesMemo ??= get("/api/v1/companies", { query: PAGE })
-      .then((page) => indexCompanies(page.items))
-      .catch((error: unknown) => {
-        companiesMemo = null;
+  /** A company's mechanical bear checks as of now, shared by the page's section and its
+   * Records; null when the API has none (an older backend answers 404). */
+  bearChecks: (companyId: string): Promise<BearChecks | null> => {
+    let pending = bearChecksMemo.get(companyId);
+    if (pending === undefined) {
+      pending = get("/api/v1/companies/{company_id}/bear-checks", {
+        path: { company_id: companyId },
+        query: {},
+      }).catch((error: unknown) => {
+        bearChecksMemo.delete(companyId);
+        if (error instanceof ApiError && error.status === 404) return null;
         throw error;
       });
-    return companiesMemo;
+      bearChecksMemo.set(companyId, pending);
+    }
+    return pending;
   },
   company: (id: string) => get("/api/v1/companies/{company_id}", { path: { company_id: id } }),
   /** A company's dossier: identity, reviews, themes, sources, edges, financials as of now. */
@@ -402,7 +389,9 @@ export const api = {
     get("/api/v1/chokepoints", {
       query: { ...(query.theme ? { theme: query.theme } : {}), limit: query.limit ?? 500, offset: 0 },
     }),
-  /** One chokepoint: its state and every event, oldest first. */
+  /** The theme's board counted by state (the same object as a theme summary's `board`). */
+  chokepointCounts: (theme: string) => get("/api/v1/chokepoints/counts", { query: { theme } }),
+  /** One chokepoint: its state, its evidence resolved (Facts, leads, Issues) and every event. */
   chokepoint: (id: string) =>
     get("/api/v1/chokepoints/{chokepoint_id}", { path: { chokepoint_id: id }, query: {} }),
   /** The Watch's runs, newest first. */
