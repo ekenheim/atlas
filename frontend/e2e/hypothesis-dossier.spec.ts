@@ -120,6 +120,12 @@ test("a Hypothesis's versions, diff, gate, snapshots and scenarios, and a citati
     publish.getByText("The latest version is published.", { exact: false }),
   ).toBeVisible();
 
+  // Coming back from the edge's page remounted the dossier with its records folded again.
+  const records = page.locator("details.reader-records");
+  if (!(await records.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await page.locator("summary", { hasText: "Records" }).click();
+  }
+
   // Both publications froze a snapshot, each verified when it is read.
   // Version 1 rests on the supply edge and carries the scenario; version 2 adds the owns edge.
   for (const [number, contents] of [
