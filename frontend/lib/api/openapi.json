@@ -1344,6 +1344,25 @@
               "default": 3,
               "title": "Per Document"
             }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the research session asking (web pages: see the module)",
+              "title": "Session Id"
+            },
+            "description": "the research session asking (web pages: see the module)"
           }
         ],
         "responses": {
@@ -1464,6 +1483,25 @@
               "default": 50,
               "title": "Limit"
             }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the research session asking (web pages: see the module)",
+              "title": "Session Id"
+            },
+            "description": "the research session asking (web pages: see the module)"
           }
         ],
         "responses": {
@@ -19483,6 +19521,18 @@
               }
             ],
             "title": "Owner Override"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
           }
         },
         "type": "object",
@@ -19527,7 +19577,20 @@
               }
             ],
             "title": "Published At",
-            "description": "when the page became public, if you know (with its UTC offset); else its own date, else the fetch time"
+            "description": "when the page became public, if you know (with its UTC offset); else its own date (if within a week before the fetch), else the fetch time"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "the research session asking: a page fetched after a session's as-of time is read only by the session that fetched it"
           }
         },
         "additionalProperties": false,
@@ -19600,9 +19663,24 @@
             ],
             "title": "Date Source"
           },
+          "date_as_written": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date As Written"
+          },
           "tier": {
             "type": "string",
             "title": "Tier"
+          },
+          "license_class": {
+            "type": "string",
+            "title": "License Class"
           },
           "site": {
             "type": "string",
@@ -19657,7 +19735,9 @@
           "available_at",
           "available_at_basis",
           "date_source",
+          "date_as_written",
           "tier",
+          "license_class",
           "site",
           "media_type",
           "title",

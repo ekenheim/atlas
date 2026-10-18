@@ -916,11 +916,18 @@ def run_sources_import(
     )
 
 
-def run_sources_fetch(settings: Settings, company: str, url: str, published_at: str | None) -> int:
+def run_sources_fetch(
+    settings: Settings,
+    company: str,
+    url: str,
+    published_at: str | None,
+    session_id: str | None = None,
+) -> int:
     """`atlas sources fetch`: one web page through the fetch gate into the ledger. Prints the
     recorded page as JSON (exit 0); a blocked fetch prints the gate's decision (exit 1); a
     refused one (exit 2) or a failed one (exit 1) says why on stderr."""
     import json
+    import uuid
     from datetime import datetime
 
     from atlas.companies import UniverseConfigError
@@ -944,7 +951,12 @@ def run_sources_fetch(settings: Settings, company: str, url: str, published_at: 
             )
             return 2
     try:
-        page = fetch_page(settings, company=company, url=url, published_at=when)
+        asking = uuid.UUID(session_id) if session_id else None
+    except ValueError:
+        print(f"atlas: --session-id must be a session's UUID, not {session_id!r}", file=sys.stderr)
+        return 2
+    try:
+        page = fetch_page(settings, company=company, url=url, published_at=when, session_id=asking)
     except (WebFetchRefused, UniverseConfigError) as error:
         print(f"atlas: {error}", file=sys.stderr)
         return 2
@@ -1470,8 +1482,13 @@ def main(argv: list[str] | None = None) -> None:
     source_fetch.add_argument("--url", required=True, help="the page's URL (HTML or PDF)")
     source_fetch.add_argument(
         "--published-at",
-        help="when the page became public, with its offset (default: the page's own date, else"
-        " now)",
+        help="when the page became public, with its offset (default: the page's own date, if"
+        " within a week before the fetch, else now)",
+    )
+    source_fetch.add_argument(
+        "--session-id",
+        help="the research session asking: it alone reads the page if the page was fetched"
+        " after its as-of time",
     )
     companies = commands.add_parser("companies", help="the configured company universe")
     companies_commands = companies.add_subparsers(dest="companies_command", required=True)
@@ -1728,7 +1745,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "companies" and args.companies_command == "resolve":
         raise SystemExit(resolve_companies(settings, args.slugs))
     elif args.command == "sources" and args.sources_command == "fetch":
-        raise SystemExit(run_sources_fetch(settings, args.company, args.url, args.published_at))
+        raise SystemExit(
+            run_sources_fetch(settings, args.company, args.url, args.published_at, args.session_id)
+        )
     elif args.command == "sources":
         run_sources_import(
             settings,

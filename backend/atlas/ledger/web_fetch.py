@@ -13,12 +13,17 @@ it as a Fact. One page per call, synchronous (the caller needs the Source Versio
    the site register is never bypassed by a 301 to another host.
 2. **The bytes** are archived as served; HTML and PDF are parsed by the ledger's parser (any
    other type is refused before it is archived).
-3. **`available_at`**: the `published_at` the call was given (basis `publisher_timestamp`),
-   else the publication date the page's own HTML carries (`atlas.sources.web_dates`; basis
-   `page_published_date`, `date_source` says which tag), else the fetch time (basis
-   `observed_discovery`). A page's date is never later than the fetch.
-4. **The tier** is A when the site is the company's own (the register's `own_site_of`), else B;
-   both `public_issuer`.
+3. **`available_at` is never before Atlas had the page**: the `published_at` the call was given
+   (basis `publisher_timestamp`); else the publication date the page's own HTML claims
+   (`atlas.sources.web_dates`: `article:published_time`, or JSON-LD of an Article), but only when
+   it is no later than the fetch and no more than seven days before it (basis
+   `page_published_date`; `date_source` says which tag); else the fetch time (basis
+   `observed_discovery`), with any older or later date the page claimed kept as written
+   (`metadata.web.date_as_written`). A page is read by a session as of an earlier time only if
+   that session fetched it (`session_id`, kept on the fetch observation; `atlas.mcp.tools`).
+4. **The tier** is A when the site is the company's own (the register's `own_site_of`;
+   `public_issuer`), else B (the register's `license_class` for the site, else `third_party`).
+   A URL already in the ledger for another company is refused (`url_belongs_to_other_company`).
 5. The new version joins its Evidence Family (the ledger does it); the same bytes again make no
    new version (`unchanged`, a fetch observation only), different bytes a new one available
    from the fetch (`observed_revision`), as for any revised document. When Hindsight is
@@ -33,7 +38,7 @@ the register allows is `web_fetch_off`.
 import asyncio
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import PurePosixPath
 from types import TracebackType
 from typing import Any
@@ -67,6 +72,7 @@ from atlas.sources.web_dates import page_date, page_title
 
 PROVIDER_ID = "web"
 MAX_REDIRECTS = 5
+PAGE_DATE_WINDOW = timedelta(days=7)  # a page's own date is believed this far back
 MAX_BYTES = 30 * 1024 * 1024
 _HTML = frozenset({"text/html", "application/xhtml+xml"})
 _UNTYPED = frozenset({"", "application/octet-stream", "binary/octet-stream"})
@@ -117,8 +123,10 @@ class FetchedPage(BaseModel):
     observation_id: uuid.UUID
     available_at: datetime  # the version's effective availability
     available_at_basis: str  # publisher_timestamp, page_published_date, observed_discovery, ...
-    date_source: str | None  # argument, article_published_time, json_ld, time_element, fetch_time
+    date_source: str | None  # argument, article_published_time, json_ld, fetch_time
+    date_as_written: str | None  # the date as given or as the page claimed it, believed or not
     tier: str
+    license_class: str
     site: str
     media_type: str
     title: str
@@ -161,17 +169,17 @@ def _error(message: str, url: str, status: int | None) -> FetchError:
 
 
 async def _follow(
-    client: SecHttpClient,
+    lazy: _LazyClient,
     url: str,
     validators: HttpValidators | None,
     before: Callable[[str], Awaitable[None]],
 ) -> tuple[HttpResult, str]:
     """GET `url`, following up to `MAX_REDIRECTS` redirects by hand: `before(url)` is awaited
-    ahead of every request (the page's, and each hop's) and may raise to stop. Returns the
-    result and the URL it came from."""
+    ahead of every request (the page's, and each hop's) and may raise to stop; the client is
+    built only after it has not. Returns the result and the URL it came from."""
     for hop in range(MAX_REDIRECTS + 1):
         await before(url)
-        result = await client.get(url, validators if hop == 0 else None)
+        result = await lazy.client().get(url, validators if hop == 0 else None)
         if 300 <= result.status < 400 and result.status != 304:
             if not result.location:
                 raise _error(
@@ -185,8 +193,8 @@ async def _follow(
 
 class _RobotsGetter:
     """What the gate reads robots.txt through: redirects are followed (RFC 9309) but only to
-    a host the register knows; any other target is an unreachable robots.txt, which disallows
-    everything."""
+    a host of a site the register allows (automation allowed, or a recorded consent); any other
+    target is an unreachable robots.txt, which disallows everything."""
 
     def __init__(self, lazy: _LazyClient, register: SiteRegister) -> None:
         self._lazy = lazy
@@ -194,10 +202,14 @@ class _RobotsGetter:
 
     async def get(self, url: str, validators: HttpValidators | None = None) -> HttpResult:
         async def known(target: str) -> None:
-            if self._register.site_for(target) is None:
-                raise _error(f"robots.txt redirects to an unregistered host: {target}", url, None)
+            found = self._register.site_for(target)
+            site = found[1] if found else None
+            if site is None or not (site.automation == "allowed" or site.consent is not None):
+                raise _error(
+                    f"robots.txt redirects to a host the register bars: {target}", url, None
+                )
 
-        result, _ = await _follow(self._lazy.client(), url, validators, known)
+        result, _ = await _follow(self._lazy, url, validators, known)
         return result
 
 
@@ -226,18 +238,42 @@ def _title(url: str, media_type: str, content: bytes) -> str:
     return name or urlsplit(url).hostname or url
 
 
+class _Availability(BaseModel):
+    available_at: datetime
+    basis: AvailabilityBasis
+    source: WebDateSource
+    written: str | None  # the date as given, or as the page claimed it (believed or not)
+    page_tag: str | None  # the tag the page's own date was found in, if it had one
+
+
 def _availability(
     media_type: str, content: bytes, published_at: datetime | None, fetched_at: datetime
-) -> tuple[datetime, AvailabilityBasis, WebDateSource, str | None]:
-    """(available_at, its basis, where the date came from, the date as written)."""
+) -> _Availability:
+    """When the page became public, never before Atlas had it (module docstring, 3)."""
     if published_at is not None:
-        return published_at, "publisher_timestamp", "argument", published_at.isoformat()
-    if media_type in _HTML:
-        found = page_date(content)
-        if found is not None:
-            moment = min(found.moment, fetched_at)  # a page cannot be public after its fetch
-            return moment, "page_published_date", found.source, found.written
-    return fetched_at, "observed_discovery", "fetch_time", None
+        return _Availability(
+            available_at=published_at,
+            basis="publisher_timestamp",
+            source="argument",
+            written=published_at.isoformat(),
+            page_tag=None,
+        )
+    found = page_date(content) if media_type in _HTML else None
+    if found is not None and fetched_at - PAGE_DATE_WINDOW <= found.moment <= fetched_at:
+        return _Availability(
+            available_at=found.moment,
+            basis="page_published_date",
+            source=found.source,
+            written=found.written,
+            page_tag=found.source,
+        )
+    return _Availability(
+        available_at=fetched_at,
+        basis="observed_discovery",
+        source="fetch_time",
+        written=found.written if found else None,
+        page_tag=found.source if found else None,
+    )
 
 
 def fetch_page(
@@ -246,9 +282,11 @@ def fetch_page(
     company: str,
     url: str,
     published_at: datetime | None = None,
+    session_id: uuid.UUID | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> FetchedPage:
-    """Fetch `url` for `company` (a slug) into the ledger (see the module). Raises
+    """Fetch `url` for `company` (a slug) into the ledger (see the module); `session_id` is the
+    research session asking, kept on the fetch observation. Raises
     `WebFetchRefused`, `WebFetchBlocked`, `WebFetchFailed` or `WebFetchOff`."""
     parts = urlsplit(url.strip())
     if parts.scheme not in ("http", "https") or not parts.hostname:
@@ -268,6 +306,13 @@ def fetch_page(
     engine = create_engine(settings)
     try:
         company_id = _company_id(engine, actor, settings, company)
+        if session_id is not None:
+            with engine.connect() as connection:
+                known = connection.execute(
+                    text("SELECT 1 FROM research_session WHERE id = :id"), {"id": session_id}
+                ).scalar_one_or_none()
+            if known is None:
+                raise WebFetchRefused("unknown_session", "no such research session")
         archive = open_archive(settings)
         return asyncio.run(
             _fetch(
@@ -280,6 +325,7 @@ def fetch_page(
                 company_id,
                 url.strip(),
                 published_at,
+                session_id,
                 now,
             )
         )
@@ -312,9 +358,11 @@ async def _fetch(
     company_id: uuid.UUID,
     url: str,
     published_at: datetime | None,
+    session_id: uuid.UUID | None,
     now: Callable[[], datetime],
 ) -> FetchedPage:
     found = register.site_for(url)
+    _refuse_another_companys(engine, url, slug, company_id)
     rate_site = found[0] if found else "web"
 
     def make() -> SecHttpClient:
@@ -348,7 +396,19 @@ async def _fetch(
     )
     asked_at = now()
     provisional = _candidate(
-        slug, url, url, asked_at, asked_at, "observed_discovery", "fetch_time", None, None, found
+        slug,
+        url,
+        url,
+        asked_at,
+        _Availability(
+            available_at=asked_at,
+            basis="observed_discovery",
+            source="fetch_time",
+            written=None,
+            page_tag=None,
+        ),
+        None,
+        found,
     )
     validators = ledger.validators_for(provisional)
     async with _LazyClient(make) as lazy:
@@ -361,7 +421,7 @@ async def _fetch(
                 raise WebFetchBlocked(decision, decision_id)
 
         try:
-            result, final_url = await _follow(lazy.client(), url, validators, before)
+            result, final_url = await _follow(lazy, url, validators, before)
         except FetchError as error:
             raise WebFetchFailed(str(error), url=error.url, status=error.status) from None
     gate_decision_id = decided[-1][1] if decided else None
@@ -372,19 +432,17 @@ async def _fetch(
             "too_large", f"the page is {len(content)} bytes; the limit is {MAX_BYTES}"
         )
     media_type = "text/html" if result.not_modified else _media_type(result.media_type, content)
-    available_at, basis, date_source, written = _availability(
+    availability = _availability(
         media_type, b"" if result.not_modified else content, published_at, fetched_at
     )
     title = final_url if result.not_modified else _title(final_url, media_type, content)
+    _refuse_another_companys(engine, final_url, slug, company_id)
     candidate = _candidate(
         slug,
         final_url,
         title,
         fetched_at,
-        available_at,
-        basis,
-        date_source,
-        written,
+        availability,
         decided[-1][0].reason if decided else None,
         register.site_for(final_url),
     )
@@ -398,7 +456,9 @@ async def _fetch(
         validators=result.validators,
         attempts=result.attempts,
     )
-    recorded = ledger.record(fetched, company_id=company_id, gate_decision_id=gate_decision_id)
+    recorded = ledger.record(
+        fetched, company_id=company_id, gate_decision_id=gate_decision_id, session_id=session_id
+    )
     retain_jobs = (
         enqueue_retains(
             engine,
@@ -411,19 +471,38 @@ async def _fetch(
     return _page(engine, recorded, slug, company_id, url, final_url, gate_decision_id, retain_jobs)
 
 
+def _refuse_another_companys(engine: Engine, url: str, slug: str, company_id: uuid.UUID) -> None:
+    """A page is one Source Document, which belongs to the company it was first fetched for;
+    fetching it for another is refused, not silently kept under the first."""
+    with engine.connect() as connection:
+        owner = connection.execute(
+            text(
+                "SELECT d.company_id, c.slug FROM source_document d"
+                " LEFT JOIN company c ON c.id = d.company_id"
+                " WHERE d.provider = :provider AND d.canonical_url = :url"
+            ),
+            {"provider": PROVIDER_ID, "url": web_canonical_url(url)},
+        ).one_or_none()
+    if owner is not None and owner.company_id is not None and owner.company_id != company_id:
+        raise WebFetchRefused(
+            "url_belongs_to_other_company",
+            f"that page is already in the ledger for {owner.slug}, not {slug}",
+            company=owner.slug,
+        )
+
+
 def _candidate(
     slug: str,
     url: str,
     title: str,
     discovered_at: datetime,
-    available_at: datetime,
-    basis: AvailabilityBasis,
-    date_source: WebDateSource,
-    written: str | None,
+    availability: _Availability,
     gate_reason: str | None,
     found: tuple[str, SiteConfig] | None,
 ) -> SourceCandidate:
     site_name, site = found if found else ("unregistered", None)
+    own_site = site is not None and slug in site.own_site_of
+    available_at, basis = availability.available_at, availability.basis
     return SourceCandidate(
         provider_id=PROVIDER_ID,
         kind="web_page",
@@ -435,9 +514,13 @@ def _candidate(
         web=WebPage(
             publisher=site.publisher if site else urlsplit(url).hostname or url,
             site=site_name,
-            own_site=site is not None and slug in site.own_site_of,
-            date_source=date_source,
-            date_as_written=written,
+            own_site=own_site,
+            license_class="public_issuer"
+            if own_site
+            else (site.license_class if site and site.license_class else "third_party"),
+            date_source=availability.source,
+            date_as_written=availability.written,
+            page_date_tag=availability.page_tag,
             gate_reason=gate_reason,
         ),
     )
@@ -457,7 +540,7 @@ def _page(
         row = connection.execute(
             text(
                 "SELECT a.available_at, a.available_at_basis, v.media_type, v.metadata,"
-                " d.canonical_url, d.source_tier, d.title"
+                " d.canonical_url, d.source_tier, d.title, d.license_class"
                 " FROM source_version v JOIN source_document d ON d.id = v.source_document_id"
                 " JOIN source_version_availability a ON a.source_version_id = v.id"
                 " WHERE v.id = :id"
@@ -478,6 +561,8 @@ def _page(
         available_at=row.available_at,
         available_at_basis=row.available_at_basis,
         date_source=web.get("date_source"),
+        date_as_written=web.get("date_as_written"),
+        license_class=row.license_class,
         tier=row.source_tier,
         site=str(web.get("site", "")),
         media_type=row.media_type,

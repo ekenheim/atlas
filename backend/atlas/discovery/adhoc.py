@@ -6,7 +6,7 @@ searches one query at a time and wants the results back with their lead ids. The
 stored exactly as a discovery's are: a SearXNG result is a `searxng` lead, an EDGAR full-text hit
 an `edgar_fts` lead with its filing (filer, CIK, form, dates, whether Atlas has archived it),
 one per canonical URL (`atlas.discovery.leads.canonical_url`), each sighting recorded against the
-query that returned it. The query is a `discovery_query` with no discovery (migration 0118): its
+query that returned it. The query is a `discovery_query` with no discovery (migration 0120): its
 `theme` makes `GET /leads?theme=` find the leads, its `session_id` says which research session
 ran it, and a filing search keeps its `edgar_search` row (forms, window, outcome).
 
@@ -94,7 +94,7 @@ def _query_row(
     connection: Connection,
     *,
     query: str,
-    theme: str,
+    theme: str | None,
     session_id: uuid.UUID | None,
     status: str,
     result_count: int | None,
@@ -132,7 +132,7 @@ def web_search(
     client: SearXNGClient,
     *,
     query: str,
-    theme: str,
+    theme: str | None,
     session_id: uuid.UUID | None,
     published_by: date | None = None,
     limit: int = 20,
@@ -227,7 +227,7 @@ def filing_search(
     phrases: list[str],
     start: date,
     end: date,
-    theme: str,
+    theme: str | None,
     session_id: uuid.UUID | None,
     filing_phrase: str,
 ) -> FilingSearchResult:

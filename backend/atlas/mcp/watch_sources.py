@@ -7,14 +7,17 @@ refuse an isolated session before they do anything (`refuse_isolated`: the early
 scorecard's sessions see what they saw before these tools existed), and none is on the frozen
 prompt's list; Atlas enforces it.
 
-- `filing_search` clamps `end` to the session's as-of date; a window that starts after it is
-  refused. Results are `edgar_fts` leads: where to look, never a Fact.
-- `web_search` leaves out results that date themselves after the as-of date; a result with no
-  date cannot be bounded and is a lead like the rest.
-- `fetch_page` archives a page through the fetch gate. A page whose `available_at` is after the
-  as-of time is recorded, but the session cannot read it (`readable: false`; `read` refuses it
-  as `available_after_as_of`): a page with no date of its own is available when fetched, so a
-  session as of an earlier time never reads it.
+- `filing_search` clamps `end` to the last filing day that was certainly complete at the
+  session's as-of instant (`filing_bound`); a window that starts after it is refused. Results
+  are `edgar_fts` leads: where to look, never a Fact.
+- `web_search` leaves out results that date themselves too late to be certainly public at the
+  as-of instant (`published_bound`); a result with no date cannot be bounded and is a lead like
+  the rest.
+- `fetch_page` archives a page through the fetch gate, recording the session that asked. A page
+  is never public before Atlas had it: its `available_at` is its own recent date or the fetch
+  time (`atlas.ledger.web_fetch`), and a session as of an earlier time reads it only if it
+  fetched it itself (`Ctx.visible_version`). A page whose `available_at` is after the as-of time
+  is recorded but not `readable` (`read` refuses it as `available_after_as_of`).
 
 Registered by importing this module (`atlas.mcp`'s package init).
 """
@@ -33,6 +36,20 @@ LEAD_NOTE = (
     " it there; record a Fact only from text you read in the archive."
 )
 WINDOW_DAYS = 365
+# EDGAR files by Eastern day and a day is over by 05:00 UTC the next calendar day; a date-only
+# publication can be as late as the end of that day at UTC-12 (12:00 UTC the next day).
+EDGAR_DAY_END = timedelta(hours=5)
+DATE_ONLY_END = timedelta(hours=12)
+
+
+def filing_bound(as_of: datetime) -> date:
+    """The last filing date every filing of which was accepted by `as_of`."""
+    return (as_of.astimezone(UTC) - EDGAR_DAY_END).date() - timedelta(days=1)
+
+
+def published_bound(as_of: datetime) -> date:
+    """The last publication date, given as a date alone, that was certainly over by `as_of`."""
+    return (as_of.astimezone(UTC) - DATE_ONLY_END).date() - timedelta(days=1)
 
 
 class FilingSearchArgs(Bound):
@@ -63,13 +80,13 @@ class FilingSearchArgs(Bound):
 )
 async def filing_search(ctx: Ctx, args: FilingSearchArgs) -> dict[str, Any]:
     ctx.refuse_isolated("filing_search")
-    bound = ctx.as_of.astimezone(UTC).date()
+    bound = filing_bound(ctx.as_of)
     end = min(args.end or bound, bound)
     start = args.start or end - timedelta(days=WINDOW_DAYS)
     if start > bound:
         raise Refusal(
             "window_after_as_of",
-            "the window starts after the session's as-of date",
+            "the window starts after the last filing day certainly public by the as-of time",
             start=start.isoformat(),
             as_of=ctx.as_of_iso,
         )
@@ -134,7 +151,7 @@ class WebSearchArgs(Bound):
 )
 async def web_search(ctx: Ctx, args: WebSearchArgs) -> dict[str, Any]:
     ctx.refuse_isolated("web_search")
-    bound = ctx.as_of.astimezone(UTC).date()
+    bound = published_bound(ctx.as_of)
     answer = await ctx.api.get(
         "/web-search",
         q=args.query,
@@ -178,13 +195,18 @@ class FetchPageArgs(Bound):
     " The site must be in Atlas's site register with terms that allow automation, and its"
     " robots.txt must allow the path; otherwise the call is refused (`fetch_blocked`) and"
     " nothing is requested. Tier A when the site is the company's own, else B. `available_at`"
-    " is the page's own publication date if its HTML carries one, else now: a page that became"
-    " public after the session's as-of time is recorded but not `readable` by this session.",
+    " is never before Atlas had the page: the page's own date if it is within a week before"
+    " now, else now. A page public after the session's as-of time is recorded but not"
+    " `readable` by it; one fetched after the as-of time is read only by the session that"
+    " fetched it.",
     FetchPageArgs,
 )
 async def fetch_page(ctx: Ctx, args: FetchPageArgs) -> dict[str, Any]:
     ctx.refuse_isolated("fetch_page")
-    page = await ctx.api.post("/sources/fetch", {"company": args.company, "url": args.url})
+    page = await ctx.api.post(
+        "/sources/fetch",
+        {"company": args.company, "url": args.url, "session_id": str(args.session_id)},
+    )
     available = datetime.fromisoformat(page["available_at"])
     readable = available <= ctx.as_of
     return {
@@ -205,7 +227,7 @@ async def fetch_page(ctx: Ctx, args: FetchPageArgs) -> dict[str, Any]:
         "note": (
             "Archived. `read` the version, then record Facts from what you read."
             if readable
-            else "Recorded, but it became public after the session's as-of time: this session"
-            " cannot read it (`read` refuses it as available_after_as_of)."
+            else "Recorded, but it became public (available_at) after the session's as-of time:"
+            " this session cannot read it (`read` refuses it as available_after_as_of)."
         ),
     }

@@ -12,6 +12,7 @@ from atlas.ledger.service import web_canonical_url
 from atlas.retention.context import SectionSource, section_context
 from atlas.sources.gate import SiteRegisterError, load_site_register
 from atlas.sources.web_dates import page_date, page_title, parse_moment
+from tests.fakes.web import WEB_SITES
 
 REPO = Path(__file__).parents[2]
 
@@ -23,13 +24,14 @@ def head(*lines: str) -> str:
 META = '<meta property="article:published_time" content="2026-08-11T20:05:00+00:00">'
 JSON_LD = (
     '<script type="application/ld+json">'
-    '{"@graph": [{"@type": "Organization"}, {"datePublished": "2026-09-02T09:30:00-04:00"}]}'
+    '{"@graph": [{"@type": "Organization", "datePublished": "2020-01-01"},'
+    ' {"@type": "NewsArticle", "datePublished": "2026-09-02T09:30:00-04:00"}]}'
     "</script>"
 )
 TIME = '<time datetime="2026-09-03T10:00:00+01:00">3 Sep</time>'
 
 
-def test_the_meta_tag_wins_over_json_ld_and_a_time_element() -> None:
+def test_the_meta_tag_wins_over_json_ld() -> None:
     found = page_date(head(TIME, JSON_LD, META))
 
     assert found is not None
@@ -38,33 +40,54 @@ def test_the_meta_tag_wins_over_json_ld_and_a_time_element() -> None:
     assert found.written == "2026-08-11T20:05:00+00:00"
 
 
-def test_json_ld_wins_over_a_time_element_and_is_found_inside_a_graph() -> None:
+def test_json_ld_is_read_from_an_article_node_inside_a_graph_and_from_nowhere_else() -> None:
     found = page_date(head(TIME, JSON_LD))
 
     assert found is not None
     assert found.source == "json_ld"
-    assert found.moment == datetime(2026, 9, 2, 13, 30, tzinfo=UTC)
+    assert found.moment == datetime(2026, 9, 2, 13, 30, tzinfo=UTC)  # not the Organization's 2020
 
 
-def test_a_time_element_is_the_last_resort_and_a_marked_one_comes_first() -> None:
-    plain = '<time datetime="2026-01-01T00:00:00Z">old</time>'
+@pytest.mark.parametrize(
+    "document",
+    [
+        '{"@type": "Organization", "datePublished": "2026-09-02"}',
+        '{"@type": "WebPage", "datePublished": "2026-09-02"}',
+        '{"@type": "Event", "startDate": "2026-09-02", "datePublished": "2026-09-02"}',
+        '{"datePublished": "2026-09-02"}',
+        '[{"@type": "Product", "datePublished": "2026-09-02"}]',
+    ],
+)
+def test_json_ld_of_another_type_or_none_is_not_the_pages_date(document: str) -> None:
+    ld = f'<script type="application/ld+json">{document}</script>'
+
+    assert page_date(head(ld)) is None
+
+
+@pytest.mark.parametrize("kind", ["Article", "NewsArticle", "PressRelease", '["Thing", "Article"]'])
+def test_an_article_news_article_or_press_release_dates_the_page(kind: str) -> None:
+    type_ = kind if kind.startswith("[") else f'"{kind}"'
+    node = f'{{"@type": {type_}, "datePublished": "2026-09-02T00:00:00Z"}}'
+    ld = f'<script type="application/ld+json">{node}</script>'
+
+    found = page_date(head(ld))
+
+    assert found is not None and found.source == "json_ld"
+
+
+def test_a_time_element_is_never_the_pages_date() -> None:
     marked = '<time itemprop="datePublished" datetime="2026-09-03T10:00:00+01:00">new</time>'
 
-    found = page_date(head(plain, marked))
-
-    assert found is not None
-    assert found.source == "time_element"
-    assert found.moment == datetime(2026, 9, 3, 9, 0, tzinfo=UTC)
-    assert page_date(head(plain)).moment == datetime(2026, 1, 1, tzinfo=UTC)  # type: ignore[union-attr]
+    assert page_date(head(TIME, marked)) is None
 
 
 def test_an_unparseable_source_falls_through_to_the_next() -> None:
     broken_meta = '<meta property="article:published_time" content="last Tuesday">'
-    broken_ld = '<script type="application/ld+json">{not json</script>'
 
-    found = page_date(head(broken_meta, broken_ld, TIME))
-
-    assert found is not None and found.source == "time_element"
+    found = page_date(head(broken_meta, '<script type="application/ld+json">{not json</script>'))
+    assert found is None
+    found = page_date(head(broken_meta, JSON_LD))
+    assert found is not None and found.source == "json_ld"
 
 
 def test_a_page_with_no_date_has_none_and_a_pdf_is_not_read_for_one() -> None:
@@ -109,14 +132,19 @@ def test_a_web_page_keeps_its_query_but_not_tracking_parameters_or_the_fragment(
     assert web_canonical_url("http://www.example.test:8080") == "http://www.example.test:8080/"
 
 
-def test_the_committed_register_has_the_two_example_sites_and_names_the_own_site() -> None:
-    register = load_site_register(REPO / "configs" / "sources" / "sites.yaml")
+def test_the_test_register_names_the_own_site_and_the_production_register_has_no_example() -> None:
+    register = load_site_register(WEB_SITES)
 
     issuer = register.sites["example-issuer"]
     assert issuer.own_site_of == ("lumentum",) and issuer.automation == "allowed"
     assert register.sites["example-trade-press"].own_site_of == ()
-    assert register.site_for("https://ir.example-issuer.test/news/a.html") is not None
-    assert register.version >= 4
+    assert register.sites["example-licensed-press"].license_class == "public_regulatory"
+    assert register.sites["example-forbidden"].automation == "forbidden"
+    production = load_site_register(REPO / "configs" / "sources" / "sites.yaml")
+    assert not [
+        host for site in production.sites.values() for host in site.hosts if host.endswith(".test")
+    ]
+    assert production.version >= 4
 
 
 def test_own_site_of_names_company_slugs(tmp_path: Path) -> None:
@@ -160,3 +188,26 @@ def test_another_sites_page_is_the_publishers_statement_not_the_companys() -> No
     assert 'a web page "Capacity update" published by Example Publisher' in context
     assert "Example Publisher published it and is taken as the speaker." in context
     assert "Lumentum is speaking" not in context
+
+
+@pytest.mark.parametrize(
+    ("as_of", "filing_day", "published_day"),
+    [
+        # EDGAR files by Eastern day, over by 05:00Z next day; a date alone can last to 12:00Z.
+        ("2026-09-30T00:00:00Z", "2026-09-28", "2026-09-28"),
+        ("2026-09-30T04:59:59Z", "2026-09-28", "2026-09-28"),
+        ("2026-09-30T05:00:00Z", "2026-09-29", "2026-09-28"),
+        ("2026-09-30T11:59:59Z", "2026-09-29", "2026-09-28"),
+        ("2026-09-30T12:00:00Z", "2026-09-29", "2026-09-29"),
+        ("2026-09-30T12:00:00+02:00", "2026-09-29", "2026-09-28"),
+    ],
+)
+def test_the_search_bounds_are_the_last_day_certainly_over_at_the_as_of_instant(
+    as_of: str, filing_day: str, published_day: str
+) -> None:
+    from atlas.mcp.watch_sources import filing_bound, published_bound
+
+    moment = datetime.fromisoformat(as_of)
+
+    assert filing_bound(moment).isoformat() == filing_day
+    assert published_bound(moment).isoformat() == published_day

@@ -150,7 +150,31 @@ class Ctx:
                 available_at=held["available_at"],
                 as_of=self.as_of_iso,
             )
+        if held["source_document"]["provider"] == "web":
+            self._check_web_page(held, version_id)
         return held
+
+    def _check_web_page(self, held: dict[str, Any], version_id: uuid.UUID | str) -> None:
+        """A fetched web page is never public before Atlas had it (W3). An isolated session
+        sees none at all (pages did not exist when its surface was frozen); another session
+        reads one only if it was fetched by the session's as-of time or by that session."""
+        if self.bound.isolated:
+            raise Refusal(
+                "isolated_session",
+                "web pages are not visible to an isolated session: it starts from the archive"
+                " as it was when its surface was frozen",
+                version=str(version_id),
+            )
+        fetched = datetime.fromisoformat(held["fetched_at"])
+        mine = any(each.get("session_id") == str(self.bound.id) for each in held["fetches"])
+        if fetched > self.as_of and not mine:
+            raise Refusal(
+                "available_after_as_of",
+                "that web page was fetched after the session's as-of time, by another session",
+                version=str(version_id),
+                fetched_at=held["fetched_at"],
+                as_of=self.as_of_iso,
+            )
 
     async def parsed(
         self, version_id: uuid.UUID | str, parser_version: str | None
@@ -387,6 +411,7 @@ async def search(ctx: Ctx, args: SearchArgs) -> dict[str, Any]:
         as_of=ctx.as_of_iso,
         top=args.top,
         per_document=args.per_document,
+        session_id=str(args.session_id),
     )
     keys = (
         "source_version_id",

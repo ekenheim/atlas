@@ -60,7 +60,12 @@ class FetchRequest(BaseModel):
     published_at: AwareDatetime | None = Field(
         default=None,
         description="when the page became public, if you know (with its UTC offset); else its"
-        " own date, else the fetch time",
+        " own date (if within a week before the fetch), else the fetch time",
+    )
+    session_id: uuid.UUID | None = Field(
+        default=None,
+        description="the research session asking: a page fetched after a session's as-of time is"
+        " read only by the session that fetched it",
     )
 
 
@@ -100,7 +105,7 @@ def web_router(engine: Engine, settings: Settings) -> APIRouter:
                     engine,
                     client,
                     query=q.strip(),
-                    theme=owner or "",
+                    theme=owner,
                     session_id=session_id,
                     published_by=published_by,
                     limit=limit,
@@ -158,7 +163,7 @@ def web_router(engine: Engine, settings: Settings) -> APIRouter:
                 phrases=phrases,
                 start=first,
                 end=last,
-                theme=owner or "",
+                theme=owner,
                 session_id=session_id,
                 filing_phrase=q.strip(),
             )
@@ -173,9 +178,14 @@ def web_router(engine: Engine, settings: Settings) -> APIRouter:
                 company=request.company,
                 url=request.url,
                 published_at=request.published_at,
+                session_id=request.session_id,
             )
         except WebFetchRefused as refused:
-            status = 404 if refused.code == "unknown_company" else 422
+            status = {
+                "unknown_company": 404,
+                "unknown_session": 404,
+                "url_belongs_to_other_company": 409,
+            }.get(refused.code, 422)
             return error_response(status, refused.code, str(refused), refused.detail or None)
         except WebFetchBlocked as blocked:
             return error_response(

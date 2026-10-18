@@ -1,19 +1,23 @@
 """What a web page says about itself: its publication date and its title (W3).
 
-`page_date(html)` reads the publication date a page's HTML carries, in this order, the first
-that parses winning:
+`page_date(html)` reads the publication date a page's HTML claims, in this order, the first that
+parses winning:
 
 1. `<meta property="article:published_time" content="...">` (Open Graph; `name=` is read too);
-2. JSON-LD (`<script type="application/ld+json">`): the first `datePublished`, in the document's
-   order, through objects, lists and `@graph`;
-3. `<time datetime="...">`: the first one marked `itemprop="datePublished"` or `pubdate`, else
-   the first that parses.
+2. JSON-LD (`<script type="application/ld+json">`): the first `datePublished` of a node whose
+   `@type` is `Article`, `NewsArticle` or `PressRelease`, in the document's order, through
+   objects, lists and `@graph`. An `Organization`, `WebPage` or `Event` date is not the page's.
 
-A PDF carries none. The date is a claim of the page, not of the server: the caller never lets it
-be later than the moment the page was fetched.
+A bare `<time datetime>` is never read: a page is full of dates (an event, a footer, a price) and
+none says when the page became public. A PDF carries none.
+
+The date is a claim of the page, not of the server, and **Atlas believes it only a little**: the
+caller (`atlas.ledger.web_fetch`) uses it for `available_at` only when it is no later than the
+fetch and no more than seven days before it; any other page is available when Atlas fetched it,
+and the date it claimed is kept as written.
 
 **A date is made an instant without ever being earlier than it was** (availability is never
-overstated; `docs/decisions.md`, "Pages: available when their own date says"):
+overstated; `docs/decisions.md`, "Pages: available when Atlas had them"):
 - with a UTC offset (`2026-08-21T14:30:00+02:00`, `...Z`, RFC 2822 `GMT`): as written;
 - without an offset: read in the latest zone on Earth, UTC-12:00, so it is never before the real
   instant (`2026-08-21T14:30:00` is 2026-08-22T02:30Z);
@@ -31,11 +35,12 @@ from html.parser import HTMLParser
 from typing import Any, Literal, cast
 
 LATEST_ZONE = timezone(timedelta(hours=-12))
+ARTICLE_TYPES = frozenset({"Article", "NewsArticle", "PressRelease"})
 _DATE_ONLY = re.compile(r"\d{4}-\d{2}-\d{2}|\d{8}")
 _SPACE = re.compile(r"\s+")
 _MAX_JSON_LD = 200_000  # one script's text; a larger one is not read
 
-type DateSource = Literal["article_published_time", "json_ld", "time_element"]
+type DateSource = Literal["article_published_time", "json_ld"]
 
 
 @dataclass(frozen=True)
@@ -74,7 +79,6 @@ class _Scan(HTMLParser):
         self._in_title = False
         self._ld: list[str] | None = None
         self.json_ld: list[str] = []
-        self.times: list[tuple[bool, str]] = []  # (marked as the publication date, datetime)
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         a = {key.lower(): (value or "") for key, value in attrs}
@@ -88,9 +92,6 @@ class _Scan(HTMLParser):
             self._in_title = True
         elif tag == "script" and a.get("type", "").strip().lower() == "application/ld+json":
             self._ld = []
-        elif tag == "time" and a.get("datetime"):
-            marked = a.get("itemprop", "").strip().lower() == "datepublished" or "pubdate" in a
-            self.times.append((marked, a["datetime"]))
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "title":
@@ -114,14 +115,22 @@ def _scan(html: bytes | str) -> _Scan:
     return scan
 
 
+def _is_article(node: dict[str, Any]) -> bool:
+    kinds = node.get("@type")
+    names = [kinds] if isinstance(kinds, str) else cast(list[Any], kinds or [])
+    return any(isinstance(name, str) and name in ARTICLE_TYPES for name in names)
+
+
 def _dates_published(node: Any) -> list[str]:
-    """Every `datePublished` string in a JSON-LD value, in document order."""
+    """Every `datePublished` string of an Article-type node in a JSON-LD value, in order."""
     found: list[str] = []
     if isinstance(node, dict):
-        for key, value in cast(dict[str, Any], node).items():
-            if key == "datePublished" and isinstance(value, str):
-                found.append(value)
-            else:
+        fields = cast(dict[str, Any], node)
+        written = fields.get("datePublished")
+        if _is_article(fields) and isinstance(written, str):
+            found.append(written)
+        for key, value in fields.items():
+            if key != "datePublished":
                 found.extend(_dates_published(value))
     elif isinstance(node, list):
         for item in cast(list[Any], node):
@@ -130,7 +139,7 @@ def _dates_published(node: Any) -> list[str]:
 
 
 def page_date(html: bytes | str) -> PageDate | None:
-    """The publication date the page's HTML carries (see the module), or None."""
+    """The publication date the page's HTML claims (see the module), or None."""
     scan = _scan(html)
     for written in scan.meta:
         moment = parse_moment(written)
@@ -147,10 +156,6 @@ def page_date(html: bytes | str) -> PageDate | None:
             moment = parse_moment(written)
             if moment is not None:
                 return PageDate(moment, "json_ld", written)
-    for _, written in sorted(scan.times, key=lambda each: not each[0]):  # marked first, stable
-        moment = parse_moment(written)
-        if moment is not None:
-            return PageDate(moment, "time_element", written)
     return None
 
 

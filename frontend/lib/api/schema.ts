@@ -5762,6 +5762,8 @@ export interface components {
             gate_decision_id: string | null;
             /** Owner Override */
             owner_override?: string | null;
+            /** Session Id */
+            session_id?: string | null;
         };
         /** FetchRequest */
         FetchRequest: {
@@ -5774,9 +5776,14 @@ export interface components {
             url: string;
             /**
              * Published At
-             * @description when the page became public, if you know (with its UTC offset); else its own date, else the fetch time
+             * @description when the page became public, if you know (with its UTC offset); else its own date (if within a week before the fetch), else the fetch time
              */
             published_at?: string | null;
+            /**
+             * Session Id
+             * @description the research session asking: a page fetched after a session's as-of time is read only by the session that fetched it
+             */
+            session_id?: string | null;
         };
         /** FetchedPage */
         FetchedPage: {
@@ -5819,8 +5826,12 @@ export interface components {
             available_at_basis: string;
             /** Date Source */
             date_source: string | null;
+            /** Date As Written */
+            date_as_written: string | null;
             /** Tier */
             tier: string;
+            /** License Class */
+            license_class: string;
             /** Site */
             site: string;
             /** Media Type */
@@ -13198,6 +13209,8 @@ export interface operations {
                 as_of?: string | null;
                 top?: number;
                 per_document?: number;
+                /** @description the research session asking (web pages: see the module) */
+                session_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -13237,6 +13250,8 @@ export interface operations {
                 /** @description a form, document or source type to keep (10-Q, 8-K, transcript) */
                 kind?: string[] | null;
                 limit?: number;
+                /** @description the research session asking (web pages: see the module) */
+                session_id?: string | null;
             };
             header?: never;
             path?: never;

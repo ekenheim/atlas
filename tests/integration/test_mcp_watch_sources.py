@@ -9,6 +9,7 @@ full-text search and SearXNG are the transport-level fakes of `tests/fakes` serv
 
 import json
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -20,10 +21,9 @@ from atlas.api.app import create_app
 from tests.fakes.edgar_fts import FakeEdgarFullTextSearch, FilingReply
 from tests.fakes.searxng import FakeSearXNG, SearchReply
 from tests.fakes.serve import serve
-from tests.harness import REPO, SITES, THEMES, make_settings
+from tests.fakes.web import IR, WEB_SITES, recent_web
+from tests.harness import THEMES, make_settings
 
-WEB = REPO / "tests" / "fixtures" / "web"
-IR = "https://ir.example-issuer.test"
 Q4 = f"{IR}/news/q4-results.html"  # public 2026-08-11T20:05Z
 QUESTION = "Is indium phosphide laser capacity the constraint?"
 SEPTEMBER = "2026-09-30T00:00:00Z"
@@ -33,7 +33,9 @@ EML_QUERY = "Coherent EML laser chip capacity 200G per lane 800G transceiver"
 
 
 class Mcp:
-    def __init__(self, database_url: str, tmp_path: Path, searxng_url: str, edgar_url: str):
+    def __init__(
+        self, database_url: str, tmp_path: Path, web: Path, searxng_url: str, edgar_url: str
+    ):
         archive = tmp_path / "archive"
         archive.mkdir(exist_ok=True)
         self.engine = create_engine(database_url)
@@ -42,8 +44,8 @@ class Mcp:
             database_url=database_url,
             actor="watch-test",
             themes_config=THEMES,
-            source_sites_config=SITES,
-            exchange_fixtures_dir=WEB,
+            source_sites_config=WEB_SITES,
+            exchange_fixtures_dir=web,
             searxng_url=searxng_url,
             sec_user_agent="Atlas Research watch-test@example.com",
             sec_efts_url=f"{edgar_url}/LATEST",
@@ -119,13 +121,19 @@ def edgar() -> Iterator[tuple[FakeEdgarFullTextSearch, str]]:
 
 
 @pytest.fixture
+def moment() -> datetime:
+    return datetime.now(UTC)
+
+
+@pytest.fixture
 def mcp(
     database_url: str,
     tmp_path: Path,
+    moment: datetime,
     searxng: tuple[FakeSearXNG, str],
     edgar: tuple[FakeEdgarFullTextSearch, str],
 ) -> Iterator[Mcp]:
-    harness = Mcp(database_url, tmp_path, searxng[1], edgar[1])
+    harness = Mcp(database_url, tmp_path, recent_web(tmp_path, moment), searxng[1], edgar[1])
     yield harness
     harness.engine.dispose()
 
@@ -170,13 +178,14 @@ def test_filing_search_stores_every_hit_as_a_lead_and_returns_its_id(
     assert (first["cik"], first["ticker"]) == ("0001051627", "AXTI")
     assert first["url"].endswith("/1051627/000143774926008612/axti20251231_10k.htm")
     assert "never a Fact" in found["note"]
-    # The search EDGAR was asked: the phrase quoted, the forms, and a year to the as-of date.
+    # The search EDGAR was asked: the phrase quoted, the forms, and a year to the last filing day
+    # that was certainly over at the as-of instant (30 September 00:00Z: the 28th).
     assert fake.searches()[0] == {
         "q": '"InP substrates"',
         "forms": "10-K",
         "dateRange": "custom",
-        "startdt": "2025-09-30",
-        "enddt": "2026-09-30",
+        "startdt": "2025-09-28",
+        "enddt": "2026-09-28",
     }
     # Stored as leads of origin edgar_fts, in the session's theme, with their filing.
     leads = {each["id"]: each for each in mcp.leads("edgar_fts")}
@@ -188,7 +197,7 @@ def test_filing_search_stores_every_hit_as_a_lead_and_returns_its_id(
     assert lead["theme"] == "photonics" and lead["query"] == '"InP substrates"'
 
 
-def test_filing_search_end_is_bounded_by_the_sessions_as_of_date(
+def test_filing_search_end_is_bounded_by_the_sessions_as_of_instant(
     mcp: Mcp, edgar: tuple[FakeEdgarFullTextSearch, str]
 ) -> None:
     fake, _ = edgar
@@ -197,12 +206,13 @@ def test_filing_search_end_is_bounded_by_the_sessions_as_of_date(
 
     found = mcp.ok("filing_search", session_id=session, query="InP substrates", end="2026-12-31")
 
-    assert found["window"] == {"start": "2025-03-01", "end": "2026-03-01", "clamped_to_as_of": True}
-    assert fake.searches()[0]["enddt"] == "2026-03-01"
+    # 1 March 12:00Z: filings of the 1st may still be coming; the 28th of February are in.
+    assert found["window"] == {"start": "2025-02-28", "end": "2026-02-28", "clamped_to_as_of": True}
+    assert fake.searches()[0]["enddt"] == "2026-02-28"
     assert found["hits"] == [] and found["total"] == 0
 
 
-def test_filing_search_refuses_a_window_that_starts_after_the_as_of_date(
+def test_filing_search_refuses_a_window_that_starts_after_the_as_of_instants_last_day(
     mcp: Mcp, edgar: tuple[FakeEdgarFullTextSearch, str]
 ) -> None:
     fake, _ = edgar
@@ -423,24 +433,43 @@ def test_the_web_search_route_works_without_a_session(
 
 # --- fetch_page --------------------------------------------------------------------------------
 
+RECENT = f"{IR}/news/recent-meta.html"  # dated one day before the test's moment: believed
+TOPIC = "indium phosphide lasers capacity"
 
-def test_fetch_page_archives_a_page_the_session_can_read_and_quote(mcp: Mcp) -> None:
-    session = mcp.open(SEPTEMBER)
 
-    page = mcp.ok("fetch_page", session_id=session, company="lumentum", url=Q4)
+def zulu(moment: datetime) -> str:
+    return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def when(value: str) -> datetime:
+    return datetime.fromisoformat(value)
+
+
+def test_fetch_page_archives_a_page_the_fetching_session_can_read_and_quote(
+    mcp: Mcp, moment: datetime
+) -> None:
+    # The session is as of half a day ago. The page is dated yesterday (within a week of the
+    # fetch, so believed) and was fetched now, after the as-of time, by this very session.
+    as_of = moment - timedelta(hours=12)
+    session = mcp.open(zulu(as_of))
+
+    page = mcp.ok("fetch_page", session_id=session, company="lumentum", url=RECENT)
 
     assert page["fetched"] is True and page["outcome"] == "new_version"
-    assert page["readable"] is True and page["tier"] == "A"
-    assert page["available_at"] == "2026-08-11T20:05:00Z"
+    assert page["tier"] == "A" and page["readable"] is True
+    assert when(page["available_at"]) == moment - timedelta(days=1)
     assert (page["available_at_basis"], page["date_source"]) == (
         "page_published_date",
         "article_published_time",
     )
-    web = mcp.get(f"/api/v1/source-versions/{page['version_id']}")["metadata"]["web"]
-    assert web["site"] == "example-issuer"
+    detail = mcp.get(f"/api/v1/source-versions/{page['version_id']}")
+    assert detail["metadata"]["web"]["site"] == "example-issuer"
+    assert [each["session_id"] for each in detail["fetches"]] == [session]
+    assert when(detail["fetched_at"]) > as_of  # fetched after the session's as-of time
     # The page can be read and quoted as any archived document.
     window = mcp.ok("read", session_id=session, version_id=page["version_id"], start=0, end=600)
     assert QUOTE in window["text"]
+    mcp.ok("locate", session_id=session, version_id=page["version_id"], quote=QUOTE)
     fact = mcp.ok(
         "record_fact",
         session_id=session,
@@ -453,17 +482,20 @@ def test_fetch_page_archives_a_page_the_session_can_read_and_quote(mcp: Mcp) -> 
     assert fact["recorded"] is True
 
 
-def test_a_page_public_after_the_sessions_as_of_time_is_recorded_but_not_readable(
+def test_an_old_dated_page_fetched_today_is_not_readable_by_an_earlier_session(
     mcp: Mcp,
 ) -> None:
-    session = mcp.open("2026-08-01T00:00:00Z")  # the page is dated 11 August
+    session = mcp.open(SEPTEMBER)  # the page is dated 11 August 2026, long before its fetch
 
     page = mcp.ok("fetch_page", session_id=session, company="lumentum", url=Q4)
 
+    # Not believed: it is public from when Atlas fetched it, which is after the session's time.
+    assert page["available_at_basis"] == "observed_discovery"
+    assert page["date_source"] == "fetch_time"
     assert page["readable"] is False and "cannot read" in page["note"]
-    assert page["available_at"] == "2026-08-11T20:05:00Z"
+    assert when(page["available_at"]) > when(SEPTEMBER)
     recorded = mcp.get(f"/api/v1/source-versions/{page['version_id']}")  # it is in the ledger
-    assert recorded["available_at"].startswith("2026-08-11T20:05:00")
+    assert recorded["metadata"]["web"]["date_as_written"] == "2026-08-11T20:05:00+00:00"
     refused = mcp.refused(
         "read",
         "available_after_as_of",
@@ -484,11 +516,110 @@ def test_a_page_with_no_date_of_its_own_is_unreadable_to_a_session_as_of_an_earl
         "fetch_page", session_id=session, company="lumentum", url=f"{IR}/news/no-date.html"
     )
 
-    # Available when fetched, which is after 1 August 2026: this session cannot read it.
     assert (
         page["available_at_basis"] == "observed_discovery" and page["date_source"] == "fetch_time"
     )
     assert page["readable"] is False
+
+
+def test_a_page_this_session_fetched_is_readable_by_it_and_not_by_another_as_of_the_same_time(
+    mcp: Mcp, moment: datetime
+) -> None:
+    as_of = zulu(moment - timedelta(hours=12))
+    fetcher, other = mcp.open(as_of), mcp.open(as_of)
+    page = mcp.ok("fetch_page", session_id=fetcher, company="lumentum", url=RECENT)
+    version = page["version_id"]
+
+    mcp.ok("read", session_id=fetcher, version_id=version, start=0, end=100)
+    refused = mcp.refused(
+        "read", "available_after_as_of", session_id=other, version_id=version, start=0, end=100
+    )
+    mcp.refused(
+        "locate", "available_after_as_of", session_id=other, version_id=version, quote=QUOTE
+    )
+    mcp.refused(
+        "record_fact",
+        "available_after_as_of",
+        session_id=other,
+        version_id=version,
+        quote=QUOTE,
+        step="constraint",
+        status="in_effect",
+        statement="Example Issuer says demand for its lasers exceeded capacity.",
+    )
+    assert "another session" in refused["message"] and refused["fetched_at"]
+    # Asking for the page itself makes it that session's too (an unchanged fetch, its own record).
+    again = mcp.ok("fetch_page", session_id=other, company="lumentum", url=RECENT)
+    assert again["outcome"] == "unchanged" and again["version_id"] == version
+    assert again["readable"] is True
+    mcp.ok("read", session_id=other, version_id=version, start=0, end=100)
+    fetches = mcp.get(f"/api/v1/source-versions/{version}")["fetches"]
+    assert sorted(each["session_id"] for each in fetches) == sorted([fetcher, other])
+
+
+def test_search_and_newest_documents_show_a_page_only_to_a_session_that_may_read_it(
+    mcp: Mcp, moment: datetime
+) -> None:
+    as_of = zulu(moment - timedelta(hours=12))
+    fetcher, other = mcp.open(as_of), mcp.open(as_of)
+    later = mcp.open(zulu(moment + timedelta(days=1)))  # as of after the fetch: it was public
+    page = mcp.ok("fetch_page", session_id=fetcher, company="lumentum", url=RECENT)
+
+    def seen(session: str) -> tuple[list[str], list[str]]:
+        found = mcp.ok("search", session_id=session, company="lumentum", q=TOPIC)
+        listed = mcp.ok("newest_documents", session_id=session, companies=["lumentum"])
+        return (
+            [each["source_version_id"] for each in found["hits"]],
+            [each["source_version_id"] for each in listed["documents"]],
+        )
+
+    assert seen(fetcher) == ([page["version_id"]], [page["version_id"]])
+    assert seen(other) == ([], [])
+    assert seen(later) == ([page["version_id"]], [page["version_id"]])
+    mcp.ok("read", session_id=later, version_id=page["version_id"], start=0, end=100)
+
+
+def test_an_isolated_session_sees_no_web_version(mcp: Mcp, moment: datetime) -> None:
+    # As of tomorrow, so the as-of rules alone would show it: only the isolation hides it.
+    tomorrow = zulu(moment + timedelta(days=1))
+    fetcher = mcp.open(tomorrow)
+    page = mcp.ok("fetch_page", session_id=fetcher, company="lumentum", url=RECENT)
+    version = page["version_id"]
+    isolated = mcp.open(tomorrow, isolated=True)
+
+    searched = mcp.ok("search", session_id=isolated, company="lumentum", q=TOPIC)
+
+    assert searched["hits"] == [] and searched["documents_searched"] == 0
+    for tool, arguments in (
+        ("read", {"start": 0, "end": 100}),
+        ("locate", {"quote": QUOTE}),
+        (
+            "record_fact",
+            {
+                "quote": QUOTE,
+                "step": "constraint",
+                "status": "in_effect",
+                "statement": "Example Issuer says demand for its lasers exceeded capacity.",
+            },
+        ),
+    ):
+        refused = mcp.refused(
+            tool, "isolated_session", session_id=isolated, version_id=version, **arguments
+        )
+        assert refused["version"] == version
+    # The Fact the other session recorded is not the isolated session's to get either.
+    fact = mcp.ok(
+        "record_fact",
+        session_id=fetcher,
+        version_id=version,
+        quote=QUOTE,
+        step="constraint",
+        status="in_effect",
+        statement="Example Issuer says demand for its lasers exceeded capacity.",
+    )
+    mcp.refused("get_fact", "fact_not_in_session", session_id=isolated, fact_id=fact["fact_id"])
+    # And a session that is not isolated reads it, as before.
+    mcp.ok("read", session_id=fetcher, version_id=version, start=0, end=100)
 
 
 def test_fetch_page_is_refused_by_the_gate_and_nothing_is_recorded(mcp: Mcp) -> None:
@@ -506,7 +637,7 @@ def test_fetch_page_is_refused_by_the_gate_and_nothing_is_recorded(mcp: Mcp) -> 
         "fetch_blocked",
         session_id=session,
         company="lumentum",
-        url="https://www.soitec.com/en/news",
+        url="https://www.example-forbidden.test/news",
     )
     robots = mcp.refused(
         "fetch_page",
@@ -525,6 +656,17 @@ def test_fetch_page_is_refused_by_the_gate_and_nothing_is_recorded(mcp: Mcp) -> 
     assert mcp.scalar("SELECT count(*) FROM fetch_gate_decision WHERE status = 'blocked'") == 3
     assert mcp.calls(session)[1:] == [("fetch_page", "refused", "fetch_blocked")] * 3
     mcp.refused("fetch_page", "unknown_company", session_id=session, company="nobody", url=Q4)
+    other = mcp.ok(
+        "fetch_page", session_id=session, company="lumentum", url=f"{IR}/news/explicit.html"
+    )
+    assert other["fetched"] is True
+    mcp.refused(
+        "fetch_page",
+        "url_belongs_to_other_company",
+        session_id=session,
+        company="coherent",
+        url=f"{IR}/news/explicit.html",
+    )
 
 
 # --- an isolated session ------------------------------------------------------------------------

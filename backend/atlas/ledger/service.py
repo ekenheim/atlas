@@ -177,7 +177,7 @@ def describe(candidate: SourceCandidate) -> DocumentIdentity:
             title=candidate.title,
             publisher=web.publisher,
             source_tier="A" if web.own_site else "B",
-            license_class="public_issuer",
+            license_class=web.license_class,
         )
     transcript = candidate.transcript
     if transcript is not None:
@@ -263,6 +263,7 @@ class SourceLedger:
         job_id: uuid.UUID | None = None,
         gate_decision_id: uuid.UUID | None = None,
         owner_override: str | None = None,
+        session_id: uuid.UUID | None = None,
     ) -> RecordedFetch:
         """Record one fetch. `gate_decision_id` is the `allowed` fetch gate decision it was
         made under (`atlas.ledger.gates`), for a gated source; `owner_override` the owner's
@@ -368,17 +369,24 @@ class SourceLedger:
                 observation["gate_decision_id"] = gate_decision_id
             if owner_override is not None:
                 observation["owner_override"] = owner_override
+            if session_id is not None:  # the research session that asked for the fetch
+                observation["session_id"] = session_id
             connection.execute(
                 text(
                     "INSERT INTO fetch_observation (id, source_document_id, source_version_id,"
                     " job_id, outcome, url, fetched_at, raw_sha256, comparison_sha256,"
                     " object_uri, etag, last_modified, attempts, gate_decision_id,"
-                    " owner_override) VALUES (:id, :source_document_id, :source_version_id,"
-                    " :job_id, :outcome, :url, :fetched_at, :raw_sha256, :comparison_sha256,"
-                    " :object_uri, :etag, :last_modified, :attempts, :gate_decision_id,"
-                    " :owner_override)"
+                    " owner_override, session_id) VALUES (:id, :source_document_id,"
+                    " :source_version_id, :job_id, :outcome, :url, :fetched_at, :raw_sha256,"
+                    " :comparison_sha256, :object_uri, :etag, :last_modified, :attempts,"
+                    " :gate_decision_id, :owner_override, :session_id)"
                 ),
-                {"gate_decision_id": None, "owner_override": None, **observation},
+                {
+                    "gate_decision_id": None,
+                    "owner_override": None,
+                    "session_id": None,
+                    **observation,
+                },
             )
 
             # Audit last: appending takes the chain's lock until commit.

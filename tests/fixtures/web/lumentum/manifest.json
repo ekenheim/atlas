@@ -131,6 +131,22 @@
       "headers": {
         "Content-Type": "text/html; charset=utf-8"
       }
+    },
+    {
+      "url": "https://licensed.example-trade.test/robots.txt",
+      "file": "press/robots-404.html",
+      "status": 404,
+      "headers": {
+        "Content-Type": "text/html"
+      }
+    },
+    {
+      "url": "https://licensed.example-trade.test/2026/note.html",
+      "file": "press/licensed-note.html",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8"
+      }
     }
   ]
 }

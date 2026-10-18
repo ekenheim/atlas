@@ -110,6 +110,7 @@ async def newest_documents(ctx: Ctx, args: NewestDocumentsArgs) -> dict[str, Any
         "since": iso(args.since) if args.since else None,
         "kind": args.kinds or None,
         "limit": args.limit,
+        "session_id": str(ctx.bound.id),
     }
     answer = await ctx.api.get("/archive-documents", **params)
     keys = (

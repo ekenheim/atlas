@@ -115,6 +115,12 @@ class SiteConfig(_Config):
     # The slugs of the companies whose own site this is (an investor-relations or press site):
     # a page of it fetched for one of them is Tier A; for any other company, Tier B.
     own_site_of: tuple[str, ...] = ()
+    # The licence class of a page of this site fetched for a company it is not the own site of
+    # (default `third_party`); a page of the company's own site is `public_issuer`.
+    license_class: str | None = Field(
+        default=None,
+        pattern=r"^(public_regulatory|public_issuer|lead_metadata|third_party|licensed:[a-z0-9_-]+)$",
+    )
 
     @model_validator(mode="after")
     def _terms(self) -> Self:
