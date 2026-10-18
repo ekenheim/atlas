@@ -51,6 +51,36 @@ export function recordFigures(
   };
 }
 
+export interface HorizonHit {
+  horizon: 1 | 3 | 6;
+  /** Calls with a checkpoint at this horizon. */
+  checkpointed: number;
+  /** Of those, the calls ahead of the benchmark. */
+  ahead: number;
+  text: string;
+}
+
+/** Per horizon: how many of the calls checkpointed there are ahead of the benchmark ("+1 m: 14 of
+ * 22 ahead of the benchmark"), or "no checkpoint yet". A call with no peers priced is read by its
+ * own change. */
+export function horizonHits(calls: readonly Call[]): HorizonHit[] {
+  return ([1, 3, 6] as const).map((horizon) => {
+    const points = calls.flatMap((call) =>
+      call.checkpoints.filter((each) => each.horizon_months === horizon),
+    );
+    const ahead = points.filter((each) => (each.relative_change ?? each.change) > 0).length;
+    return {
+      horizon,
+      checkpointed: points.length,
+      ahead,
+      text:
+        points.length === 0
+          ? `+${horizon} m: no checkpoint yet`
+          : `+${horizon} m: ${ahead} of ${points.length} ahead of the benchmark`,
+    };
+  });
+}
+
 /** While no checkpoint exists: the day the first falls and what it will do. */
 export function firstCheckpointSentence(
   calls: readonly Call[],

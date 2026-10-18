@@ -17,6 +17,7 @@ import { firstClause, rangeText } from "../../lib/due";
 import {
   callsByTheme,
   firstCheckpointSentence,
+  horizonHits,
   recordFigures,
 } from "../../lib/record";
 import { routes } from "../../lib/routes";
@@ -82,6 +83,11 @@ function Record() {
                 </p>
               ) : null}
               {sentence ? <p className="measure">{sentence}</p> : null}
+              <ul className="hit-lines" aria-label="By horizon">
+                {horizonHits(mine).map((hit) => (
+                  <li key={hit.horizon}>{hit.text}</li>
+                ))}
+              </ul>
 
               <section aria-labelledby="calls">
                 <h2 className="reader-label" id="calls">

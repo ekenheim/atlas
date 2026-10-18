@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import type { Call, Prediction } from "../lib/api/client";
-import { callCells, callsByTheme, firstCheckpointSentence, recordFigures } from "../lib/record";
+import { callCells, callsByTheme, firstCheckpointSentence, horizonHits, recordFigures } from "../lib/record";
 
 const NOW = new Date("2026-10-18T13:00:00Z");
 
@@ -99,5 +99,23 @@ test("calls group by theme, newest first", () => {
   expect(groups.map((group) => [group.theme, group.calls.map((each) => each.id)])).toEqual([
     ["photonics", ["b"]],
     ["memory", ["c", "a"]],
+  ]);
+});
+
+test("each horizon says how many checkpointed calls are ahead of the benchmark, or that there is none yet", () => {
+  expect(horizonHits([call(), call()]).map((hit) => hit.text)).toEqual([
+    "+1 m: no checkpoint yet",
+    "+3 m: no checkpoint yet",
+    "+6 m: no checkpoint yet",
+  ]);
+  const hits = horizonHits([
+    call({ checkpoints: [point(1, 0.05), point(3, -0.1)] }),
+    call({ checkpoints: [point(1, -0.02)] }),
+    call({ checkpoints: [point(1, 0.2)] }),
+  ]);
+  expect(hits.map((hit) => hit.text)).toEqual([
+    "+1 m: 2 of 3 ahead of the benchmark",
+    "+3 m: 0 of 1 ahead of the benchmark",
+    "+6 m: no checkpoint yet",
   ]);
 });

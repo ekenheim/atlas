@@ -14,6 +14,11 @@ test("Record shows the calls open, the first checkpoint and no predictions yet",
   await expect(figures).toContainText("Checkpoints recorded");
   await expect(figures).toContainText("Ahead of benchmark at +3 m");
   await expect(page.getByText(/^First checkpoint \d{1,2} \w{3}: \d+ calls? priced against/)).toBeVisible();
+  await expect(page.getByRole("list", { name: "By horizon" }).getByRole("listitem")).toHaveText([
+    "+1 m: no checkpoint yet",
+    "+3 m: no checkpoint yet",
+    "+6 m: no checkpoint yet",
+  ]);
   await expect(page.getByRole("heading", { level: 2, name: "Calls" })).toBeVisible();
   await expect(page.getByText("No prediction is recorded yet.")).toBeVisible();
 });
