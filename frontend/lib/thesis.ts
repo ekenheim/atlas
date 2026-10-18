@@ -30,10 +30,16 @@ export function rest(statement: string, drafted?: string | null): string {
   if (explicit) {
     const stated = statement.trim();
     if (stated === explicit) return "";
-    return stated.startsWith(explicit) ? stated.slice(explicit.length).replace(/^[\s:.,;-]+/, "") : stated;
+    return capitalised(
+      stated.startsWith(explicit) ? stated.slice(explicit.length).replace(/^[\s:.,;-]+/, "") : stated,
+    );
   }
   const at = colonAt(statement);
-  return at < 0 ? "" : statement.slice(at + 1).trim();
+  return at < 0 ? "" : capitalised(statement.slice(at + 1).trim());
+}
+
+function capitalised(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /** `content.thesis_proposition` when the backend drafted one (it is not in the schema yet). */

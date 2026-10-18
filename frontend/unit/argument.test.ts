@@ -44,14 +44,16 @@ test("each step counts what is proven and names the strongest", () => {
     belief("relief", "unproven", 0.9),
     belief("control", "proven", 0.6),
   ]);
+  // The strip's order, in every list of the steps: for the thesis, then against it.
   expect(steps.map((each) => each.step)).toEqual([
     "constraint",
     "demand_vs_supply",
-    "relief",
     "control",
     "capture",
+    "relief",
     "invalidation",
   ]);
+  expect(stripOrder(steps).map((each) => each.step)).toEqual(steps.map((each) => each.step));
   const relief = at(steps, "relief");
   expect(relief.proven).toBe(3);
   expect(relief.strongest?.judgement.confidence).toBe(0.75);

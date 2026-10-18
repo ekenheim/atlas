@@ -7,6 +7,7 @@ import type {
   HypothesisVersion,
   Issue,
 } from "./api/client";
+import { ARGUMENT_ORDER } from "./argument";
 import { STEPS } from "./beliefs";
 import { words } from "./hypotheses";
 
@@ -57,7 +58,7 @@ export function standingNow(
 
 /** The version's steps in the argument's order (a version of an investigation has none). */
 export function stepViews(version: HypothesisVersion): StepView[] {
-  const order = Object.keys(STEPS);
+  const order: readonly string[] = ARGUMENT_ORDER;
   const rank = (step: string) => {
     const at = order.indexOf(step);
     return at < 0 ? order.length : at;

@@ -1990,3 +1990,14 @@ h1,
 .decide-rows li:not(:has(.reader-pill)) {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* The crumb: quiet, no underline until hovered. */
+.crumbs a {
+  color: var(--text-2);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.crumbs a:hover {
+  text-decoration: underline;
+}

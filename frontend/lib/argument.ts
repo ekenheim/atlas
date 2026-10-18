@@ -11,19 +11,12 @@ export type ArgBelief = Pick<
   "id" | "step" | "statement" | "as_of" | "status" | "open_flags" | "last_examined_at"
 > & { judgement: Pick<BeliefSummary["judgement"], "judgement" | "confidence"> };
 
-/** The steps in the order the argument runs (the Beliefs pages' order). */
-export const ARGUMENT_ORDER: readonly StepName[] = [
-  "constraint",
-  "demand_vs_supply",
-  "relief",
-  "control",
-  "capture",
-  "invalidation",
-];
-
-/** The strip's order: the four that argue for, then the two that argue against. */
+/** The four steps that argue for the thesis, then the two that argue against it. */
 export const FOR_STEPS: readonly StepName[] = ["constraint", "demand_vs_supply", "control", "capture"];
 export const AGAINST_STEPS: readonly StepName[] = ["relief", "invalidation"];
+
+/** The one order of the steps, in the strip and in every list of them. */
+export const ARGUMENT_ORDER: readonly StepName[] = [...FOR_STEPS, ...AGAINST_STEPS];
 
 /** A step's short name, for the strip. */
 export const STEP_LABELS: Record<StepName, string> = {

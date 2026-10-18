@@ -160,14 +160,14 @@ test("a theme's Beliefs are grouped by step in the argument's order, flagged and
   expect(groups.map((group) => group.step)).toEqual([
     "constraint",
     "demand_vs_supply",
-    "relief",
     "control",
     "capture",
+    "relief",
     "invalidation",
   ]);
   expect(groups[0]?.beliefs.map((each) => each.id)).toEqual(["first"]);
   expect(groups[1]?.beliefs).toEqual([]);
-  expect(groups[2]?.beliefs.map((each) => each.id)).toEqual([
+  expect(groups[4]?.beliefs.map((each) => each.id)).toEqual([
     "doubt",
     "strong",
     "weak",
@@ -282,7 +282,7 @@ test("a notice is no flag: a confirmed Belief is not shown first as doubted", ()
       judgement: { judgement: "proven", confidence: 0.8 },
     }),
   ]);
-  expect(groups[2]?.beliefs.map((each) => each.id)).toEqual([
+  expect(groups[4]?.beliefs.map((each) => each.id)).toEqual([
     "plain",
     "confirmed",
   ]);

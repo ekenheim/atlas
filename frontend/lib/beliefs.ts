@@ -2,6 +2,7 @@
 // string (so a filtered list can be reloaded, bookmarked and linked), the grouping of a theme's
 // Beliefs by argument step and the reading of a Belief's citations.
 import type { Belief, BeliefSummary, CompanyBelief } from "./api/client";
+import { ARGUMENT_ORDER } from "./argument";
 import { evidenceDay } from "./format";
 
 export type Step = BeliefSummary["step"];
@@ -201,7 +202,7 @@ export interface StepGroup<T extends BeliefSummary = BeliefSummary> {
 export function groupBySteps<T extends BeliefSummary>(
   beliefs: readonly T[],
 ): StepGroup<T>[] {
-  return (Object.keys(STEPS) as Step[]).map((step) => ({
+  return ARGUMENT_ORDER.map((step) => ({
     step,
     title: STEPS[step],
     beliefs: beliefs.filter((belief) => belief.step === step).sort(byStanding),

@@ -13,7 +13,7 @@ test("the production thesis leads with its first clause, within 160 characters",
   const lead = proposition(V2);
   expect(lead).toBe("Indium phosphide substrate supply may be a chokepoint");
   expect(lead.length).toBeLessThanOrEqual(160);
-  expect(rest(V2).startsWith("in January 2026 AXT expected revenue")).toBe(true);
+  expect(rest(V2).startsWith("In January 2026 AXT expected revenue")).toBe(true);
 });
 
 test("a single sentence with no colon is its own proposition", () => {
@@ -45,7 +45,7 @@ test("it never cuts at the first sentence", () => {
 
 test("a drafted proposition wins when the backend gives one", () => {
   expect(proposition(V2, "InP supply is a chokepoint")).toBe("InP supply is a chokepoint");
-  expect(rest("InP supply is a chokepoint: the facts", "InP supply is a chokepoint")).toBe("the facts");
+  expect(rest("InP supply is a chokepoint: the facts", "InP supply is a chokepoint")).toBe("The facts");
   expect(rest("InP supply is a chokepoint", "InP supply is a chokepoint")).toBe("");
   expect(draftedProposition({ thesis_proposition: " X " })).toBe(" X ");
   expect(draftedProposition({ thesis_proposition: "" })).toBeNull();
