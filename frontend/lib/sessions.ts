@@ -2,6 +2,7 @@
 // plan's shape, written by the pipeline's Editor or by a Claude session) without trusting it,
 // and the words for the list's columns.
 import type { ResearchSession, SessionSummary } from "./api/client";
+import { agentOf, examinedOf } from "./today";
 
 export const KINDS: Record<SessionSummary["kind"], string> = {
   claude: "Claude",
@@ -196,16 +197,15 @@ const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? on
  * it found nothing new. A Skeptic's examination reads as its outcomes ("1 confirmed, 1 nothing
  * new"). */
 export function outcomeText(
-  session: Pick<
-    SessionSummary,
-    "facts" | "beliefs_proposed" | "beliefs_examined" | "issues_opened"
-  >,
+  session: Pick<SessionSummary, "facts"> &
+    Partial<Pick<SessionSummary, "beliefs_proposed" | "beliefs_examined" | "issues_opened">>,
 ): string {
-  const { confirmed, qualified, contradicted, nothing_new } = session.beliefs_examined;
+  const { confirmed, qualified, contradicted, nothing_new } = examinedOf(session);
   const examined = confirmed + qualified + contradicted + nothing_new;
   const parts: string[] = [];
   if (session.facts > 0) parts.push(`recorded ${count(session.facts, "Fact")}`);
-  if (session.beliefs_proposed > 0) parts.push(`proposed ${count(session.beliefs_proposed, "Belief", "Beliefs")}`);
+  const proposed = session.beliefs_proposed ?? 0;
+  if (proposed > 0) parts.push(`proposed ${count(proposed, "Belief", "Beliefs")}`);
   if (examined > 0) {
     const found = [
       confirmed > 0 ? `${confirmed} confirmed` : "",
@@ -232,7 +232,7 @@ export interface RunGroup {
 export function collapseRuns(sessions: readonly SessionSummary[]): RunGroup[] {
   const groups = new Map<string, RunGroup>();
   for (const session of newestFirst([...sessions])) {
-    const key = `${session.agent}|${session.question}`;
+    const key = `${agentOf(session)}|${session.question}`;
     const found = groups.get(key);
     if (found) found.runs += 1;
     else groups.set(key, { session, runs: 1 });

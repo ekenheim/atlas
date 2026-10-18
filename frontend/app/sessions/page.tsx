@@ -11,7 +11,7 @@ import { api, type SessionSummary } from "../../lib/api/client";
 import { activity } from "../../lib/format";
 import { routes } from "../../lib/routes";
 import { collapseRuns, costText, KINDS, newestFirst, outcomeText } from "../../lib/sessions";
-import { AGENTS, agentParts, agentsWeek } from "../../lib/today";
+import { AGENTS, agentOf, agentParts, agentsWeek } from "../../lib/today";
 import { useApi } from "../../lib/use-api";
 
 export default function SessionsPage() {
@@ -53,7 +53,7 @@ function Agents({ sessions }: { sessions: SessionSummary[] }) {
               <div>
                 <div className="row-title">
                   <Link href={routes.session(group.session.id)}>
-                    {AGENTS[group.session.agent]} · {outcomeText(group.session)} ·{" "}
+                    {AGENTS[agentOf(group.session)]} · {outcomeText(group.session)} ·{" "}
                     {activity(group.session.started_at, now)}
                     {group.runs > 1 ? ` · ×${group.runs}` : ""}
                   </Link>

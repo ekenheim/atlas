@@ -51,10 +51,6 @@ function Beliefs() {
   return (
     <>
       <h1>Beliefs</h1>
-      <p>
-        What Atlas holds to be true, step by step, with the verdict on each and
-        the evidence behind it.
-      </p>
       <form
         className="filters"
         aria-label="Filter beliefs"

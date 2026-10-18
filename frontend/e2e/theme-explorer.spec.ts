@@ -111,17 +111,16 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
   // The company's Beliefs come first, each with Lumentum's exposure: its own Facts back both.
   await expect(page.getByRole("heading", { level: 2 }).first()).toHaveText("What Atlas believes");
   const companyBeliefs = page.getByRole("region", { name: "What Atlas believes" });
-  await expect(companyBeliefs).toContainText("Holds the position: 2");
-  const proven = companyBeliefs
-    .getByRole("region", { name: "Constraint" })
-    .getByRole("listitem", { name: PROVEN });
-  await expect(proven).toContainText("Holds the position");
-  await expect(proven).toContainText("Proven 80%");
-  await expect(
-    companyBeliefs.getByRole("region", { name: "Relief" }).getByRole("listitem", { name: FLAGGED }),
-  ).toContainText("1 flag");
+  const holder = companyBeliefs.getByRole("region", { name: "Holds the position (2)" });
+  await expect(holder).toBeVisible();
+  const companyConstraint = holder.getByRole("region", { name: "Constraint" });
+  await companyConstraint.locator("summary").click();
+  await expect(companyConstraint.getByRole("listitem", { name: PROVEN })).toContainText("Proven 80%");
+  const companyRelief = holder.getByRole("region", { name: "Relief" });
+  await companyRelief.locator("summary").click();
+  await expect(companyRelief.getByRole("listitem", { name: FLAGGED })).toContainText("1 flag");
   // The reader's page folds the records away; open them.
-  await page.locator("summary", { hasText: "Records" }).click();
+  await openRecords(page);
   const identity = page.getByRole("table", { name: "Identity" });
   await expect(identity.getByRole("row", { name: /^CIK/ }).getByRole("cell")).toHaveText(
     "0001633978",

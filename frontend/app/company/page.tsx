@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { Suspense, useState } from "react";
 
-import { BeliefSteps } from "../../components/beliefs";
-import { QuestionRows } from "../../components/question-rows";
+import { DueList } from "../../components/due-list";
 import { EdgeList } from "../../components/edge-list";
+import { QuestionRows } from "../../components/question-rows";
+import { Quote } from "../../components/quote";
+import { RecordsFold } from "../../components/records-fold";
+import { StepRows, stepRowsOf } from "../../components/step-rows";
 import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import { VersionBar, VersionLegend } from "../../components/version-bar";
 import {
@@ -15,9 +18,10 @@ import {
   type SourceDocument,
 } from "../../lib/api/client";
 import { companyFindings, firstQuote, type Finding as FindingRow } from "../../lib/company-findings";
-import { EXPOSURE, exposureTally } from "../../lib/beliefs";
+import type { Exposure } from "../../lib/beliefs";
+import { argumentOf } from "../../lib/argument";
 import { SOURCE_ROWS, filterByType, typeChips, typeName } from "../../lib/company-sources";
-import { groupDigits, period } from "../../lib/format";
+import { evidenceDay, groupDigits, period } from "../../lib/format";
 import { companyRows, formatCount, plural } from "../../lib/memory";
 import { COMPANY_LAYERS } from "../../lib/relationships";
 import { companyQuestions, hypothesisByInvestigation } from "../../lib/research-index";
@@ -47,11 +51,6 @@ function Company() {
   const dossier = useApi(id, api.dossier);
   return (
     <>
-      <p className="crumbs">
-        <Link href={routes.companies}>Companies</Link>
-        <span aria-hidden="true"> · </span>
-        <Link href={routes.themes}>Themes</Link>
-      </p>
       <Load loaded={dossier} what="the company dossier">
         {(dossier) => <Dossier dossier={dossier} />}
       </Load>
@@ -64,17 +63,20 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
   const listing = company.securities[0];
   const kicker = [
     company.layer ? COMPANY_LAYERS[company.layer] : null,
-    ...dossier.themes.map((theme) => theme.title),
     listing?.ticker ?? null,
   ].filter((part) => part !== null);
   const facts = [company.country, listing?.exchange_mic].filter((part) => part);
   const findings = companyFindings(dossier.relationships_out, dossier.relationships_in);
   const edgeCount = dossier.relationships_out.length + dossier.relationships_in.length;
-  // Records render only once opened: a company's financials alone can be ~15,000 nodes,
-  // which a closed <details> would still build on every visit.
-  const [recordsOpen, setRecordsOpen] = useState(false);
+  const theme = dossier.themes[0];
+  const now = new Date();
   return (
-    <div className="reader">
+    <div className="reader company-page">
+      {theme ? (
+        <p className="crumbs">
+          <Link href={routes.theme(theme.id)}>{theme.title}</Link>
+        </p>
+      ) : null}
       <header>
         {kicker.length > 0 && <div className="reader-kicker">{kicker.join(" · ")}</div>}
         <h1 className="reader-headline">{company.display_name}</h1>
@@ -88,54 +90,50 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
         {dossier.beliefs.length === 0 ? (
           <p className="muted">Nothing believed about {company.display_name} yet.</p>
         ) : (
-          <>
-            <p className="muted-small">
-              {exposureTally(dossier.beliefs)
-                .map((each) => `${EXPOSURE[each.exposure]}: ${each.count}`)
-                .join(" · ")}
-            </p>
-            <BeliefSteps beliefs={dossier.beliefs} />
-          </>
+          GROUPS.map((group) => {
+            const mine = dossier.beliefs.filter((each) => each.exposure === group.exposure);
+            if (mine.length === 0) return null;
+            return (
+              <section key={group.exposure} aria-label={`${group.title} (${mine.length})`} className="exposure-group">
+                <h3 className="exposure-title">
+                  {group.title} ({mine.length})
+                </h3>
+                <StepRows steps={stepRowsOf(argumentOf(mine), now).filter((row) => row.beliefs.length > 0)} />
+              </section>
+            );
+          })
         )}
       </section>
 
-      <InTheResearch companyId={company.id} />
+      <OnThisCompany companyId={company.id} now={now} />
+      <LatestDocuments sources={dossier.sources} total={dossier.source_total} />
 
-      <section aria-labelledby="found">
-        <h2 className="reader-label" id="found">
-          What Atlas found
-        </h2>
-        {findings.groups.length === 0 ? (
-          <p className="muted">Nothing found about {company.display_name} yet.</p>
-        ) : (
-          <>
-            <p className="muted-small">
-              {findings.tally.approved} approved · {findings.tally.machine_reviewed}{" "}
-              machine-checked only · {findings.tally.needs_human_review} not yet verified
-            </p>
-            {findings.groups.map((group) => (
-              <div key={group.key} className="finding-group">
-                <h3>{group.title}</h3>
-                <ul className="reader-rows">
-                  {group.findings.map((finding) => (
-                    <Finding key={finding.id} finding={finding} />
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </>
-        )}
-      </section>
-
-      <details className="reader-records" onToggle={(event) => setRecordsOpen(event.currentTarget.open)}>
-        <summary>
-          <h2 className="records-title">Records</h2>{" "}
-          <span>
-            identity · listings · {plural(edgeCount, "Relationship")} · financials ·{" "}
-            {plural(dossier.source_total, "source")} · memory
-          </span>
-        </summary>
-        {recordsOpen && (<div className="records-body">
+      <RecordsFold counts={`${plural(edgeCount, "relationship")}, ${plural(dossier.source_total, "source")}`}>
+        <InTheResearch companyId={company.id} />
+        <section aria-labelledby="found">
+          <h2 id="found">What Atlas found</h2>
+          {findings.groups.length === 0 ? (
+            <p className="muted">Nothing found about {company.display_name} yet.</p>
+          ) : (
+            <>
+              <p className="muted-small">
+                {findings.tally.approved} approved · {findings.tally.machine_reviewed} machine-checked only ·{" "}
+                {findings.tally.needs_human_review} not yet verified
+              </p>
+              {findings.groups.map((group) => (
+                <div key={group.key} className="finding-group">
+                  <h3>{group.title}</h3>
+                  <ul className="reader-rows">
+                    {group.findings.map((finding) => (
+                      <Finding key={finding.id} finding={finding} />
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </>
+          )}
+        </section>
+        <div>
           <MemoryStrip companyId={company.id} />
 
           <h3>Identity</h3>
@@ -321,9 +319,79 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
               </tbody>
             </table>
           )}
-        </div>)}
-      </details>
+        </div>
+      </RecordsFold>
     </div>
+  );
+}
+
+const GROUPS: { exposure: Exposure; title: string }[] = [
+  { exposure: "holder", title: "Holds the position" },
+  { exposure: "dependent", title: "Depends on it" },
+  { exposure: "supplier", title: "Supplies" },
+];
+
+const loadCalls = async () => (await api.allCalls()).items;
+const loadPredictions = async () => (await api.predictions("open")).items;
+const loadLeads = async () =>
+  (await api.calendarLeads(new Date().toISOString().slice(0, 10))).items;
+
+/** Its calls and open predictions, and when it next reports (the calendar, when it has one). */
+function OnThisCompany({ companyId, now }: { companyId: string; now: Date }) {
+  const calls = useApi("calls", loadCalls);
+  const predictions = useApi("predictions", loadPredictions);
+  const leads = useApi("leads", loadLeads);
+  if (calls.state !== "ready" || predictions.state !== "ready") return null;
+  const mine = calls.data.filter((call) => call.companies.some((each) => each.company_id === companyId));
+  const bets = predictions.data.filter((each) => each.company_id === companyId);
+  const reports =
+    leads.state === "ready" ? leads.data.filter((lead) => lead.calendar?.company_id === companyId) : [];
+  if (mine.length === 0 && bets.length === 0 && reports.length === 0) return null;
+  return (
+    <section aria-labelledby="on-company">
+      <h2 className="reader-label" id="on-company">
+        On this company
+      </h2>
+      <DueList calls={mine} predictions={bets} leads={reports} limit={4} now={now} label="Due on this company" />
+    </section>
+  );
+}
+
+/** The newest documents, five of them and then all the page holds. */
+function LatestDocuments({ sources }: { sources: SourceDocument[]; total?: number }) {
+  const [all, setAll] = useState(false);
+  if (sources.length === 0) return null;
+  const newest = [...sources].sort((a, b) => b.first_seen_at.localeCompare(a.first_seen_at));
+  const shown = all ? newest : newest.slice(0, 5);
+  return (
+    <section aria-labelledby="latest">
+      <h2 className="reader-label" id="latest">
+        Latest documents
+      </h2>
+      <ul className="reader-rows" aria-label="Latest documents">
+        {shown.map((document) => (
+          <li className="reader-row" key={document.id}>
+            <div>
+              <div className="row-title one-line">
+                <Link href={routes.source(document.id)} title={document.title}>
+                  {document.title}
+                </Link>
+              </div>
+              <div className="reader-row-sub">
+                {[typeName(document.source_type), document.form_type, evidenceDay(document.first_seen_at)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {!all && newest.length > 5 ? (
+        <button type="button" className="show-all show-all-flush" onClick={() => setAll(true)}>
+          All {newest.length}
+        </button>
+      ) : null}
+    </section>
   );
 }
 
@@ -331,16 +399,14 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
 function InTheResearch({ companyId }: { companyId: string }) {
   const loaded = useApi("company-research", loadResearch);
   if (loaded.state === "loading") {
-    return <p className="muted reader-label">In the research…</p>;
+    return <p className="muted">Loading the investigations…</p>;
   }
   if (loaded.state !== "ready") return null;
   const rows = companyQuestions(loaded.data.runs, companyId);
   if (rows.length === 0) return null;
   return (
     <section aria-labelledby="research">
-      <h2 className="reader-label" id="research">
-        In the research
-      </h2>
+      <h2 id="research">Investigations</h2>
       <QuestionRows rows={rows} hypotheses={loaded.data.hypotheses} />
     </section>
   );
@@ -370,16 +436,13 @@ function Finding({ finding }: { finding: FindingRow }) {
           )}
           {detail.state === "ready" && !first && <p className="muted">No quote recorded.</p>}
           {first && (
-            <figure className="reader-quote">
-              <blockquote>{first.assertion.quote}</blockquote>
-              <figcaption>
-                {first.publisher} · {first.source_title} ·{" "}
-                <Link href={routes.span(first.assertion.source_version_id, first.assertion.id)}>
-                  Source
-                </Link>
-                {finding.evidenceCount > 1 && ` · ${finding.evidenceCount} quotes in all`}
-              </figcaption>
-            </figure>
+            <Quote
+              quote={first.assertion.quote}
+              company={first.publisher}
+              document={first.source_title}
+              href={routes.span(first.assertion.source_version_id, first.assertion.id)}
+              note={finding.evidenceCount > 1 ? `${finding.evidenceCount} quotes in all` : undefined}
+            />
           )}
         </div>
       )}

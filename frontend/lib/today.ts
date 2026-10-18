@@ -239,19 +239,28 @@ export interface AgentWeek {
   nothingNew: number;
 }
 
+/** The fields 0.6.14 added to a session read as none from a server that does not send them yet. */
+export function examinedOf(session: Partial<Pick<SessionSummary, "beliefs_examined">>) {
+  return session.beliefs_examined ?? { confirmed: 0, qualified: 0, contradicted: 0, nothing_new: 0 };
+}
+
+export const agentOf = (session: Partial<Pick<SessionSummary, "agent">>): AgentName =>
+  session.agent ?? "lead";
+
 const examinedTotal = (session: SessionSummary) => {
-  const each = session.beliefs_examined;
+  const each = examinedOf(session);
   return each.confirmed + each.qualified + each.contradicted + each.nothing_new;
 };
 
-const addedSomething = (session: SessionSummary) =>
-  session.facts > 0 ||
-  session.beliefs_proposed > 0 ||
-  (session.issues_opened ?? 0) > 0 ||
-  session.beliefs_examined.confirmed +
-    session.beliefs_examined.qualified +
-    session.beliefs_examined.contradicted >
-    0;
+const addedSomething = (session: SessionSummary) => {
+  const each = examinedOf(session);
+  return (
+    session.facts > 0 ||
+    (session.beliefs_proposed ?? 0) > 0 ||
+    (session.issues_opened ?? 0) > 0 ||
+    each.confirmed + each.qualified + each.contradicted > 0
+  );
+};
 
 /** The week's runs by agent, in the line's order, leaving out the held-out runs of the
  * scorecard and any agent with no run. */
@@ -262,12 +271,12 @@ export function agentsWeek(sessions: readonly SessionSummary[], now: Date): Agen
   );
   return (Object.keys(AGENTS) as AgentName[])
     .map((agent) => {
-      const mine = week.filter((session) => session.agent === agent);
+      const mine = week.filter((session) => agentOf(session) === agent);
       return {
         agent,
         runs: mine.length,
         facts: mine.reduce((sum, session) => sum + session.facts, 0),
-        beliefsProposed: mine.reduce((sum, session) => sum + session.beliefs_proposed, 0),
+        beliefsProposed: mine.reduce((sum, session) => sum + (session.beliefs_proposed ?? 0), 0),
         examined: mine.reduce((sum, session) => sum + examinedTotal(session), 0),
         issuesOpened: mine.reduce((sum, session) => sum + (session.issues_opened ?? 0), 0),
         nothingNew: mine.filter((session) => !addedSomething(session)).length,

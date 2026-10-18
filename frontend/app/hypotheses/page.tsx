@@ -15,11 +15,6 @@ export default function HypothesesPage() {
   return (
     <>
       <h1>Hypotheses</h1>
-      <p>
-        Investigations saved as versioned, falsifiable research objects, newest first. Open one for
-        its dossier: every version with its findings and citations, the differences between
-        versions, its scenarios, the publish gate and its Research Snapshots.
-      </p>
       <Load loaded={hypotheses} what="Hypotheses">
         {(hypotheses) =>
           hypotheses.length === 0 ? (

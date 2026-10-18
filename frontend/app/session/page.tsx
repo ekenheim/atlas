@@ -19,7 +19,7 @@ import {
   usageParts,
   type CardFactRef,
 } from "../../lib/sessions";
-import { AGENTS } from "../../lib/today";
+import { AGENTS, agentOf } from "../../lib/today";
 import { useApi, useIdParam } from "../../lib/use-api";
 
 export default function SessionPage() {
@@ -46,7 +46,7 @@ function Session() {
           <>
             <h1>{session.question}</h1>
             <p className="reader-meta">
-              {AGENTS[session.agent]} · {outcomeText(session)} · {activity(session.started_at)}
+              {AGENTS[agentOf(session)]} · {outcomeText(session)} · {activity(session.started_at)}
               {session.finished_at ? "" : " · still open"}
             </p>
             <Card session={session} />
