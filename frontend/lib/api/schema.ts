@@ -12738,49 +12738,6 @@ export interface components {
              */
             available_at: string;
         };
-        /** WebHit */
-        WebHit: {
-            /** Position */
-            position: number;
-            /**
-             * Lead Id
-             * Format: uuid
-             */
-            lead_id: string;
-            /** Url */
-            url: string;
-            /** Canonical Url */
-            canonical_url: string;
-            /** Title */
-            title: string;
-            /** Snippet */
-            snippet: string;
-            /** Published Date */
-            published_date: string | null;
-            /** Engines */
-            engines: string[];
-            /** New */
-            new: boolean;
-        };
-        /** WebSearchResult */
-        WebSearchResult: {
-            /** Query */
-            query: string;
-            /** Engines */
-            engines: string[];
-            /** Language */
-            language: string;
-            /** Total */
-            total: number;
-            /** New Leads */
-            new_leads: number;
-            /** Dropped After Bound */
-            dropped_after_bound: number;
-            /** Unresponsive Engines */
-            unresponsive_engines: components["schemas"]["UnresponsiveEngine"][];
-            /** Results */
-            results: components["schemas"]["WebHit"][];
-        };
         /** @enum {string} */
         WatchMode: "architect" | "delta";
         /** WatchRun */
@@ -12851,6 +12808,49 @@ export interface components {
             tokens?: number | null;
             /** Session Id */
             session_id?: string | null;
+        };
+        /** WebHit */
+        WebHit: {
+            /** Position */
+            position: number;
+            /**
+             * Lead Id
+             * Format: uuid
+             */
+            lead_id: string;
+            /** Url */
+            url: string;
+            /** Canonical Url */
+            canonical_url: string;
+            /** Title */
+            title: string;
+            /** Snippet */
+            snippet: string;
+            /** Published Date */
+            published_date: string | null;
+            /** Engines */
+            engines: string[];
+            /** New */
+            new: boolean;
+        };
+        /** WebSearchResult */
+        WebSearchResult: {
+            /** Query */
+            query: string;
+            /** Engines */
+            engines: string[];
+            /** Language */
+            language: string;
+            /** Total */
+            total: number;
+            /** New Leads */
+            new_leads: number;
+            /** Dropped After Bound */
+            dropped_after_bound: number;
+            /** Unresponsive Engines */
+            unresponsive_engines: components["schemas"]["UnresponsiveEngine"][];
+            /** Results */
+            results: components["schemas"]["WebHit"][];
         };
         /** @enum {string} */
         Weight: "load_bearing" | "context";

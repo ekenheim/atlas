@@ -201,31 +201,24 @@ def test_the_scout_reads_the_ranked_signal_leads_before_the_newest_documents():
 
 # --- The Chokepoint Watch's wrapper (ticket W2) -----------------------------------------------
 
-# Tools its Tools line names that the server does not list on this branch. TEMPORARY: built on
-# ticket/w3-sources (`filing_search`, `web_search`, `fetch_page`) and ticket/w4-bear-checks
-# (`bear_checks`); removed at integration, when the server lists them and this set must be empty.
-WATCH_TOOLS_BUILT_ON_OTHER_BRANCHES = {"filing_search", "web_search", "fetch_page", "bear_checks"}
 
-
-def test_the_watch_wrapper_names_only_tools_the_server_has_or_the_other_branches_build():
+def test_the_watch_wrapper_names_only_tools_the_server_has():
     listed = wrapper_tools("watch")
     assert len(listed) >= 15
     assert len(listed) == len(set(listed)), "a tool listed twice"
-    missing = set(listed) - registry()
-    assert missing <= WATCH_TOOLS_BUILT_ON_OTHER_BRANCHES, sorted(
-        missing - WATCH_TOOLS_BUILT_ON_OTHER_BRANCHES
-    )
-    # The allow-set is no cover for a tool that exists: once the server lists one, it comes out.
-    assert not WATCH_TOOLS_BUILT_ON_OTHER_BRANCHES & registry(), (
-        "the server lists a tool the temporary allow-set still names: remove it from the set"
-    )
-    # The board's own tools (W1) and the ones the Watch reads with exist already.
+    assert set(listed) <= registry(), sorted(set(listed) - registry())
+    # The board's own tools (W1), the sources (W3), the bear checks (W4) and the ones the Watch
+    # reads with.
     assert {
         "board",
         "get_chokepoint",
         "add_chokepoint",
         "update_chokepoint",
         "write_memo",
+        "filing_search",
+        "web_search",
+        "fetch_page",
+        "bear_checks",
         "list_issues",
         "upcoming_reports",
         "newest_documents",
