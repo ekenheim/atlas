@@ -45,6 +45,9 @@ const GATE_EXPLANATIONS: Record<string, string> = {
     "an explicit override and a reason.",
   thesis_misstated:
     "The thesis says more than its Beliefs' quotes. Rewrite it in a correction.",
+  thesis_unchecked:
+    "No judge has checked the thesis against its Beliefs' quotes (the judge was off or " +
+    "unreachable). Judge it again, or rewrite it in a correction.",
   relationship_review_pending:
     "Some Assertions the findings cite haven't been machine-reviewed into Relationships yet, " +
     "so they may still form an edge the owner hasn't seen. Run the relationship review first.",

@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import sqlalchemy.exc
 from fastapi.testclient import TestClient
 from pydantic import JsonValue
 from sqlalchemy import text
@@ -799,6 +800,8 @@ def test_a_thesis_with_an_unsupported_qualifier_is_held_at_the_gate_after_one_re
         ChatReply.answer(misstating, tokens=(400, 40)),
         ChatReply.answer(supporting, tokens=(400, 40)),
         ChatReply.answer(misstating, tokens=(400, 40)),
+        # The correction below: its new thesis is judged at once (ticket 30).
+        ChatReply.answer(supporting, tokens=(400, 40)),
     )
     saved = beliefs.create()
     beliefs.worker_pass()
@@ -830,7 +833,8 @@ def test_a_thesis_with_an_unsupported_qualifier_is_held_at_the_gate_after_one_re
     assert refused.status_code == 422
     assert [each["code"] for each in refused.json()["error"]["failures"]] == ["thesis_misstated"]
 
-    # A correction that rewrites the thesis is no longer the thesis the judge saw.
+    # A correction that rewrites the thesis is no longer the thesis the judge saw: it is judged
+    # again at once (ticket 30), and what the judge says of the new thesis is what the gate reads.
     beliefs.post(
         f"/api/v1/hypotheses/{saved['id']}/versions",
         {"based_on_version": 1, "note": "drops the qualifier", "thesis_statement": THESIS},
@@ -839,7 +843,7 @@ def test_a_thesis_with_an_unsupported_qualifier_is_held_at_the_gate_after_one_re
     assert beliefs.get(f"/api/v1/hypotheses/{saved['id']}/publish-gate")["failures"] == []
     [_, second] = beliefs.hypothesis(saved["id"])["versions"]
     assert (second["content"]["thesis_judged"], second["content"]["thesis_misstated_reason"]) == (
-        None,
+        "supported",
         None,
     )
     assert publish(beliefs, saved["id"], version=2).status_code == 200
@@ -1312,3 +1316,258 @@ def test_the_mcp_get_hypothesis_reads_the_drafted_steps_and_the_gate_after_a_rej
     assert failure["belief_ids"] == [capture["id"]]
     # The edges and Assertions a failure names are read too (empty for this code).
     assert (failure["relationship_ids"], failure["assertion_ids"]) == ([], [])
+
+
+# --- a corrected thesis is judged before it publishes (ticket 30) ------------------------------
+
+NEW_THESIS = "Lumentum may be straining its laser capacity as its revenue reached $1.01 billion."
+
+
+def correct_thesis(
+    beliefs: Beliefs, hypothesis_id: str, *, based_on: int = 1, **fields: Any
+) -> dict[str, Any]:
+    body = {"based_on_version": based_on, "note": "rewrites the thesis"} | fields
+    return beliefs.post(f"/api/v1/hypotheses/{hypothesis_id}/versions", body, status=201)
+
+
+def evidence_ready(beliefs: Beliefs, hypothesis_id: str) -> None:
+    beliefs.post(f"/api/v1/hypotheses/{hypothesis_id}/transitions", {"to": "evidence_ready"})
+
+
+def gate_codes(beliefs: Beliefs, hypothesis_id: str) -> list[str]:
+    read = beliefs.get(f"/api/v1/hypotheses/{hypothesis_id}/publish-gate")
+    return [each["code"] for each in read["failures"]]
+
+
+def judge_thesis(beliefs: Beliefs, hypothesis_id: str, version: int, **body: Any) -> Any:
+    return beliefs.api.post(
+        f"/api/v1/hypotheses/{hypothesis_id}/versions/{version}/judge-thesis", json=body or None
+    )
+
+
+def thesis_judgement_rows(beliefs: Beliefs) -> list[dict[str, Any]]:
+    with beliefs.engine.connect() as connection:
+        return [
+            dict(each)
+            for each in connection.execute(
+                text(
+                    "SELECT version, verdict, reason, judge_role, prompt_version, role_call_id,"
+                    " actor, note FROM hypothesis_thesis_judgement ORDER BY at, id"
+                )
+            ).mappings()
+        ]
+
+
+def test_a_corrected_thesis_is_judged_at_once_and_a_supported_one_publishes(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    hypothesis, _, _ = ready(beliefs, llm)
+    hypothesis_id = hypothesis["id"]
+    judge_calls_before = roles(llm).count("finding_judge")
+    llm.script_role("finding_judge", ChatReply.answer(supporting, tokens=(400, 40)))
+
+    correct_thesis(beliefs, hypothesis_id, thesis_statement=NEW_THESIS)
+
+    # One call: the new thesis, told it is a thesis, with the quote of the Belief it cites.
+    assert roles(llm).count("finding_judge") == judge_calls_before + 1
+    last = [b for b in llm.chat_requests() if b["metadata"]["role"] == "finding_judge"][-1]
+    sent = asked(last)
+    assert (sent["request"]["finding"]["statement"], sent["request"]["finding"]["thesis"]) == (
+        NEW_THESIS,
+        True,
+    )
+    assert [each["text"] for each in sent["retrieved_data"]] == [QUARTER]
+    [_, second] = beliefs.hypothesis(hypothesis_id)["versions"]
+    assert second["content"]["thesis_statement"] == NEW_THESIS
+    assert (second["content"]["thesis_judged"], second["content"]["thesis_misstated_reason"]) == (
+        "supported",
+        None,
+    )
+    judgement = second["thesis_judgement"]
+    assert (judgement["verdict"], judgement["reason"], judgement["source"]) == (
+        "supported",
+        None,  # the content keeps a reason for a misstated thesis only
+        "correction",
+    )
+    assert judgement["by"] == second["created_by"]
+    assert judgement["at"].startswith(second["created_at"][:16])
+    # The draft's own judgement is read as the draft's.
+    assert beliefs.hypothesis(hypothesis_id)["versions"][0]["thesis_judgement"]["source"] == "draft"
+    assert thesis_judgement_rows(beliefs) == []  # a correction's verdict is the version's content
+    with beliefs.engine.connect() as connection:
+        audited = connection.execute(
+            text("SELECT entity_id FROM audit_event WHERE action = 'hypothesis.thesis_judged'")
+        ).scalars()
+        assert list(audited) == [second["id"]]
+
+    evidence_ready(beliefs, hypothesis_id)
+    assert gate_codes(beliefs, hypothesis_id) == []
+    assert publish(beliefs, hypothesis_id, version=2).status_code == 200
+
+
+def test_a_corrected_thesis_the_judge_finds_misstated_is_held_at_the_gate(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    hypothesis, constraint, _ = ready(beliefs, llm)
+    hypothesis_id = hypothesis["id"]
+    llm.script_role("finding_judge", ChatReply.answer(misstating, tokens=(400, 40)))
+
+    correct_thesis(beliefs, hypothesis_id, thesis_statement=NEW_THESIS)
+
+    [_, second] = beliefs.hypothesis(hypothesis_id)["versions"]
+    # No rewrite: the researcher wrote it, and the judge's word is the verdict. The corrected
+    # thesis stays as written.
+    assert second["content"]["thesis_statement"] == NEW_THESIS
+    assert second["content"]["thesis_judged"] == "misstated"
+    assert second["content"]["thesis_misstated_reason"] == "the quote states another period"
+    assert second["thesis_judgement"]["verdict"] == "misstated"
+    assert [each for each in roles(llm) if each == DRAFTER] == [DRAFTER]  # the draft's only
+    evidence_ready(beliefs, hypothesis_id)
+    read = beliefs.get(f"/api/v1/hypotheses/{hypothesis_id}/publish-gate")
+    [failure] = read["failures"]
+    assert (failure["code"], failure["belief_ids"]) == ("thesis_misstated", [constraint["id"]])
+    assert "the quote states another period" in failure["message"]
+    refused = publish(
+        beliefs, hypothesis_id, version=2, override_beliefs=True, override_reason="reviewed"
+    )
+    assert refused.status_code == 422
+    assert [each["code"] for each in refused.json()["error"]["failures"]] == ["thesis_misstated"]
+
+
+def test_a_thesis_the_judge_cannot_reach_is_unchecked_and_judging_it_again_clears_the_gate(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    hypothesis, constraint, _ = ready(beliefs, llm)
+    hypothesis_id = hypothesis["id"]
+    llm.script_role("finding_judge", ChatReply.error(503, "upstream overloaded"))
+
+    # The correction still succeeds; its thesis is simply not judged.
+    correct_thesis(beliefs, hypothesis_id, thesis_statement=NEW_THESIS)
+
+    [_, second] = beliefs.hypothesis(hypothesis_id)["versions"]
+    assert second["content"]["thesis_statement"] == NEW_THESIS
+    assert (second["content"]["thesis_judged"], second["thesis_judgement"]) == (None, None)
+    evidence_ready(beliefs, hypothesis_id)
+    read = beliefs.get(f"/api/v1/hypotheses/{hypothesis_id}/publish-gate")
+    [failure] = read["failures"]
+    assert (failure["code"], failure["belief_ids"]) == ("thesis_unchecked", [constraint["id"]])
+    refused = publish(
+        beliefs, hypothesis_id, version=2, override_beliefs=True, override_reason="reviewed"
+    )
+    assert refused.status_code == 422
+    assert [each["code"] for each in refused.json()["error"]["failures"]] == ["thesis_unchecked"]
+
+    # Judging it again while the judge is still down answers 503 and records nothing.
+    llm.script_role("finding_judge", ChatReply.error(503, "upstream overloaded"))
+    outage = judge_thesis(beliefs, hypothesis_id, 2)
+    assert outage.status_code == 503, outage.text
+    assert outage.json()["error"]["code"] == "judge_unavailable"
+    assert thesis_judgement_rows(beliefs) == []
+
+    # Once it answers, the verdict is recorded apart from the version, and the gate clears.
+    llm.script_role("finding_judge", ChatReply.answer(supporting, tokens=(400, 40)))
+    judged = judge_thesis(beliefs, hypothesis_id, 2, note="after the outage")
+    assert judged.status_code == 201, judged.text
+    [row] = thesis_judgement_rows(beliefs)
+    assert (row["version"], row["verdict"], row["actor"], row["note"]) == (
+        2,
+        "supported",
+        beliefs.get(f"/api/v1/hypotheses/{hypothesis_id}")["versions"][1]["created_by"],
+        "after the outage",
+    )
+    assert (row["judge_role"], row["prompt_version"]) == ("finding_judge", "5")
+    assert row["role_call_id"] is not None
+    [_, second] = judged.json()["versions"]
+    assert second["thesis_judgement"]["source"] == "rejudge"
+    assert second["thesis_judgement"]["verdict"] == "supported"
+    assert second["content"]["thesis_judged"] is None  # the content stays as stored
+    assert gate_codes(beliefs, hypothesis_id) == []
+    assert publish(beliefs, hypothesis_id, version=2).status_code == 200
+    with beliefs.engine.connect() as connection:
+        actions = connection.execute(
+            text("SELECT action FROM audit_event WHERE action = 'hypothesis.thesis_judged'")
+        ).scalars()
+        # Only this judging is audited: the correction's was not made.
+        assert list(actions) == ["hypothesis.thesis_judged"]
+
+
+def test_a_published_version_judged_again_changes_nothing_but_its_judgement(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    hypothesis, _, _ = ready(beliefs, llm)
+    hypothesis_id = hypothesis["id"]
+    evidence_ready(beliefs, hypothesis_id)
+    assert publish(beliefs, hypothesis_id).status_code == 200
+    [record] = beliefs.get("/api/v1/snapshots", hypothesis_id=hypothesis_id)["items"]
+    snapshot_before = beliefs.get(f"/api/v1/snapshots/{record['id']}")
+    before = beliefs.hypothesis(hypothesis_id)["versions"][0]
+    assert before["thesis_judgement"]["source"] == "draft"
+
+    llm.script_role("finding_judge", ChatReply.answer(misstating, tokens=(400, 40)))
+    judged = judge_thesis(beliefs, hypothesis_id, 1)
+
+    assert judged.status_code == 201, judged.text
+    [after] = judged.json()["versions"]
+    # The version, published, is what it was; the judgement read is the new one.
+    assert after["content"] == before["content"]
+    assert after["content_sha256"] == before["content_sha256"]
+    assert after["published_at"] == before["published_at"]
+    assert after["content"]["thesis_judged"] == "supported"  # as stored
+    assert after["thesis_judgement"]["source"] == "rejudge"
+    assert after["thesis_judgement"]["verdict"] == "misstated"
+    assert after["thesis_judgement"]["reason"] == "the quote states another period"
+    [row] = thesis_judgement_rows(beliefs)
+    assert (row["version"], row["verdict"], row["note"]) == (1, "misstated", None)
+    snapshot_after = beliefs.get(f"/api/v1/snapshots/{record['id']}")
+    assert snapshot_after["verified"] is True
+    assert snapshot_after["content"] == snapshot_before["content"]
+    # The verdict is insert-only: a row can neither be changed nor removed.
+    with pytest.raises(sqlalchemy.exc.DBAPIError), beliefs.engine.begin() as connection:
+        connection.execute(text("UPDATE hypothesis_thesis_judgement SET verdict = 'supported'"))
+
+    # A correction that leaves the thesis keeps that verdict (the latest one, here against it),
+    # without another call; the gate reads it.
+    calls = roles(llm).count("finding_judge")
+    correct_thesis(beliefs, hypothesis_id, falsifiers=["Qualified second-source capacity"])
+    assert roles(llm).count("finding_judge") == calls
+    [_, second] = beliefs.hypothesis(hypothesis_id)["versions"]
+    assert (second["thesis_judgement"]["verdict"], second["thesis_judgement"]["source"]) == (
+        "misstated",
+        "rejudge",
+    )
+    assert gate_codes(beliefs, hypothesis_id) == ["thesis_misstated"]
+
+
+def test_a_correction_that_leaves_the_thesis_keeps_the_earlier_verdict_without_a_call(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    hypothesis, _, _ = ready(beliefs, llm)
+    hypothesis_id = hypothesis["id"]
+    calls = roles(llm).count("finding_judge")
+
+    correct_thesis(beliefs, hypothesis_id, unresolved_questions=["Is capacity the limit?"])
+    # The same thesis again, written out, is no change either.
+    correct_thesis(
+        beliefs,
+        hypothesis_id,
+        based_on=2,
+        thesis_statement=hypothesis["versions"][0]["content"]["thesis_statement"],
+    )
+
+    assert roles(llm).count("finding_judge") == calls
+    for version in beliefs.hypothesis(hypothesis_id)["versions"]:
+        assert version["content"]["thesis_judged"] == "supported"
+        assert version["thesis_judgement"]["verdict"] == "supported"
+        assert version["thesis_judgement"]["source"] == "draft"  # the verdict is the draft's
+    evidence_ready(beliefs, hypothesis_id)
+    assert gate_codes(beliefs, hypothesis_id) == []
+
+
+def test_the_thesis_of_an_unknown_hypothesis_or_version_cannot_be_judged(
+    beliefs: Beliefs, llm: FakeLiteLLM
+) -> None:
+    hypothesis, _, _ = ready(beliefs, llm)
+
+    assert judge_thesis(beliefs, hypothesis["id"], 7).status_code == 404
+    assert judge_thesis(beliefs, "00000000-0000-0000-0000-000000000000", 1).status_code == 404
+    assert thesis_judgement_rows(beliefs) == []

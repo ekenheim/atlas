@@ -121,6 +121,16 @@ class Judges:
     def judges_belief(self, session_id: uuid.UUID | None) -> bool:
         return self.judges_fact(session_id)
 
+    def judges_thesis(self) -> bool:
+        """Whether a Hypothesis's thesis is judged (ticket 30): the Belief draft's own switch,
+        `ATLAS_FINDING_JUDGE`, not the session switch above."""
+        return self._settings.finding_judge
+
+    @property
+    def thesis_votes(self) -> int:
+        """The votes a Hypothesis's thesis is judged with: the Belief draft's."""
+        return self._settings.finding_judge_votes
+
     def _caller_and_run(self, kind: str) -> tuple[RoleCaller, uuid.UUID]:
         caller = RoleCaller.from_settings(self._settings, self._engine)
         if caller is None:
@@ -149,10 +159,12 @@ class Judges:
         statement: str,
         rows: Sequence[Mapping[Any, Any]],
         thesis: bool = False,
+        votes: int | None = None,
     ) -> Verdict:
         """`statement` judged against the Facts `rows` (the shape of
         `atlas.investigations.argument.fact_rows`), in a run of the given `kind`; as a thesis
-        (`finding_judge.v5`) when `thesis`. Raises `JudgeUnavailable` when no verdict could be
+        (`finding_judge.v5`) when `thesis`; with `votes` votes (default: the settings'
+        `fact_statement_judge_votes`). Raises `JudgeUnavailable` when no verdict could be
         given."""
         caller, run_id = self._caller_and_run(kind)
         with caller:
@@ -165,6 +177,7 @@ class Judges:
                 rows=rows,
                 thesis=thesis,
                 engine=self._engine,
+                votes=votes,
             )
 
     def fact_judge(self, question: str) -> "FactJudge":
@@ -184,6 +197,7 @@ def judged_in_run(
     rows: Sequence[Mapping[Any, Any]],
     thesis: bool = False,
     engine: Engine | None = None,
+    votes: int | None = None,
 ) -> Verdict:
     """`judge_statement` with the settings' votes and rule, a failure of the judge as
     `JudgeUnavailable`: for a caller that holds a caller and a run already (a Reader). With an
@@ -198,7 +212,7 @@ def judged_in_run(
             question=question,
             statement=statement,
             rows=rows,
-            votes=settings.fact_statement_judge_votes,
+            votes=settings.fact_statement_judge_votes if votes is None else votes,
             rule=settings.finding_judge_vote_rule,
             thesis=thesis,
         )

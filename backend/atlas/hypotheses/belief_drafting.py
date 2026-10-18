@@ -54,6 +54,7 @@ from atlas.companies import load_universe
 from atlas.hypotheses.model import HypothesisContent, Mechanism, VersionProvenance
 from atlas.hypotheses.service import insert_version
 from atlas.hypotheses.steps import STEP_ORDER, HypothesisStep, StepStatement, step_belief
+from atlas.hypotheses.thesis import MAX_FACTS_PER_STATEMENT, fact_citations
 from atlas.investigations.argument import fact_rows
 from atlas.investigations.grounding import CheckedFinding, check_findings
 from atlas.investigations.meaning import judge_findings, voting
@@ -75,7 +76,6 @@ from atlas.settings import Settings
 
 EDITOR_ACTOR = Actor("atlas-editor")
 MAX_BELIEFS_PER_STEP = 8
-MAX_FACTS_PER_STATEMENT = 12
 _OPEN_ISSUES = 20
 _BELIEF_PAGE = 500
 
@@ -134,15 +134,6 @@ def proven_beliefs(
             if belief is not None:
                 by_step[summary.step].append(belief)
     return [belief for step in STEP_ORDER for belief in by_step[step]]
-
-
-def _fact_citations(belief: Belief) -> list[uuid.UUID]:
-    """The load-bearing Facts a Belief rests on (positive valence, kind `fact`)."""
-    return [
-        each.ref_id
-        for each in belief.citations
-        if each.kind == "fact" and each.weight == "load_bearing" and each.valence > 0
-    ]
 
 
 class BeliefHypothesisDrafter:
@@ -323,7 +314,7 @@ class BeliefHypothesisDrafter:
                 fact
                 for _, cited in [thesis, *((s, c) for _, s, c in said)]
                 for ref in cited
-                for fact in _fact_citations(refs[ref])
+                for fact in fact_citations(refs[ref])
             )
         )
         with self._engine.connect() as connection:
@@ -350,7 +341,7 @@ class BeliefHypothesisDrafter:
         def add(owner: str | None, statement: str, cited: list[str]) -> bool:
             facts = list(
                 dict.fromkeys(
-                    fact for ref in cited for fact in _fact_citations(refs[ref]) if fact in rows
+                    fact for ref in cited for fact in fact_citations(refs[ref]) if fact in rows
                 )
             )[:MAX_FACTS_PER_STATEMENT]
             if not facts:

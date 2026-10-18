@@ -1610,6 +1610,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/hypotheses/{hypothesis_id}/versions/{version}/judge-thesis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Judge Thesis */
+        post: operations["judge_thesis_api_v1_hypotheses__hypothesis_id__versions__version__judge_thesis_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hypotheses/{hypothesis_id}/publish-version": {
         parameters: {
             query?: never;
@@ -5931,7 +5948,7 @@ export interface components {
             assertion_ids: string[];
             /**
              * Belief Ids
-             * @description `belief_not_proven`: the load-bearing Beliefs that are not proven; `thesis_misstated`: the Beliefs the misstated thesis cites
+             * @description `belief_not_proven`: the load-bearing Beliefs that are not proven; `thesis_misstated`, `thesis_unchecked`: the Beliefs the thesis cites
              */
             belief_ids?: string[];
         };
@@ -6251,6 +6268,7 @@ export interface components {
             published_at: string | null;
             /** Published By */
             published_by: string | null;
+            thesis_judgement?: components["schemas"]["ThesisJudgement"] | null;
         };
         /** IdentityMapping */
         IdentityMapping: {
@@ -11326,6 +11344,40 @@ export interface components {
              */
             open_candidate_count: number;
         };
+        /** ThesisJudgeRequest */
+        ThesisJudgeRequest: {
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * ThesisJudgement
+         * @description The finding judge's word on a Belief-backed version's thesis, and where it comes from
+         *     (ticket 30): the draft's own judging (`draft`), the judging of a correction that changed the
+         *     thesis (`correction`), or a later judging of the version on its own (`rejudge`: an insert-only
+         *     `hypothesis_thesis_judgement` row). `unjudged`: a judging that found nothing to judge it
+         *     against. A version no judge has seen has none.
+         */
+        ThesisJudgement: {
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "misstated" | "unjudged";
+            /** Reason */
+            reason: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** By */
+            by: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "draft" | "correction" | "rejudge";
+        };
         /** @enum {string} */
         Tier: "exact" | "corroborated" | "candidate" | "conflict" | "unresolved";
         /**
@@ -16336,6 +16388,69 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    judge_thesis_api_v1_hypotheses__hypothesis_id__versions__version__judge_thesis_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hypothesis_id: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ThesisJudgeRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hypothesis"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

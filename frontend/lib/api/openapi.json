@@ -7554,6 +7554,105 @@
         }
       }
     },
+    "/api/v1/hypotheses/{hypothesis_id}/versions/{version}/judge-thesis": {
+      "post": {
+        "tags": [
+          "hypotheses"
+        ],
+        "summary": "Judge Thesis",
+        "operationId": "judge_thesis_api_v1_hypotheses__hypothesis_id__versions__version__judge_thesis_post",
+        "parameters": [
+          {
+            "name": "hypothesis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Hypothesis Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Version"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ThesisJudgeRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hypothesis"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/hypotheses/{hypothesis_id}/publish-version": {
       "post": {
         "tags": [
@@ -19618,7 +19717,7 @@
             },
             "type": "array",
             "title": "Belief Ids",
-            "description": "`belief_not_proven`: the load-bearing Beliefs that are not proven; `thesis_misstated`: the Beliefs the misstated thesis cites"
+            "description": "`belief_not_proven`: the load-bearing Beliefs that are not proven; `thesis_misstated`, `thesis_unchecked`: the Beliefs the thesis cites"
           }
         },
         "type": "object",
@@ -20526,6 +20625,16 @@
               }
             ],
             "title": "Published By"
+          },
+          "thesis_judgement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ThesisJudgement"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -34288,6 +34397,77 @@
           "open_candidate_count"
         ],
         "title": "ThemeSummary"
+      },
+      "ThesisJudgeRequest": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ThesisJudgeRequest"
+      },
+      "ThesisJudgement": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "misstated",
+              "unjudged"
+            ],
+            "title": "Verdict"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "by": {
+            "type": "string",
+            "title": "By"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "correction",
+              "rejudge"
+            ],
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict",
+          "reason",
+          "at",
+          "by",
+          "source"
+        ],
+        "title": "ThesisJudgement",
+        "description": "The finding judge's word on a Belief-backed version's thesis, and where it comes from\n(ticket 30): the draft's own judging (`draft`), the judging of a correction that changed the\nthesis (`correction`), or a later judging of the version on its own (`rejudge`: an insert-only\n`hypothesis_thesis_judgement` row). `unjudged`: a judging that found nothing to judge it\nagainst. A version no judge has seen has none."
       },
       "Tier": {
         "type": "string",
