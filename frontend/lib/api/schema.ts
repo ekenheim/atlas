@@ -6864,7 +6864,7 @@ export interface components {
              * @enum {string}
              */
             key: "gaap_gross_margin";
-            /** @description null when unknown */
+            /** @description null when no quarterly figures were found; kept when only the year-earlier comparison is missing */
             value: components["schemas"]["GrossMarginValue"] | null;
         };
         /** GateFailureView */

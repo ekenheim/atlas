@@ -272,7 +272,9 @@ class ShelfOrAtmCheck(_Check):
 class GaapGrossMarginCheck(_Check):
     KEY: ClassVar[CheckKey] = "gaap_gross_margin"
     key: Literal["gaap_gross_margin"]
-    value: GrossMarginValue | None = Field(description="null when unknown")
+    value: GrossMarginValue | None = Field(
+        description="null when no quarterly figures were found; kept when only the year-earlier comparison is missing"
+    )
 
 
 class CustomerConcentrationCheck(_Check):

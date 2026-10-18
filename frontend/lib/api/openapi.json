@@ -22599,7 +22599,7 @@
                 "type": "null"
               }
             ],
-            "description": "null when unknown"
+            "description": "null when no quarterly figures were found; kept when only the year-earlier comparison is missing"
           }
         },
         "type": "object",
