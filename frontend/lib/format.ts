@@ -49,6 +49,13 @@ function shortDay(date: Ymd, now: Date): string {
   return date.year === now.getUTCFullYear() ? dayMonth(date) : `${dayMonth(date)} ${date.year}`;
 }
 
+/** A day for a line that says when something was published or reported: "18 Oct", with the
+ * year when it is not the current one. */
+export function plainDay(iso: string | null | undefined, now: Date = new Date()): string {
+  const date = ymd(iso);
+  return date ? shortDay(date, now) : (iso ?? "");
+}
+
 /** When something happened: "today", "yesterday", "3 d ago" within seven days, else the day
  * (the year only when it is not the current one). */
 export function activity(iso: string | null | undefined, now: Date = new Date()): string {

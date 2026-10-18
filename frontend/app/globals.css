@@ -1469,3 +1469,212 @@ blockquote.quote-clamped {
 .system-rows .reader-row {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* Today and Themes: one card per theme. */
+.today,
+.themes-page {
+  padding-bottom: var(--s6);
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin-top: var(--s4);
+}
+
+.theme-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: var(--s4) var(--s5);
+}
+
+.theme-card p {
+  margin: 0;
+}
+
+.card-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s4);
+  justify-content: space-between;
+}
+
+.card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.card-title a {
+  color: var(--text-2);
+}
+
+.card-status {
+  align-items: baseline;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s3);
+}
+
+.card-new {
+  align-items: center;
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 0.8rem;
+  gap: 0.3rem;
+}
+
+.card-new .nav-dot {
+  background: var(--accent);
+}
+
+.card-thesis {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  font-size: 1.25rem;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.25;
+  margin-top: var(--s2) !important;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.card-thesis a {
+  color: var(--text);
+}
+
+.card-weakest {
+  color: var(--text-2);
+  font-size: 0.9rem;
+  margin: var(--s2) 0 var(--s3) !important;
+}
+
+.card-findings,
+.card-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: var(--s2) !important;
+}
+
+.card-starting {
+  color: var(--text-2);
+  margin-top: var(--s2) !important;
+}
+
+.card-columns {
+  display: grid;
+  gap: var(--s4) var(--s5);
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: var(--s4);
+}
+
+@media (min-width: 48rem) {
+  .card-columns {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+.card-columns .reader-label {
+  margin: 0 0 var(--s2);
+}
+
+.change-row,
+.due-row {
+  padding: 0.5rem 0.9rem;
+}
+
+.change-rows .reader-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.change-row .row-title {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.unseen-dot {
+  background: var(--accent);
+  border-radius: 50%;
+  display: inline-block;
+  height: 6px;
+  margin-right: 0.45em;
+  vertical-align: middle;
+  width: 6px;
+}
+
+.card-more {
+  font-size: 0.85rem;
+  margin: var(--s2) 0 0 !important;
+}
+
+.decision-banner {
+  background: var(--surface);
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+  margin: var(--s4) 0 0;
+  padding: var(--s2) var(--s4);
+}
+
+.decision-banner a {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.today-line {
+  margin: var(--s4) 0 0;
+}
+
+.today-line a {
+  color: var(--text-2);
+}
+
+.theme-card-skeleton {
+  min-height: 11rem;
+}
+
+.sk-title {
+  width: 30%;
+}
+.sk-thesis {
+  height: 1.4rem;
+  width: 85%;
+}
+.sk-line {
+  width: 40%;
+}
+.sk-strip {
+  height: 3.2rem;
+  width: 100%;
+}
+
+.card-thesis a,
+.card-more a,
+.today-line a,
+.decision-banner a {
+  text-decoration: none;
+}
+
+.card-thesis a:hover,
+.card-more a:hover,
+.today-line a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 40rem) {
+  .strip-neg {
+    grid-column: span 2;
+  }
+
+  .strip-step {
+    font-size: 0.75rem;
+    overflow-wrap: normal;
+  }
+}

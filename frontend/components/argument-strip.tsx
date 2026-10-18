@@ -8,7 +8,10 @@ import { Confidence } from "./confidence";
 function Cell({ step }: { step: StepArgument }) {
   const empty = step.strongest === null;
   return (
-    <li className={`strip-cell${empty ? " strip-empty" : ""}`} aria-label={cellName(step)}>
+    <li
+      className={`strip-cell${empty ? " strip-empty" : ""}${step.against ? " strip-neg" : ""}`}
+      aria-label={cellName(step)}
+    >
       <span className="strip-step" aria-hidden="true">
         {STEP_LABELS[step.step]}
       </span>
