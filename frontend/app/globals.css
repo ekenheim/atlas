@@ -2111,3 +2111,322 @@ textarea {
   overflow: hidden;
   overflow-wrap: anywhere;
 }
+
+/* --- The Chokepoint Watch (round 3) ----------------------------------------------------------- */
+
+/* Today's Watch: one row per watched theme, three short lines. */
+.watch-rows {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  list-style: none;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.watch-row {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding: 0.7rem 1rem;
+}
+
+.watch-row:first-child {
+  border-top: 0;
+}
+
+.watch-row p {
+  margin: 0;
+}
+
+.watch-line {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s4);
+  justify-content: space-between;
+}
+
+.watch-theme {
+  font-weight: 600;
+}
+
+.watch-theme a {
+  color: var(--text);
+}
+
+.watch-date {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.watch-date.status-warn {
+  color: var(--warn);
+}
+
+.watch-board {
+  color: var(--text-2);
+  font-size: 0.85rem;
+}
+
+.watch-named {
+  color: var(--text-2);
+  font-size: 0.9rem;
+  margin-top: 2px !important;
+}
+
+.watch-label,
+.watch-more {
+  color: var(--muted);
+}
+
+.watch-memo {
+  display: flex;
+  font-size: 0.9rem;
+  gap: var(--s3);
+  margin-top: 2px !important;
+}
+
+.watch-excerpt {
+  color: var(--text-2);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-memo a {
+  flex: none;
+}
+
+/* The board: its header, legend and groups. */
+.board-head {
+  align-items: baseline;
+  display: flex;
+  gap: var(--s4);
+  justify-content: space-between;
+}
+
+.board-memo {
+  font-size: 0.85rem;
+}
+
+.pip-legend {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: calc(-1 * var(--s2)) 0 var(--s2);
+}
+
+.board-group .reader-label {
+  margin: var(--s4) 0 var(--s2);
+}
+
+/* A board row: the constraint and its badges, then the second line and the strip. */
+.board-row {
+  grid-template-areas:
+    "title badges"
+    "secondary pips";
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 0.6rem 1rem;
+  row-gap: 2px;
+}
+
+.board-row .board-title {
+  grid-area: title;
+}
+
+.board-row .board-badges {
+  grid-area: badges;
+}
+
+.board-row .board-secondary {
+  grid-area: secondary;
+}
+
+.board-row .pips {
+  grid-area: pips;
+}
+
+.board-title {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  font-weight: 600;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.board-badges:empty {
+  display: none;
+}
+
+.board-secondary {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.pips {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  gap: 0 0.6rem;
+  justify-content: flex-end;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pip-mark {
+  margin-right: 0.2em;
+}
+
+.pip-q {
+  color: var(--text);
+}
+
+.pip-u {
+  color: var(--text-2);
+}
+
+.pip-n {
+  color: var(--muted);
+}
+
+.pip-x {
+  color: var(--gap);
+}
+
+.pips-against {
+  color: var(--muted);
+}
+
+@media (max-width: 40rem) {
+  .board-row {
+    grid-template-areas: "title" "badges" "secondary" "pips";
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .board-badges {
+    justify-content: flex-start;
+  }
+
+  .pips {
+    justify-content: flex-start;
+  }
+}
+
+/* The ruled-out chokepoints: a closed fold of their own, outside the Records. */
+.board-killed {
+  margin-top: var(--s4);
+}
+
+.board-killed > summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-bottom: var(--s2);
+}
+
+.board-killed-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.board-empty {
+  color: var(--muted);
+}
+
+/* A chokepoint's page. */
+.holders {
+  color: var(--text-2);
+  margin: 0 0 var(--s2);
+}
+
+.verdict-line {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s3);
+  margin: 0 0 var(--s2);
+}
+
+.verdict-line .status {
+  font-size: 0.9rem;
+}
+
+.bar-line {
+  color: var(--text-2);
+  margin: 0 0 var(--s4);
+}
+
+.bar-line.status-warn {
+  color: var(--warn);
+}
+
+.bar-line.status-ok {
+  color: var(--ok);
+}
+
+.bar-line.status-muted {
+  color: var(--muted);
+}
+
+.step-word {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.step-body {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s3) 1rem var(--s4);
+}
+
+.step-body .reader-rows {
+  border-radius: 8px;
+}
+
+.cp-band ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.cp-band p {
+  margin: 0 0 var(--s2);
+}
+
+/* The Watch's memo: prose at the reading measure. */
+.memo h3 {
+  font-size: 1.1rem;
+  margin: var(--s5) 0 var(--s2);
+}
+
+.memo h4 {
+  font-size: 1rem;
+  margin: var(--s4) 0 var(--s2);
+}
+
+.memo p,
+.memo li {
+  line-height: 1.6;
+}
+
+.memo p a,
+.memo li a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.memo-host {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.memo-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0 var(--s4);
+}
