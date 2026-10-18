@@ -16,8 +16,8 @@ import {
   companiesLine,
   expectedRange,
   predictionStatus,
-  shortDate,
 } from "../lib/calls";
+import { evidenceDay } from "../lib/format";
 import { routes } from "../lib/routes";
 import { useApi } from "../lib/use-api";
 import { Load, Missing } from "./ui";
@@ -71,7 +71,7 @@ export function CallsPanel({
                 <tbody>
                   {calls.map((call) => (
                     <tr key={call.id}>
-                      <th scope="row">{shortDate(call.made_at)}</th>
+                      <th scope="row">{evidenceDay(call.made_at)}</th>
                       <td>
                         {call.claim}
                         <br />
@@ -111,7 +111,7 @@ export function CallsPanel({
   );
 }
 
-const loadPredictions = async (hypothesisId: string) => (await api.predictions(hypothesisId)).items;
+const loadPredictions = async (hypothesisId: string) => (await api.hypothesisPredictions(hypothesisId)).items;
 
 /** The Hypothesis's predictions: the measure, the range expected, the deadline and the source
  * that settles it, then what settled it. */

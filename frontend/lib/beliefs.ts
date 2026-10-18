@@ -2,6 +2,7 @@
 // string (so a filtered list can be reloaded, bookmarked and linked), the grouping of a theme's
 // Beliefs by argument step and the reading of a Belief's citations.
 import type { Belief, BeliefSummary, CompanyBelief } from "./api/client";
+import { evidenceDay } from "./format";
 
 export type Step = BeliefSummary["step"];
 export type JudgementName = BeliefSummary["judgement"]["judgement"];
@@ -73,7 +74,7 @@ export function testedText(
   if (!belief.last_examined_as_of || !belief.last_examined_outcome) {
     return "Not tested since it was proposed";
   }
-  return `Tested through ${day(belief.last_examined_as_of)}: ${OUTCOMES[belief.last_examined_outcome]}`;
+  return `Tested through ${evidenceDay(belief.last_examined_as_of)}: ${OUTCOMES[belief.last_examined_outcome]}`;
 }
 
 /** The pill's colour class: proven green, disproven amber, the rest grey. */
@@ -286,12 +287,7 @@ export function citationsByCompany(
     }));
 }
 
-/** The day a timestamp falls on. */
-export function day(timestamp: string): string {
-  return timestamp.slice(0, 10);
-}
-
 /** Who set a judgement and when: "owner, 2026-10-12". */
 export function judgedBy(judgement: { actor: string; at: string }): string {
-  return `${judgement.actor}, ${day(judgement.at)}`;
+  return `${judgement.actor}, ${evidenceDay(judgement.at)}`;
 }

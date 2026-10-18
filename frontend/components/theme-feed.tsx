@@ -5,7 +5,7 @@
 import Link from "next/link";
 
 import { api } from "../lib/api/client";
-import { day } from "../lib/beliefs";
+import { evidenceDay } from "../lib/format";
 import { words } from "../lib/hypotheses";
 import { routes } from "../lib/routes";
 import { CHANGE_KINDS, changeHref, hypothesisThesis, themeHypotheses } from "../lib/themes";
@@ -41,7 +41,7 @@ export function ThemeHypotheses({ theme }: { theme: string }) {
                       <div className="reader-row-sub">
                         {published.length === 0
                           ? "not published"
-                          : `published ${day(hypothesis.first_published_at ?? "")}`}
+                          : `published ${evidenceDay(hypothesis.first_published_at ?? "")}`}
                         {" · "}
                         {hypothesis.versions.length}{" "}
                         {hypothesis.versions.length === 1 ? "version" : "versions"}
@@ -92,7 +92,7 @@ export function ThemeChanges({ theme }: { theme: string }) {
                       <div className="reader-row-title">
                         {href ? <Link href={href}>{change.text}</Link> : change.text}
                       </div>
-                      <div className="reader-row-sub">{day(change.at)}</div>
+                      <div className="reader-row-sub">{evidenceDay(change.at)}</div>
                     </div>
                     <span className="reader-pill reader-unknown">{CHANGE_KINDS[change.kind]}</span>
                   </li>

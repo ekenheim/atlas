@@ -9,7 +9,6 @@ import {
   expectedRange,
   percent,
   predictionStatus,
-  shortDate,
 } from "../lib/calls";
 
 type Checkpoints = Call["checkpoints"];
@@ -42,12 +41,6 @@ test("a change reads as a signed percent with one decimal", () => {
   expect(percent(0.0004)).toBe("0.0%");
   expect(percent(0.016667)).toBe("+1.7%");
   expect(percent(null)).toBe("");
-});
-
-test("dates read as day, month and year, from the UTC date", () => {
-  expect(shortDate("2026-11-16T03:30:00Z")).toBe("16 Nov 2026");
-  expect(shortDate("2027-01-03")).toBe("3 Jan 2027");
-  expect(shortDate("not a date")).toBe("not a date");
 });
 
 test("a horizon falls due that many calendar months on, a missing day becoming the last", () => {

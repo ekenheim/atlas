@@ -2,6 +2,7 @@
 // prediction's range read on the theme page and the Hypothesis dossier. A record of what Atlas
 // said and what followed, in few words; nothing here advises.
 import type { Call, Prediction } from "./api/client";
+import { evidenceDay } from "./format";
 
 export const HORIZONS = [1, 3, 6] as const;
 export type Horizon = (typeof HORIZONS)[number];
@@ -23,16 +24,6 @@ export function percent(fraction: number | null | undefined): string {
   const value = Math.round(fraction * 1000) / 10;
   if (value === 0) return "0.0%";
   return `${value > 0 ? "+" : "-"}${Math.abs(value).toFixed(1)}%`;
-}
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "16 Nov 2026" from an ISO date or time (its UTC date). */
-export function shortDate(iso: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!match) return iso;
-  const [, year = "", month = "", day = ""] = match;
-  return `${Number(day)} ${MONTHS[Number(month) - 1] ?? month} ${year}`;
 }
 
 export type Tone = "up" | "down" | "flat" | "due" | "none";
@@ -73,7 +64,7 @@ export function cells(call: Pick<Call, "checkpoints" | "state" | "made_at">): Ce
     if (call.state === "unpriced") {
       return { horizon, text: "unpriced", tone: "none", detail: "No closes to read this against." };
     }
-    return { horizon, text: `due ${shortDate(dueDate(call.made_at, horizon))}`, tone: "due", detail: "" };
+    return { horizon, text: `due ${evidenceDay(dueDate(call.made_at, horizon))}`, tone: "due", detail: "" };
   });
 }
 
@@ -145,6 +136,6 @@ export function predictionStatus(
     return `${outcome} at ${number(settlement.value)}${settlement.late ? " (settled late)" : ""}`;
   }
   return prediction.state === "lapsed"
-    ? `Lapsed, due ${shortDate(prediction.deadline)}`
-    : `Open, due ${shortDate(prediction.deadline)}`;
+    ? `Lapsed, due ${evidenceDay(prediction.deadline)}`
+    : `Open, due ${evidenceDay(prediction.deadline)}`;
 }
