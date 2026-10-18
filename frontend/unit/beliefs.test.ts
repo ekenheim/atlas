@@ -189,7 +189,7 @@ test("words for a judgement, a confidence, companies and who judged", () => {
     }),
   ).toBe("Lumentum, Coherent");
   expect(judgedBy({ actor: "owner", at: "2026-10-12T09:00:00Z" })).toBe(
-    "owner, 2026-10-12",
+    "owner, 12 Oct 2026",
   );
 });
 
@@ -296,7 +296,7 @@ test("when a Belief was last tested is said by the as-of time it was tested agai
         last_examined_outcome: "nothing_new",
       }),
     ),
-  ).toBe("Tested through 2026-10-12: nothing new");
+  ).toBe("Tested through 12 Oct 2026: nothing new");
   expect(
     testedText(
       belief({
@@ -304,5 +304,5 @@ test("when a Belief was last tested is said by the as-of time it was tested agai
         last_examined_outcome: "confirmed",
       }),
     ),
-  ).toBe("Tested through 2026-09-01: confirmed");
+  ).toBe("Tested through 1 Sep 2026: confirmed");
 });

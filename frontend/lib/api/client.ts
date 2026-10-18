@@ -198,6 +198,18 @@ async function post<P extends PostPath>(
   return (await response.json()) as Posted<P>;
 }
 
+export type HypothesesPage = Awaited<ReturnType<typeof listHypotheses>>;
+export type CallStateName = Call["state"];
+export type PredictionStateName = Prediction["state"];
+
+const listHypotheses = () => get("/api/v1/hypotheses", { query: PAGE });
+let hypothesesMemo: Promise<HypothesesPage> | null = null;
+
+/** Drop the shared Hypotheses read: after a publication, a correction or a proposed update. */
+export function forgetHypotheses(): void {
+  hypothesesMemo = null;
+}
+
 export const api = {
   companies: () => get("/api/v1/companies", { query: PAGE }),
   company: (id: string) => get("/api/v1/companies/{company_id}", { path: { company_id: id } }),
@@ -269,6 +281,31 @@ export const api = {
   session: (id: string) => get("/api/v1/sessions/{session_id}", { path: { session_id: id } }),
   /** The research frontier: every Issue (the page filters and orders them). */
   issues: () => get("/api/v1/issues", { query: { limit: 500, offset: 0 } }),
+  /** One Issue, with what it produced and its parent. */
+  issue: (id: string) => get("/api/v1/issues/{issue_id}", { path: { issue_id: id } }),
+  /** One Fact, with its quote and span. */
+  fact: (id: string) => get("/api/v1/facts/{fact_id}", { path: { fact_id: id } }),
+  /** Open proposed updates to published Hypotheses (waiting on the owner). */
+  proposedUpdates: (state: "open" | "accepted" | "dismissed" = "open") =>
+    get("/api/v1/proposed-updates", { query: { state, ...PAGE } }),
+  /** Reporting dates TradingView's calendar gave, from `eventFrom` on (leads, never Evidence). */
+  calendarLeads: (eventFrom: string) =>
+    get("/api/v1/leads", {
+      query: { origin: "tradingview_calendar", event_from: eventFrom, limit: 100, offset: 0 },
+    }),
+  /** How many edges wait in the exceptions queue (the total only). */
+  exceptionsTotal: async () =>
+    (await get("/api/v1/relationships/exceptions", { query: { limit: 1, offset: 0 } })).total,
+  /** How many Candidates are leads still to decide (the total only). */
+  candidatesTotal: async () =>
+    (await get("/api/v1/candidates", { query: { state: "lead", limit: 1, offset: 0 } })).total,
+  /** How many identity mappings await the owner (the total only). */
+  identityPendingTotal: async () =>
+    (
+      await get("/api/v1/identity-mappings", {
+        query: { review_state: "pending", limit: 1, offset: 0 },
+      })
+    ).total,
   /** A theme's Beliefs (the first 500), filtered as `query` says. */
   beliefs: (query: BeliefQuery) => get("/api/v1/beliefs", { query: { ...query, ...PAGE } }),
   belief: (id: string) =>
@@ -313,14 +350,27 @@ export const api = {
     post("/api/v1/hypotheses", {}, { investigation_id: investigationId }),
   /** A theme's calls, newest first, each with its checkpoints (the prospective record). */
   calls: (theme: string) => get("/api/v1/calls", { query: { theme, ...PAGE } }),
+  /** Every theme's calls, optionally of one state (open, settled, unpriced). */
+  allCalls: (state?: CallStateName) =>
+    get("/api/v1/calls", { query: { ...(state ? { state } : {}), ...PAGE } }),
   /** A Hypothesis's predictions, soonest deadline first, with their settlements. */
-  predictions: (hypothesisId: string) =>
+  hypothesisPredictions: (hypothesisId: string) =>
     get("/api/v1/hypotheses/{hypothesis_id}/predictions", {
       path: { hypothesis_id: hypothesisId },
       query: PAGE,
     }),
-  /** Every Hypothesis, newest first, each with its versions and transitions. */
-  hypotheses: () => get("/api/v1/hypotheses", { query: PAGE }),
+  /** Every Hypothesis's predictions, optionally of one state (open, settled, lapsed). */
+  predictions: (state?: PredictionStateName) =>
+    get("/api/v1/predictions", { query: { ...(state ? { state } : {}), ...PAGE } }),
+  /** Every Hypothesis, newest first, each with its versions and transitions. One read is
+   * shared by every part of a page (and by the pages of a session) until `forgetHypotheses`. */
+  hypotheses: (): Promise<HypothesesPage> => {
+    hypothesesMemo ??= listHypotheses().catch((error: unknown) => {
+      hypothesesMemo = null;
+      throw error;
+    });
+    return hypothesesMemo;
+  },
   hypothesis: (id: string) =>
     get("/api/v1/hypotheses/{hypothesis_id}", { path: { hypothesis_id: id } }),
   /** A version's dossier: its findings with numbered citations, and the run metadata. */
@@ -351,15 +401,25 @@ export const api = {
   publishGate: (id: string) =>
     get("/api/v1/hypotheses/{hypothesis_id}/publish-gate", { path: { hypothesis_id: id } }),
   /** Publish the latest version; a refusal is an `ApiError` listing the gate's `failures`. */
-  publishVersion: (id: string, version: number) =>
-    post(
+  publishVersion: async (id: string, version: number) => {
+    const published = await post(
       "/api/v1/hypotheses/{hypothesis_id}/publish-version",
       { path: { hypothesis_id: id } },
       { version, override_beliefs: false },
-    ),
+    );
+    forgetHypotheses();
+    return published;
+  },
   /** A lifecycle change (`reviewed` only by publishing). */
-  transitionHypothesis: (id: string, to: HypothesisStatus) =>
-    post("/api/v1/hypotheses/{hypothesis_id}/transitions", { path: { hypothesis_id: id } }, { to }),
+  transitionHypothesis: async (id: string, to: HypothesisStatus) => {
+    const changed = await post(
+      "/api/v1/hypotheses/{hypothesis_id}/transitions",
+      { path: { hypothesis_id: id } },
+      { to },
+    );
+    forgetHypotheses();
+    return changed;
+  },
   /** A Hypothesis's Research Snapshots, oldest first. */
   snapshots: (hypothesisId: string) =>
     get("/api/v1/snapshots", { query: { hypothesis_id: hypothesisId, ...PAGE } }),

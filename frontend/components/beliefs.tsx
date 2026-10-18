@@ -11,13 +11,13 @@ import {
   companyNames,
   confidenceText,
   confirmationText,
-  day,
   direction,
   groupBySteps,
   judgementTone,
   judgedBy,
   valenceText,
 } from "../lib/beliefs";
+import { evidenceDay } from "../lib/format";
 import { routes } from "../lib/routes";
 
 type Citation = Belief["citations"][number];
@@ -54,7 +54,7 @@ export function BeliefRow({
         </div>
         <div className="reader-row-sub">
           {exposure && <>{EXPOSURE[exposure]} · </>}
-          {companyNames(belief)} · as of {day(belief.as_of)} ·{" "}
+          {companyNames(belief)} · as of {evidenceDay(belief.as_of)} ·{" "}
           {belief.citation_count}{" "}
           {belief.citation_count === 1 ? "citation" : "citations"}
           {belief.open_flags > 0 && (
@@ -89,7 +89,7 @@ export function CitationQuote({ citation }: { citation: Citation }) {
       <blockquote>{citation.quote}</blockquote>
       <figcaption>
         {citation.company_name} · {citation.source_title ?? "source"} ·
-        available {day(citation.available_at)} · {valenceText(citation)}
+        available {evidenceDay(citation.available_at)} · {valenceText(citation)}
         {!citation.stands && " · no longer stands"}
         {" · "}
         <Link href={routes.span(citation.source_version_id, citation.ref_id)}>
@@ -115,7 +115,7 @@ export function FlagList({ flags }: { flags: Belief["flags"] }) {
           {FLAGS[flag.kind]}
           <br />
           <span className="muted-small">
-            {flag.detail} Raised {day(flag.raised_at)}.
+            {flag.detail} Raised {evidenceDay(flag.raised_at)}.
           </span>
         </li>
       ))}
@@ -138,7 +138,7 @@ export function NoticeList({ notices }: { notices: Belief["notices"] }) {
           {NOTICES[notice.kind]}
           <br />
           <span className="muted-small">
-            {notice.detail} Raised {day(notice.raised_at)}.
+            {notice.detail} Raised {evidenceDay(notice.raised_at)}.
           </span>
         </li>
       ))}

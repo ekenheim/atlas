@@ -18,11 +18,11 @@ import {
   STEPS,
   citationsByCompany,
   companyNames,
-  day,
   judgedBy,
   testedText,
   type JudgementName,
 } from "../../lib/beliefs";
+import { evidenceDay } from "../../lib/format";
 import { routes } from "../../lib/routes";
 import { useIdParam, usePolled } from "../../lib/use-api";
 
@@ -68,7 +68,7 @@ function Body({ belief, reload }: { belief: Belief; reload: () => void }) {
       </p>
       <p className="muted-small">
         Judged by {judgedBy(belief.judgement)}: {belief.judgement.reason}.
-        Evidence as of {day(belief.as_of)}. About {companyNames(belief)}.
+        Evidence as of {evidenceDay(belief.as_of)}. About {companyNames(belief)}.
       </p>
 
       {belief.superseded_by.length > 0 && (
@@ -170,7 +170,7 @@ function Body({ belief, reload }: { belief: Belief; reload: () => void }) {
               )}
             </Row>
             <Row name="Proposed by">
-              {belief.created_by}, {day(belief.created_at)}
+              {belief.created_by}, {evidenceDay(belief.created_at)}
             </Row>
             <Row name="Citations">{belief.citation_count}</Row>
             <Row name="Tested">{testedText(belief)}</Row>

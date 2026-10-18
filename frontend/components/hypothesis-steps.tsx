@@ -14,7 +14,6 @@ import {
   JUDGEMENTS,
   type JudgementName,
   confidenceText,
-  day,
   judgementTone,
 } from "../lib/beliefs";
 import {
@@ -28,6 +27,7 @@ import {
   stepViews,
   thesisCheck,
 } from "../lib/hypothesis-steps";
+import { evidenceDay } from "../lib/format";
 import { routes } from "../lib/routes";
 import { useApi } from "../lib/use-api";
 import { CitationQuote } from "./beliefs";
@@ -128,7 +128,7 @@ function StepBeliefRow({
         </div>
         <div className="reader-row-sub">
           {belief.companies.join(", ") || "no company"} · as of{" "}
-          {day(belief.as_of)} · judged by {belief.judged_by}
+          {evidenceDay(belief.as_of)} · judged by {belief.judged_by}
         </div>
         {changed && (
           <div className="reader-row-sub">
@@ -141,7 +141,7 @@ function StepBeliefRow({
             <blockquote>{citation.quote}</blockquote>
             <figcaption>
               {citation.company_name} · {citation.source_title ?? "source"} ·
-              available {day(citation.available_at)} ·{" "}
+              available {evidenceDay(citation.available_at)} ·{" "}
               <Link
                 href={routes.span(citation.source_version_id, citation.ref_id)}
               >
