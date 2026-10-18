@@ -16,9 +16,14 @@ test("one card per theme in config order, the thesis, weakest step and strip in 
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeAttached();
   const cards = page.locator("article.theme-card:not(.theme-card-skeleton)");
-  await expect(cards).toHaveCount(3);
-  // Photonics has Beliefs; the two themes with none come last, in the config's order.
-  await expect(cards.locator("h2")).toHaveText([PHOTONICS, MEMORY, "Early-call scorecard"]);
+  await expect(cards).toHaveCount(4);
+  // Photonics has Beliefs; the three themes with none come last, in the config's order.
+  await expect(cards.locator("h2")).toHaveText([
+    PHOTONICS,
+    MEMORY,
+    "Robotics manufacturing",
+    "Early-call scorecard",
+  ]);
 
   const photonics = page.getByRole("article", { name: PHOTONICS });
   await expect(photonics).toContainText("No thesis yet · 1 proven Belief");
