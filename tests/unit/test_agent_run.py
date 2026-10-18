@@ -342,6 +342,12 @@ def test_an_isolated_run_tells_the_researcher_its_session_is_open_and_to_use_onl
         assert refused not in prompt.split("\nTools: ", 1)[1].split("\n", 1)[0]
 
 
+# Tools the server gained after v0.6.14 (the frozen surface of the early-call scorecard, ticket
+# 29). Each refuses an isolated session server-side and is deliberately not named in
+# `agent/run.sh`'s isolated text, which must stay byte-identical to v0.6.14's.
+REFUSED_SERVER_SIDE_SINCE_0_6_14 = {"bear_checks"}
+
+
 def test_the_isolated_prompt_names_every_tool_that_is_off_the_list(run: Run):
     # The Tools line and the named list together are the server's tools, none twice: a tool the
     # server gains is on neither, and this test fails until someone decides where it goes.
@@ -356,7 +362,12 @@ def test_the_isolated_prompt_names_every_tool_that_is_off_the_list(run: Run):
     assert on_list == ISOLATED_TOOLS
     assert len(named) == len(set(named))
     assert not set(named) & set(on_list)
-    assert set(named) | set(on_list) == server, sorted(server ^ (set(named) | set(on_list)))
+    # The tools added since v0.6.14 are refused in an isolated session by the server
+    # (`Ctx.refuse_isolated`) and deliberately not named in the frozen prompt: naming them would
+    # change what the scorecard's sessions are told.
+    assert not REFUSED_SERVER_SIDE_SINCE_0_6_14 & (set(named) | set(on_list))
+    seen = set(named) | set(on_list) | REFUSED_SERVER_SIDE_SINCE_0_6_14
+    assert seen == server, sorted(server ^ seen)
     # The sixteen the lead named, whatever else the server lists.
     assert {
         "open_session",
@@ -376,6 +387,20 @@ def test_the_isolated_prompt_names_every_tool_that_is_off_the_list(run: Run):
         "upcoming_reports",
         "newest_documents",
     } <= set(named)
+
+
+def test_the_isolated_researchers_dry_run_is_what_it_was_in_v0_6_14(run: Run):
+    # The early-call scorecard's frozen surface (ticket 29): the command, the MCP config and the
+    # whole prompt of an isolated researcher, recorded from the tree at v0.6.14 (`agent/` and
+    # `.claude/skills/` are unchanged since). A new tool changes none of it: it is refused
+    # server-side, not named here.
+    result = scorecard_run(run, "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    shown = result.stdout.replace(run.tmp.as_posix(), "<tmp>").replace(ROOT.as_posix(), "<root>")
+    recorded = ROOT / "tests" / "unit" / "fixtures" / "isolated_researcher_dry_run_v0.6.14.txt"
+    assert shown == recorded.read_text(encoding="utf-8")
+    assert "bear_checks" not in shown
 
 
 def test_a_question_without_isolation_still_uses_prior_work_and_both_banks(run: Run):

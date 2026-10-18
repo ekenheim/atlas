@@ -1383,6 +1383,78 @@
         }
       }
     },
+    "/api/v1/companies/{company_id}/bear-checks": {
+      "get": {
+        "tags": [
+          "bear-checks"
+        ],
+        "summary": "Company Bear Checks",
+        "operationId": "company_bear_checks_api_v1_companies__company_id__bear_checks_get",
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "as_of",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the cutoff (ISO 8601 with a time zone); default now",
+              "title": "As Of"
+            },
+            "description": "the cutoff (ISO 8601 with a time zone); default now"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BearChecks"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/assertions": {
       "get": {
         "tags": [
@@ -10626,6 +10698,221 @@
         ],
         "title": "BackfillWindowStatus"
       },
+      "BearCheck": {
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/CheckKey"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus",
+            "description": "`flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`)"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "the numbers or matches behind the status; null when unknown"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis",
+            "description": "in words: what was compared or read, and the rule applied"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/BearCheckSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "status",
+          "value",
+          "basis",
+          "sources"
+        ],
+        "title": "BearCheck"
+      },
+      "BearCheckSource": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "financial_observation",
+              "source_version"
+            ],
+            "title": "Kind"
+          },
+          "observation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Id"
+          },
+          "concept": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concept"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "source_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version Id"
+          },
+          "form_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form Type"
+          },
+          "available_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available At"
+          },
+          "parser_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parser Version"
+          },
+          "char_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char Start"
+          },
+          "char_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char End"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "BearCheckSource",
+        "description": "What a check rests on: XBRL observations (`observation_id`, read at\n`GET /financial-observations/{id}`), or a Source Version with the span of the sentence it\nquotes (`GET /source-versions/{id}/content?kind=parsed&parser_version=` at the offsets, in\ncode points) or, for a filing the ledger holds, the Source Version alone."
+      },
+      "BearChecks": {
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/BearCheck"
+            },
+            "type": "array",
+            "title": "Checks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_id",
+          "as_of",
+          "checks"
+        ],
+        "title": "BearChecks"
+      },
       "Belief": {
         "properties": {
           "id": {
@@ -14021,6 +14308,25 @@
         ],
         "title": "Check",
         "description": "One gold expectation, what was observed, and whether it held."
+      },
+      "CheckKey": {
+        "type": "string",
+        "enum": [
+          "dilution",
+          "shelf_or_atm",
+          "gaap_gross_margin",
+          "customer_concentration",
+          "going_concern",
+          "net_cash"
+        ]
+      },
+      "CheckStatus": {
+        "type": "string",
+        "enum": [
+          "flag",
+          "clear",
+          "unknown"
+        ]
       },
       "Checkpoint": {
         "properties": {

@@ -87,6 +87,7 @@ TOOLS = {
     "signal_leads",
     "prior_work",
     "examine_belief",
+    "bear_checks",
 }
 NO_SESSION_REQUIRED = {"open_session", "companies", "next_issue"}
 

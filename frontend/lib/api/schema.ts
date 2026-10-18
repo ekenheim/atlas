@@ -361,6 +361,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{company_id}/bear-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company Bear Checks */
+        get: operations["company_bear_checks_api_v1_companies__company_id__bear_checks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assertions": {
         parameters: {
             query?: never;
@@ -2459,6 +2476,77 @@ export interface components {
             /** Next Open At */
             next_open_at: string | null;
         };
+        /** BearCheck */
+        BearCheck: {
+            key: components["schemas"]["CheckKey"];
+            /** @description `flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`) */
+            status: components["schemas"]["CheckStatus"];
+            /**
+             * Value
+             * @description the numbers or matches behind the status; null when unknown
+             */
+            value: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Basis
+             * @description in words: what was compared or read, and the rule applied
+             */
+            basis: string;
+            /** Sources */
+            sources: components["schemas"]["BearCheckSource"][];
+        };
+        /**
+         * BearCheckSource
+         * @description What a check rests on: XBRL observations (`observation_id`, read at
+         *     `GET /financial-observations/{id}`), or a Source Version with the span of the sentence it
+         *     quotes (`GET /source-versions/{id}/content?kind=parsed&parser_version=` at the offsets, in
+         *     code points) or, for a filing the ledger holds, the Source Version alone.
+         */
+        BearCheckSource: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "financial_observation" | "source_version";
+            /** Observation Id */
+            observation_id?: string | null;
+            /** Concept */
+            concept?: string | null;
+            /** Period End */
+            period_end?: string | null;
+            /** Value */
+            value?: string | null;
+            /** Source Version Id */
+            source_version_id?: string | null;
+            /** Form Type */
+            form_type?: string | null;
+            /** Available At */
+            available_at?: string | null;
+            /** Parser Version */
+            parser_version?: string | null;
+            /** Char Start */
+            char_start?: number | null;
+            /** Char End */
+            char_end?: number | null;
+            /** Quote */
+            quote?: string | null;
+        };
+        /** BearChecks */
+        BearChecks: {
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Checks */
+            checks: components["schemas"]["BearCheck"][];
+        };
         /** Belief */
         Belief: {
             /**
@@ -3818,6 +3906,10 @@ export interface components {
             /** Passed */
             passed: boolean;
         };
+        /** @enum {string} */
+        CheckKey: "dilution" | "shelf_or_atm" | "gaap_gross_margin" | "customer_concentration" | "going_concern" | "net_cash";
+        /** @enum {string} */
+        CheckStatus: "flag" | "clear" | "unknown";
         /** Checkpoint */
         Checkpoint: {
             /** Horizon Months */
@@ -12947,6 +13039,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FinancialObservationHistory"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    company_bear_checks_api_v1_companies__company_id__bear_checks_get: {
+        parameters: {
+            query?: {
+                /** @description the cutoff (ISO 8601 with a time zone); default now */
+                as_of?: string | null;
+            };
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BearChecks"];
                 };
             };
             /** @description Not Found */

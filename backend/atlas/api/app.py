@@ -11,6 +11,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Info, gene
 from atlas import __version__
 from atlas.api.archive_search import archive_search_router
 from atlas.api.assertions import assertions_router
+from atlas.api.bear_checks import bear_checks_router
 from atlas.api.beliefs import beliefs_router
 from atlas.api.calls import calls_router, predictions_router
 from atlas.api.candidates import candidates_router
@@ -120,6 +121,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(sources_router(engine, archive))
     app.include_router(archive_search_router(engine, archive))
     app.include_router(financials_router(engine, settings.financial_metrics_config))
+    app.include_router(bear_checks_router(engine, archive, settings.financial_metrics_config))
     app.include_router(assertions_router(engine, archive, Actor.from_settings(settings)))
     app.include_router(facts_router(engine, archive, Actor.from_settings(settings), settings))
     app.include_router(
