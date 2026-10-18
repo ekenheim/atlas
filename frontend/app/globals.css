@@ -1446,3 +1446,26 @@ blockquote.quote-clamped {
   height: 0.9rem;
   margin: 0.5rem 0;
 }
+
+/* Issues: a list of rows, the parent clamped to one line. */
+.issue-parent {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issue-body {
+  color: var(--text-2);
+}
+
+.issue-rows .reader-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.th-wrap {
+  min-width: 14rem;
+}
+
+.system-rows .reader-row {
+  grid-template-columns: minmax(0, 1fr);
+}
