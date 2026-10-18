@@ -268,6 +268,17 @@ async def get_belief(ctx: Ctx, args: GetBeliefArgs) -> dict[str, Any]:
         each for each in rows(found.get("counterevidence")) if each["id"] in shown
     ]
     found["hidden_citations"] = len(citations) - len(kept)
+    # The summary's newest evidence counts every supporting citation; the session's is the
+    # newest of those it can see, else a later document's date would leak.
+    found["newest_evidence_at"] = max(
+        (
+            each["available_at"]
+            for each in kept
+            if each["weight"] == "load_bearing" and each["valence"] > 0
+        ),
+        key=datetime.fromisoformat,
+        default=None,
+    )
     # A flag raised by a citation the session cannot see would say what that citation said.
     flags = rows(found.get("flags"))
     found["flags"] = [each for each in flags if each["ref_id"] not in late_refs]

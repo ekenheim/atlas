@@ -3,7 +3,19 @@
 - `POST /sessions` (201): open a Claude session (question, theme, seeds, as_of, model, actor)
 - `POST /sessions/{id}/close`: set its usage, card (the argument plan's card shape) and
   markdown; 409 `session_closed` when it is closed already or is a pipeline session
-- `GET /sessions?theme=` (newest first), `GET /sessions/{id}` (with its Facts)
+- `GET /sessions?theme=` (newest first), `GET /sessions/{id}` (with its Facts). Both carry what
+  the session did (ticket 31): `agent`, `beliefs_proposed` (Beliefs whose producing session it
+  is), `beliefs_examined` (`confirmed`, `qualified`, `contradicted`, `nothing_new`: its
+  `belief_examination` rows by outcome, zeros when none) and `issues_opened` (Issues it
+  produced), each counted in the one query that lists the sessions.
+  `agent` is `scout`, `researcher`, `skeptic`, `editor` or `lead`, derived from the recorded
+  `kind`, `actor` and `question`: a pipeline session is always `lead`'s (its roles are not one
+  agent); a session of a Claude is the agent its actor names, when the actor is that name alone
+  (`scout`, `atlas-scout`, `researcher-agent`, `Skeptic`: an optional `atlas-` before and
+  `-agent` or `-routine` after, any case; the scheduled routines pass `actor: atlas-<agent>`
+  since ticket 29b), else, as the fallback for older sessions, the one its question opens with
+  (`Scout:`, `Skeptic:` or `Editor:`, as the agents' prompts told them to open: those routines
+  passed no actor, so their sessions carry the API's own); any other is `lead`.
 - `GET /sessions/{id}/tool-calls`: the calls the session made through the Atlas MCP server, in
   order (tool, arguments as received, outcome `ok`/`refused`/`error`, the refusal's code, time),
   from the insert-only `session_tool_call` (ticket 29a: classifying a scorecard run's misses)

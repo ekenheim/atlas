@@ -199,6 +199,23 @@ def test_a_belief_is_proposed_unproven_with_its_citations_and_audited(atlas: Atl
     assert atlas.actions(belief["id"]) == ["belief.proposed"]
 
 
+def test_a_belief_shows_the_newest_document_its_load_bearing_citations_rest_on(
+    atlas: Atlas,
+) -> None:
+    fact = atlas.fact()
+    belief = atlas.propose(fact)
+    [citation] = belief["citations"]
+
+    # The date is the cited document's `available_at`, read apart from the Belief.
+    assert belief["newest_evidence_at"] == citation["available_at"]
+    assert (
+        atlas.get(f"/api/v1/beliefs/{belief['id']}")["newest_evidence_at"]
+        == (citation["available_at"])
+    )
+    [listed] = atlas.get("/api/v1/beliefs", theme="photonics")["items"]
+    assert listed["newest_evidence_at"] == citation["available_at"]
+
+
 def test_a_belief_without_a_load_bearing_positive_citation_is_refused(atlas: Atlas) -> None:
     fact = atlas.fact()
     body = {

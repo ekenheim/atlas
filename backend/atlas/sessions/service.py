@@ -1,6 +1,7 @@
 """Opening, closing, recording and reading research sessions."""
 
 import json
+import re
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -16,6 +17,31 @@ if TYPE_CHECKING:
     from atlas.judging import Judges
 
 type SessionKind = Literal["claude", "pipeline"]
+type Agent = Literal["scout", "researcher", "skeptic", "editor", "lead"]
+
+_AGENTS: tuple[Agent, ...] = ("scout", "researcher", "skeptic", "editor")
+# An actor that names an agent: the agent's name alone, with an optional `atlas-` before it and
+# `-agent` or `-routine` after it ("atlas-scout", "Skeptic", "researcher-agent"). Whole names
+# only: the API's own actor ("local-researcher") and "boyscout" name no agent.
+_ACTOR = re.compile(r"(?:atlas[-_])?(scout|researcher|skeptic|editor)(?:[-_](?:agent|routine))?")
+# A question that opens with an agent's name and a colon ("Scout: what ...", "Skeptic: what would
+# falsify Belief ...", "Editor: draft ..."): how the agents' prompts (`scout.md`, `skeptic.md`,
+# `editor.md`) tell them to open their session: the fallback for sessions older than the
+# routines' `actor: atlas-<agent>` (ticket 29b).
+_OPENING = re.compile(r"\s*(scout|skeptic|editor)\s*:", re.IGNORECASE)
+
+
+def agent_of(kind: str, actor: str, question: str) -> Agent:
+    """Which agent ran a session: the rule `GET /sessions` documents."""
+    if kind != "claude":
+        return "lead"
+    named = _ACTOR.fullmatch(actor.strip().lower())
+    if named is not None:
+        return next(each for each in _AGENTS if each == named.group(1))
+    opening = _OPENING.match(question)
+    if opening is not None:
+        return next(each for each in _AGENTS if each == opening.group(1).lower())
+    return "lead"
 
 
 class SessionNotFound(Exception):
@@ -60,6 +86,15 @@ class SessionClose(BaseModel):
     card_markdown: str | None = None
 
 
+class Examined(BaseModel):
+    """The Beliefs a session tested, counted by what it found (`belief_examination`)."""
+
+    confirmed: int
+    qualified: int
+    contradicted: int
+    nothing_new: int
+
+
 class SessionSummary(BaseModel):
     id: uuid.UUID
     question: str
@@ -88,6 +123,21 @@ class SessionSummary(BaseModel):
         description="the times it recorded a span an earlier Fact already covers and was given"
         " that Fact instead of a new one (`session_fact_reuse`, ticket 26)",
     )
+    agent: Agent = Field(
+        description="who ran it, derived from `kind`, `actor` and `question` (ticket 31): a"
+        " pipeline session is `lead`'s; otherwise `scout`, `researcher`, `skeptic` or `editor`"
+        " when the actor is that name alone (with an optional `atlas-` before and `-agent` or"
+        " `-routine` after), else when the question opens with `Scout:`, `Skeptic:` or"
+        " `Editor:`; any other is `lead`",
+    )
+    beliefs_proposed: int = Field(description="the Beliefs it produced (`belief.produced_by`)")
+    beliefs_examined: Examined = Field(
+        description="the Beliefs it tested, counted by outcome (`belief_examination`); zeros"
+        " when it tested none",
+    )
+    issues_opened: int = Field(
+        default=0, description="the Issues it produced (`issue.produced_by`)"
+    )
 
 
 class ResearchSession(SessionSummary):
@@ -103,8 +153,18 @@ _SUMMARY = """
                OR (s.investigation_id IS NOT NULL AND f.investigation_id = s.investigation_id)
            ) AS facts,
            (SELECT count(*) FROM session_tool_call c WHERE c.session_id = s.id) AS tool_calls,
-           (SELECT count(*) FROM session_fact_reuse r WHERE r.session_id = s.id) AS facts_reused
+           (SELECT count(*) FROM session_fact_reuse r WHERE r.session_id = s.id) AS facts_reused,
+           (SELECT count(*) FROM belief b WHERE b.produced_by = s.id) AS beliefs_proposed,
+           (SELECT count(*) FROM issue i WHERE i.produced_by = s.id) AS issues_opened,
+           ex.confirmed, ex.qualified, ex.contradicted, ex.nothing_new
     FROM research_session s
+    LEFT JOIN LATERAL (
+        SELECT count(*) FILTER (WHERE e.outcome = 'confirmed') AS confirmed,
+               count(*) FILTER (WHERE e.outcome = 'qualified') AS qualified,
+               count(*) FILTER (WHERE e.outcome = 'contradicted') AS contradicted,
+               count(*) FILTER (WHERE e.outcome = 'nothing_new') AS nothing_new
+        FROM belief_examination e WHERE e.session_id = s.id
+    ) ex ON true
 """
 
 
@@ -126,6 +186,15 @@ def _summary(row: Any) -> SessionSummary:
         facts=row.facts,
         tool_calls=row.tool_calls,
         facts_reused=row.facts_reused,
+        agent=agent_of(row.kind, row.actor, row.question),
+        beliefs_proposed=row.beliefs_proposed,
+        beliefs_examined=Examined(
+            confirmed=row.confirmed,
+            qualified=row.qualified,
+            contradicted=row.contradicted,
+            nothing_new=row.nothing_new,
+        ),
+        issues_opened=row.issues_opened,
     )
 
 

@@ -920,6 +920,56 @@ def test_beliefs_are_listed_and_read_only_as_of_the_sessions_time(mcp: Mcp) -> N
     mcp.refused("get_belief", "not_found", session_id=late, belief_id=NOBODY)
 
 
+def test_get_belief_shows_the_newest_supporting_evidence_the_session_may_see(mcp: Mcp) -> None:
+    early, late = mcp.open(BEFORE_10K), mcp.open(LATER)
+    press = "2026-08-11T20:24:11Z"  # the press release; the 10-K is public on 17 August
+    tenk = mcp.fact(late, URL_10K, TENK_SHARES, statement="Lumentum had 89.7 million shares.")
+    fact = mcp.fact(early, URL_EX991, REVENUE_QUOTE, statement=REVENUE_STATEMENT)
+
+    def belief(statement: str, citation: dict[str, Any] | None) -> str:
+        proposed = mcp.ok(
+            "propose_belief", session_id=early, statement=statement, step="capture",
+            companies=["lumentum"],
+            citations=[{"fact_id": fact, "how": 1, "weight": "load_bearing"}],
+        )  # fmt: skip
+        if citation is not None:
+            mcp.ok("cite_belief", session_id=late, belief_id=proposed["id"], citation=citation)
+        return proposed["id"]
+
+    # The 10-K, cited by a context citation or against the Belief, is not supporting evidence;
+    # cited as load-bearing support it is.
+    context = belief(
+        "Lumentum reported $1.01 billion in revenue.",
+        {"fact_id": tenk, "how": 0.5, "weight": "context"},
+    )
+    against = belief(
+        "Lumentum booked $1.01 billion of revenue in the fourth quarter.",
+        {"fact_id": tenk, "how": -1, "weight": "load_bearing"},
+    )
+    support = belief(
+        "Lumentum recorded $1.01 billion of net revenue for the quarter.",
+        {"fact_id": tenk, "how": 0.5, "weight": "load_bearing"},
+    )
+
+    newest = {
+        name: {
+            who: mcp.ok("get_belief", session_id=session, belief_id=each)["newest_evidence_at"]
+            for who, session in (("early", early), ("late", late))
+        }
+        for name, each in (("context", context), ("against", against), ("support", support))
+    }
+
+    assert newest["context"] == {"early": press, "late": press}
+    assert newest["against"] == {"early": press, "late": press}
+    # The late session sees the 10-K's date; the early one, to whom the 10-K is not public yet,
+    # sees the earlier date, though the Belief itself rests on the later document.
+    assert newest["support"]["early"] == press
+    assert newest["support"]["late"].startswith("2026-08-17")
+    stored = mcp.get(f"/api/v1/beliefs/{support}")
+    assert stored["newest_evidence_at"] == newest["support"]["late"]
+    assert "2026-08-17" not in json.dumps(mcp.ok("get_belief", session_id=early, belief_id=support))
+
+
 def test_a_belief_read_as_of_an_early_session_hides_what_later_work_added_to_it(
     mcp: Mcp,
 ) -> None:

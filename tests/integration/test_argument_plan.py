@@ -2144,6 +2144,8 @@ def test_an_argument_investigation_is_a_pipeline_session_once_its_editor_has_wri
 
     listed = atlas.api.get("/api/v1/sessions", params={"theme": "photonics"}).json()["items"]
     assert [(s["kind"], s["investigation_id"]) for s in listed] == [("pipeline", investigation_id)]
+    # The pipeline's roles are not one agent: its session is the lead's, whatever its actor.
+    assert [s["agent"] for s in listed] == ["lead"]
     assert atlas.api.get("/api/v1/sessions", params={"theme": "robotics"}).json()["total"] == 0
     session = atlas.api.get("/api/v1/sessions/" + listed[0]["id"]).json()
     assert session["question"] == QUESTION
