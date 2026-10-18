@@ -57,12 +57,8 @@ function EdgeTable() {
         <Link href={routes.companies}>Companies</Link>
       </p>
       <h1>Relationships</h1>
-      <p>
-        Every edge the graph holds: who does what to whom, in which supply-chain layer (when its
-        Evidence names one), how it
-        was reviewed and how much independent Evidence backs it. Open an edge to see each
-        supporting Assertion and its source span. Edges waiting for the owner are in the{" "}
-        <Link href={routes.exceptions}>exceptions queue</Link>.
+      <p className="muted-small">
+        Edges waiting for the owner are in the <Link href={routes.exceptions}>exceptions queue</Link>.
       </p>
       <form
         className="filters"

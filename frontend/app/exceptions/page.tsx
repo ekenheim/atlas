@@ -36,11 +36,6 @@ export default function ExceptionsPage() {
         <Link href={routes.relationships()}>Relationships</Link>
       </p>
       <h1>Exceptions queue</h1>
-      <p>
-        Relationships that need human review: a deterministic check failed (a hedge, a
-        non-Tier A source, a span that isn&apos;t verbatim) or the Reviewer didn&apos;t
-        confirm them. Open an edge to read its Evidence before deciding.
-      </p>
       {notice && (
         <p role="status" aria-live="polite">
           {notice}

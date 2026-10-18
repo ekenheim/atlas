@@ -30,6 +30,12 @@ test("a run reads as what it came to", () => {
   expect(outcomeText(session({}))).toBe("found nothing new");
 });
 
+test("a server that does not send the session fields yet still reads: the run is the lead's", () => {
+  const old = { id: "s", question: "Q", started_at: "2026-10-17T10:00:00Z", facts: 2 } as unknown as SessionSummary;
+  expect(outcomeText(old)).toBe("recorded 2 Facts");
+  expect(collapseRuns([old, old]).map((group) => group.runs)).toEqual([2]);
+});
+
 test("an agent's repeats of one question collapse into the newest, with their count", () => {
   const groups = collapseRuns([
     session({ id: "a", started_at: "2026-10-10T00:00:00Z" }),

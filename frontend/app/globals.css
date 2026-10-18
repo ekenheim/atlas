@@ -2072,3 +2072,42 @@ h1,
 .agent-rows .row-title {
   overflow-wrap: anywhere;
 }
+
+/* Phone: a wide table scrolls inside its own box, never the page. */
+@media (max-width: 40rem) {
+  main table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  main .mem-scroll table {
+    display: table;
+  }
+}
+
+textarea,
+input,
+select {
+  max-width: 100%;
+}
+
+textarea {
+  box-sizing: border-box;
+}
+
+/* A proposition that runs long (no colon to end it) is set smaller and clamped, not allowed to push
+   everything below it off the first screen. */
+.hypothesis-page .reader-headline.headline-long {
+  font-size: 1.2rem;
+  line-height: 1.35;
+}
+
+.thesis-line {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}

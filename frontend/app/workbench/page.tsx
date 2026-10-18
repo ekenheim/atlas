@@ -23,12 +23,7 @@ export default function WorkbenchPage() {
   return (
     <>
       <h1>Research workbench</h1>
-      <p>
-        An investigation runs a theme question through a plan: Scout, then one Investigator
-        per seed company and per other company Memory points to, then the Skeptic beside the
-        Financial Analyst, then the Editor, within its budgets. Follow it here, launch one follow-up round on an open
-        question, and save its research card as a Hypothesis.
-      </p>
+      <p className="muted-small">Start a question, follow a run, save its card as a Hypothesis.</p>
       <section aria-labelledby="start">
         <h2 id="start">Start an investigation</h2>
         <Load loaded={themes} what="the themes">

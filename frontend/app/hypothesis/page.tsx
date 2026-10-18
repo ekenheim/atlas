@@ -170,7 +170,7 @@ function Body({
             </span>
           </p>
         )}
-        <h1 className="reader-headline measure">{lead}</h1>
+        <h1 className={`reader-headline measure${lead.length > 160 ? " headline-long" : ""}`}>{lead}</h1>
         {version !== undefined && <ThesisRest version={version} />}
         {weakest && <p className="card-weakest">{weakestText(weakest)}</p>}
         {argument && <ArgumentStrip steps={argument} />}
