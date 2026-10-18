@@ -54,7 +54,8 @@
         }
       }
     ],
-    "card": null
+    "card": null,
+    "card_markdown": "# Card\n\nZephyr cut wafer starts to keep supply in balance.\n\nOpen: who else supplies?"
   },
   "/sessions/00000001-0000-4000-8000-000000000002": {
     "id": "00000001-0000-4000-8000-000000000002",
@@ -85,7 +86,8 @@
         }
       }
     ],
-    "card": null
+    "card": null,
+    "card_markdown": null
   },
   "/sessions/00000001-0000-4000-8000-000000000003": {
     "id": "00000001-0000-4000-8000-000000000003",
@@ -116,7 +118,8 @@
         }
       }
     ],
-    "card": null
+    "card": null,
+    "card_markdown": null
   },
   "/sessions/00000001-0000-4000-8000-000000000004": {
     "id": "00000001-0000-4000-8000-000000000004",
@@ -133,7 +136,8 @@
     "facts": 0,
     "tool_calls": 3,
     "fact_items": [],
-    "card": null
+    "card": null,
+    "card_markdown": null
   },
   "/sessions/00000001-0000-4000-8000-000000000005": {
     "id": "00000001-0000-4000-8000-000000000005",
@@ -164,7 +168,8 @@
         }
       }
     ],
-    "card": null
+    "card": null,
+    "card_markdown": null
   },
   "/sessions/00000001-0000-4000-8000-000000000006": {
     "id": "00000001-0000-4000-8000-000000000006",
@@ -181,7 +186,8 @@
     "facts": 0,
     "tool_calls": 2,
     "fact_items": [],
-    "card": null
+    "card": null,
+    "card_markdown": null
   },
   "/sessions/00000001-0000-4000-8000-000000000007": {
     "id": "00000001-0000-4000-8000-000000000007",
@@ -212,7 +218,8 @@
         }
       }
     ],
-    "card": null
+    "card": null,
+    "card_markdown": null
   },
   "/sessions/00000001-0000-4000-8000-000000000001/tool-calls": [
     {
@@ -837,6 +844,20 @@
         "source_version_id": "00000003-0000-4000-8000-000000000003",
         "source_title": "Zephyr Flash Q3 FY25 call transcript",
         "available_at": "2025-04-30T22:00:00Z"
+      },
+      {
+        "id": "00000005-0000-4000-8000-000000000001",
+        "kind": "fact",
+        "ref_id": "00000004-0000-4000-8000-000000000001",
+        "valence": 0.5,
+        "weight": "context",
+        "statement": "Zephyr cut wafer starts this quarter.",
+        "quote": "we reduced wafer starts in the quarter to keep supply in balance",
+        "span_start": 100,
+        "span_end": 140,
+        "source_version_id": "00000003-0000-4000-8000-000000000001",
+        "source_title": "Zephyr Flash Q2 FY25 results release",
+        "available_at": "2025-01-30T21:05:00Z"
       }
     ]
   },

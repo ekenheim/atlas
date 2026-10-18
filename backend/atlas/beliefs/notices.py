@@ -5,6 +5,9 @@ gate, proposed updates and the pages' "needs a second look" read those) and rais
 update. It is a `belief_notice`, insert-only like a flag and cleared only by a judgement
 (`Beliefs.judge`); it never changes the judgement.
 
+A Fact an **isolated** session recorded (ticket 29a, the early-call scorecard) never raises one:
+its work must not leave a mark on Beliefs other sessions read.
+
 Two events raise `belief_confirmed`, both for a Fact recorded in a research session whose
 document became public after the Belief's as-of time, on a Belief that is active and currently
 proven:
@@ -30,7 +33,9 @@ NOTICE_CONFIRMED = "belief_confirmed"
 
 _FACT = (
     "SELECT a.id, f.session_id, a.value_json->>'statement' AS statement,"
-    " d.title, av.available_at"
+    " d.title, av.available_at,"
+    " COALESCE((SELECT s.isolated FROM research_session s WHERE s.id = f.session_id), false)"
+    "  AS isolated"
     " FROM fact f JOIN assertion a ON a.id = f.assertion_id"
     " JOIN source_version v ON v.id = a.source_version_id"
     " JOIN source_document d ON d.id = v.source_document_id"
@@ -80,9 +85,11 @@ def _notice(connection: Connection, belief_id: uuid.UUID, fact: Any) -> bool:
 
 
 def _session_fact(connection: Connection, fact_id: uuid.UUID) -> Any | None:
-    """The Fact, if a research session recorded it."""
+    """The Fact, if a research session recorded it (and the session was not isolated)."""
     fact = connection.execute(text(_FACT), {"id": fact_id}).one_or_none()
-    return fact if fact is not None and fact.session_id is not None else None
+    if fact is None or fact.session_id is None or fact.isolated:
+        return None
+    return fact
 
 
 def confirm_by_citation(connection: Connection, belief_id: uuid.UUID, fact_id: uuid.UUID) -> bool:

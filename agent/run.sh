@@ -146,10 +146,16 @@ if [[ -n "$question" ]]; then
     seeds_block="Seed companies: none are given; choose at most three with \`companies\` by the layer the question names."
   fi
 fi
+# An isolated session is allowed an explicit list of Atlas tools, not the whole server (the
+# scorecard's runs, ticket 29a): the Belief, Issue and prior-work tools are not among them, and
+# Atlas refuses them besides. The same list is the prompt's `Tools:` line and --allowedTools.
+isolated_tools="open_session close_session companies search read locate record_fact get_fact judge_statement relate_facts propose_belief cite_belief recall"
 if [[ "$isolated" == true ]]; then
-  start_block="Start: this is an isolated session (a replay of a past date), so pass \`isolated: true\` to \`open_session\`. Atlas gives an isolated session no prior work (\`prior_work\` answers empty) and records a Fact for every span you quote, so research from the archive: \`search\`, \`read\`, \`locate\`, \`record_fact\`. Do not call \`prior_work\` or \`examine_belief\`."
-  recall_block="Recall: allowed for \`bank: research\` only, an index to find sections to \`read\`, never evidence. Atlas refuses \`recall\` with \`bank: beliefs\`, \`list_beliefs\`, \`get_belief\` and \`examine_belief\` (\`isolated_session\`): do not call them."
-  isolation_block="- Knowledge: use only what the tools return. Do not use anything you know about the company, its market, its prices or the years after the as-of time from outside this session; a statement no Fact you recorded carries is not scored. Every Belief you propose is a proposal for the lead to read, and Atlas will never judge it."
+  start_block="Start: this is an isolated session (a replay of a past date), so pass \`isolated: true\` to \`open_session\`. Atlas gives an isolated session no prior work and records a Fact for every span you quote, so research from the archive: \`search\`, \`read\`, \`locate\`, \`record_fact\`."
+  recall_block="Recall: allowed for \`bank: research\` only: facts, never observations, an index to find sections to \`read\`, never evidence. Your tools are exactly the ones on the Tools line below; no other Atlas tool is available to you, and the rules above that name one (\`supersede_belief\`, \`open_issue\`, \`next_issue\`, \`prior_work\`, \`examine_belief\`, \`list_beliefs\`) do not apply."
+  isolation_block="- Knowledge: use only what the tools return. Do not use anything you know about the company, its market, its prices or the years after the as-of time from outside this session; a statement no Fact you recorded carries is not scored. Every Belief you propose is a proposal for the lead to read, and Atlas will never judge it. Cite only Facts you recorded in this session."
+  tools_line="$(grep '^Tools: ' "$prompt_file")"
+  prompt="${prompt//"$tools_line"/"Tools: ${isolated_tools// /, }"}"
 fi
 prompt="${prompt//'{{QUESTION_INPUT}}'/$question_block}"
 prompt="${prompt//'{{SEEDS_INPUT}}'/$seeds_block}"
@@ -166,11 +172,17 @@ mcp_json="{\"mcpServers\":{\"atlas\":{\"type\":\"http\",\"url\":\"$mcp_url\"}}}"
 # nobody to ask, and anything else is refused). `mcp__atlas` allows the whole server, and
 # `mcp__atlas__*` is the same in the pattern form. --add-dir lets Write and Edit reach the output
 # folder, which is outside the working directory (the read-only /opt/atlas-agent).
+allowed=("mcp__atlas" "mcp__atlas__*" Read Write Edit Glob)
+if [[ "$isolated" == true ]]; then
+  allowed=()
+  for tool in $isolated_tools; do allowed+=("mcp__atlas__$tool"); done
+  allowed+=(Read Write Edit Glob)
+fi
 cmd=(
   claude -p "$prompt"
   --mcp-config "$mcp_config" --strict-mcp-config
   --tools "Read,Write,Edit,Glob"
-  --allowedTools "mcp__atlas" "mcp__atlas__*" Read Write Edit Glob
+  --allowedTools "${allowed[@]}"
   --add-dir "$out_dir"
   --model "$model"
   --max-turns "$max_turns"
@@ -234,7 +246,7 @@ finished="$(date +%s)"
 # replaced first.
 summary_js='
 const fs = require("fs");
-const [agent, resultFile, errorFile, status, wall, mcpUrl, asOf] = process.argv.slice(1);
+const [agent, resultFile, errorFile, status, wall, mcpUrl, asOf, question, seeds] = process.argv.slice(1);
 const token = process.env.CLAUDE_CODE_OAUTH_TOKEN || "";
 const redact = (text) => (token ? String(text).split(token).join("[redacted]") : String(text));
 const first = (text, n) => Array.from(String(text)).slice(0, n).join("");
@@ -248,15 +260,33 @@ const ok = exit === 0 && object !== null && object.is_error === false && object.
 // The Atlas session the run opened: the one Atlas lists with the as-of time of the run (the
 // agent passes it to open_session unchanged), preferring one whose actor names the agent.
 // session_id is the Claude Code session. Atlas unreachable or no such session: null.
+// Scorecard cases share as-of dates, so a run given a question also matches the session by its
+// question, and by its seed companies when it was given slugs (looked up to ids; a lookup that
+// fails leaves the seeds out of the match).
+const rowsOf = (body) => (Array.isArray(body) ? body : Array.isArray(body && body.items) ? body.items : []);
+const fetchRows = async (base, path) => {
+  const answer = await fetch(base + path, { signal: AbortSignal.timeout(5000) });
+  return answer.ok ? rowsOf(await answer.json()) : null;
+};
 const atlasSession = async () => {
   try {
     const base = String(mcpUrl).replace(/\/mcp\/?$/, "");
-    const answer = await fetch(base + "/api/v1/sessions?limit=20", { signal: AbortSignal.timeout(5000) });
-    if (!answer.ok) return null;
-    const body = await answer.json();
-    const items = Array.isArray(body) ? body : Array.isArray(body && body.items) ? body.items : [];
+    const items = await fetchRows(base, "/api/v1/sessions?limit=50");
+    if (items === null) return null;
     const want = Date.parse(asOf);
-    const same = items.filter((each) => each && Date.parse(each.as_of) === want);
+    let same = items.filter((each) => each && Date.parse(each.as_of) === want);
+    if (question) same = same.filter((each) => String(each.question || "") === question);
+    if (question && seeds) {
+      const companies = await fetchRows(base, "/api/v1/companies?limit=500");
+      const ids = companies === null ? [] : seeds.split(",").map((slug) => {
+        const found = companies.find((each) => each && each.slug === slug);
+        return found ? String(found.id) : null;
+      });
+      if (companies !== null && ids.every((id) => id !== null)) {
+        const wanted = ids.slice().sort().join(",");
+        same = same.filter((each) => (each.seed_company_ids || []).map(String).sort().join(",") === wanted);
+      }
+    }
     const own = same.find((each) => String(each.actor || "").includes(agent)) || same[0];
     return own ? String(own.id) : null;
   } catch (_) {
@@ -291,5 +321,5 @@ process.exit(ok ? 0 : 1);
 })();
 '
 exit_code=0
-node -e "$summary_js" "$agent" "$result" "$errors" "$status" "$((finished - started))" "$mcp_url" "$as_of" || exit_code=$?
+node -e "$summary_js" "$agent" "$result" "$errors" "$status" "$((finished - started))" "$mcp_url" "$as_of" "$question" "$seeds" || exit_code=$?
 exit "$exit_code"

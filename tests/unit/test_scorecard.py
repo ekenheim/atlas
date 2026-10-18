@@ -251,7 +251,8 @@ def test_the_outcome_of_each_run_follows_the_reviewers_and_the_lead() -> None:
     }
     assert result["positive_hits"] == "1 of 4"
     assert result["negative_false_positives"] == "1 of 2"
-    assert result["misses_by_class"] == {"M3": 1, "M4": 2}
+    # The false positive of the negative (Snap) is tallied too, as FP.
+    assert result["misses_by_class"] == {"FP": 1, "M3": 1, "M4": 2}
 
 
 def test_the_report_keeps_the_raw_hit_the_closed_book_verdict_and_the_code_rank_apart() -> None:
@@ -487,3 +488,96 @@ def test_a_bad_file_is_a_clean_error_not_a_traceback(
 
     assert status == 2
     assert "scorecard: run 0: no such case 'tesla'" in capsys.readouterr().err
+
+
+# --- the card, the foreign Facts, the pooled percentile ------------------------------------------
+
+
+def test_a_review_sheet_carries_the_card_the_session_wrote() -> None:
+    runs = sc.parse_runs(RUNS)
+    feb, iren = runs.runs[0], runs.runs[3]
+
+    sheet = sc.review_sheet(feb, sc.collect_bundle(get, feb))
+    bare = sc.review_sheet(iren, sc.collect_bundle(get, iren))
+
+    assert "## The session's card" in sheet
+    assert "> # Card" in sheet
+    assert "> Zephyr cut wafer starts to keep supply in balance." in sheet
+    assert "> Open: who else supplies?" in sheet
+    assert "The session wrote no card." in bare
+
+
+def test_a_review_sheet_flags_a_cited_fact_the_run_s_session_did_not_record() -> None:
+    runs = sc.parse_runs(RUNS)
+    feb, may = runs.runs[0], runs.runs[1]  # the May Belief also cites a February-session Fact
+
+    clean = sc.review_sheet(feb, sc.collect_bundle(get, feb))
+    flagged = sc.review_sheet(may, sc.collect_bundle(get, may))
+
+    assert "WARNING" not in clean
+    assert (
+        "WARNING: 1 citation(s) below are of a Fact the run's own session did not record" in flagged
+    )
+    assert flagged.count("WARNING: this Fact was not recorded in the run's own session") == 1
+    # The warning sits under the foreign citation (valence +0.5), after the Belief's own.
+    own_part, foreign_part = flagged.split("valence +0.5")
+    assert "this Fact was not recorded" not in own_part.split("valence +1")[-1]
+    assert "this Fact was not recorded" in foreign_part
+    assert sc.foreign_citations(sc.collect_bundle(get, may)) == [
+        {
+            "belief_id": "00000002-0000-4000-8000-000000000003",
+            "ref_id": "00000004-0000-4000-8000-000000000001",
+        }
+    ]
+    assert sc.foreign_citations(sc.collect_bundle(get, feb)) == []
+
+
+def test_the_report_flags_a_run_citing_another_sessions_fact() -> None:
+    result = report()
+
+    flags = row(result, "sandisk@2025-05-31")["flags"]
+    assert "cites 1 Fact(s) the run's own session did not record (isolation leak or bug)" in flags
+    assert not any("did not record" in flag for flag in row(result, "sandisk@2025-02-28")["flags"])
+
+
+def test_code_readings_lay_the_rank_and_the_pooled_percentile_over_the_runs() -> None:
+    readings = json.loads((FIXTURES / "code_readings.json").read_text(encoding="utf-8"))
+    runs = sc.apply_code_readings(sc.parse_runs(RUNS), readings)
+    result = sc.build_report(runs, bundles(runs), MARKS["marks"], MARKS["adjudications"])
+
+    feb = row(result, "sandisk@2025-02-28")
+    assert (feb["code_rank"], feb["code_pooled_percentile"]) == (3, 0.97)
+    etoro = row(result, "etoro@2025-09-30")  # no code reading in the runs file; now one
+    assert (etoro["code_read"], etoro["code_rank"], etoro["code_pooled_percentile"]) == (
+        True,
+        None,
+        0.12,
+    )
+    # The rest is as the runs file had it.
+    assert row(result, "iren@2025-03-31")["code_pooled_percentile"] == 0.41
+    text = sc.render_report(result)
+    assert "Pooled percentile (k=20, 365 days)" in text
+    assert "| 3 (in-sample) | 97% (in-sample) |" in text
+    assert "| not in top 20 | 12% |" in text  # eToro: clean case, no in-sample note
+
+
+@pytest.mark.parametrize(
+    ("reading", "message"),
+    [
+        ({"tesla@2025-01-01": {"rank": 1}}, "is not a run in the runs file"),
+        ({"sandisk@2025-02-28": {"rank": 0}}, "rank is a rank from 1 or null"),
+        ({"sandisk@2025-02-28": {"pooled_percentile": 1.5}}, "pooled_percentile is from 0 to 1"),
+        ({"sandisk@2025-02-28": {"pooled_percentile": "high"}}, "must be a number"),
+    ],
+)
+def test_a_code_reading_that_does_not_fit_is_refused(reading: dict[str, Any], message: str) -> None:
+    with pytest.raises(sc.ScorecardError, match=message):
+        sc.apply_code_readings(sc.parse_runs(RUNS), reading)
+
+
+def test_the_per_run_table_shows_the_pooled_percentile_the_runs_file_gave() -> None:
+    text = sc.render_report(report())
+
+    assert "| iren@2025-03-31 |" in text
+    assert "| not in top 20 | 41% |" in text
+    assert "- FP: 1 (a supply constraint the company holds, found on a negative" in text

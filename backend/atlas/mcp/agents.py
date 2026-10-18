@@ -12,9 +12,10 @@ the as-of time taken from the session's row, each a projection of an existing ro
   Issues, all bounded by the session's as-of time.
 - `examine_belief`: `POST /beliefs/{id}/examine`: record that this session tested a Belief
   (`confirmed`, `qualified`, `contradicted`, `nothing_new`); sets no judgement.
-- `list_beliefs`, `get_belief` and `examine_belief` are refused in an **isolated** session
-  (`isolated_session`, ticket 29a: `Ctx.refuse_isolated`), and `prior_work` is answered empty by
-  the route.
+- `list_beliefs`, `get_belief`, `examine_belief` and `list_issues` (and in `atlas.mcp.tools`
+  `next_issue`, `open_issue`, `narrow_issue`, `complete_issue`) are refused in an **isolated**
+  session (`isolated_session`, ticket 29a: `Ctx.refuse_isolated`), and `prior_work` is answered
+  empty by the route.
 - `get_belief`: `GET /beliefs/{id}`; a Belief after the session's time is refused
   (`belief_after_as_of`). What the later work added to it is left out: a citation of a document
   public after the session's time, a flag raised by such a citation, and a supersession link to a
@@ -429,6 +430,7 @@ class ListIssuesArgs(Bound):
     ListIssuesArgs,
 )
 async def list_issues(ctx: Ctx, args: ListIssuesArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("list_issues")
     found: list[dict[str, Any]] = []
     scanned = 0
     while True:
@@ -489,6 +491,7 @@ class DraftHypothesisArgs(Bound):
     DraftHypothesisArgs,
 )
 async def draft_hypothesis(ctx: Ctx, args: DraftHypothesisArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("draft_hypothesis")
     created = await ctx.api.post(
         "/hypotheses",
         {
@@ -541,6 +544,7 @@ def step_view(step: dict[str, Any]) -> dict[str, Any]:
     GetHypothesisArgs,
 )
 async def get_hypothesis(ctx: Ctx, args: GetHypothesisArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("get_hypothesis")
     found = await ctx.api.get(f"/hypotheses/{args.hypothesis_id}")
     cutoff = found.get("as_of")
     if cutoff is None:

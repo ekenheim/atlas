@@ -9,6 +9,11 @@
 - `GET /issues?theme=&status=`, `GET /issues/{id}`
 - `GET /issues/next?theme=`: the next action by rule (`atlas.issues.next_issue`)
 
+An **isolated** session (ticket 29a, the early-call scorecard) has no Issues: `POST /issues` with
+its `produced_by`, and `GET /issues` and `GET /issues/next` with its `session_id`, are 422
+`isolated_session` (its question and open questions would be the next run's frontier, and a
+question with a `lead_id` makes a call), and closing it creates none.
+
 Every write is audited. Errors use the envelope.
 """
 
@@ -49,6 +54,7 @@ from atlas.issues import (
     next_issue,
 )
 from atlas.issues.service import IssueStatus
+from atlas.sessions import session_is_isolated
 
 Paged = Annotated[Pagination, Depends(pagination)]
 
@@ -57,10 +63,27 @@ def issues_router(engine: Engine, actor: Actor, themes_config: Path | None = Non
     router = APIRouter(prefix="/api/v1/issues", tags=["issues"])
     service = Issues(engine, actor, themes_config)
 
+    def isolated_refusal(session_id: uuid.UUID | None) -> JSONResponse | None:
+        with engine.connect() as connection:
+            isolated = session_is_isolated(connection, session_id)
+        if not isolated:
+            return None
+        return error_response(
+            422,
+            "isolated_session",
+            "an isolated session (the early-call scorecard) has no Issues: it starts from"
+            " nothing and leaves nothing for others",
+        )
+
     @router.get("", response_model=Page[Issue], responses=INVALID)
     def issues(  # pyright: ignore[reportUnusedFunction]
-        page: Paged, theme: str | None = None, status: IssueStatus | None = None
-    ) -> Page[Issue]:
+        page: Paged,
+        theme: str | None = None,
+        status: IssueStatus | None = None,
+        session_id: uuid.UUID | None = None,
+    ) -> Page[Issue] | JSONResponse:
+        if (refused := isolated_refusal(session_id)) is not None:
+            return refused
         with engine.connect() as connection:
             items, total = list_issues(
                 connection, theme=theme, status=status, limit=page.limit, offset=page.offset
@@ -68,7 +91,9 @@ def issues_router(engine: Engine, actor: Actor, themes_config: Path | None = Non
         return Page(items=items, total=total, limit=page.limit, offset=page.offset)
 
     @router.get("/next", response_model=NextIssue, responses=INVALID)
-    def next_action(theme: str) -> NextIssue:  # pyright: ignore[reportUnusedFunction]
+    def next_action(theme: str, session_id: uuid.UUID | None = None) -> NextIssue | JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        if (refused := isolated_refusal(session_id)) is not None:
+            return refused
         with engine.connect() as connection:
             return next_issue(connection, theme)
 
@@ -82,6 +107,8 @@ def issues_router(engine: Engine, actor: Actor, themes_config: Path | None = Non
         "", status_code=201, response_model=Issue, responses={**NOT_FOUND, **INVALID, **CONFLICT}
     )
     def create(request: IssueCreate) -> Issue | JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        if (refused := isolated_refusal(request.produced_by)) is not None:
+            return refused
         try:
             return service.create(request)
         except IssueNotFound:

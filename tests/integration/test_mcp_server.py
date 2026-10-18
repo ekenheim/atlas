@@ -1701,3 +1701,275 @@ def test_the_tool_trace_lists_a_sessions_calls_in_order(mcp: Mcp) -> None:
     assert trace[1]["arguments"] == {"session_id": session, "company": "lumentum", "q": "revenue"}
     assert [call["at"] for call in trace] == sorted(call["at"] for call in trace)
     assert mcp.get(f"/api/v1/sessions/{session}")["tool_calls"] == 4
+
+
+# --- isolated sessions, the leaks the adversarial review found (ticket 29a) ---
+
+
+def section_documents(fake: RecordedHindsight, mcp: Mcp, url: str) -> list[str]:
+    prefix = f"srcv:{mcp.version(url)}:"
+    return [each for each in fake.bank_documents(BANK) if each.startswith(prefix)]
+
+
+def test_an_isolated_recall_is_facts_only_each_from_a_section_public_by_its_time(
+    mcp: Mcp, hindsight_fake: RecordedHindsight
+) -> None:
+    # An observation built from a May 10-Q section and an August 17 10-K section: `available_by`
+    # keeps it for a session as of 12 August (one source was public), and with it the 10-K's text.
+    early_document = section_documents(hindsight_fake, mcp, URL_10Q)[0]
+    late_document = section_documents(hindsight_fake, mcp, URL_10K)[0]
+    hindsight_fake.derive_observation([early_document, late_document])
+    plain, isolated = mcp.open(BEFORE_10K), mcp.open(BEFORE_10K, isolated=True)
+
+    leaky = mcp.ok("recall", session_id=plain, query="laser capacity", max_tokens=8192)
+    safe = mcp.ok("recall", session_id=isolated, query="laser capacity", max_tokens=8192)
+
+    assert any(m["type"] == "observation" for m in leaky["memories"])  # the leak, as it was
+    assert safe["memories"]  # the early facts stay
+    for memory in safe["memories"]:
+        assert memory["type"] != "observation"
+        assert memory["sections"], memory
+        for section in memory["sections"]:
+            assert section["available_at"] <= "2026-08-12T00:00:00Z"
+    assert safe["dropped_future"] > leaky["dropped_future"]
+    # The same at the route, with no `available_by` at all: the session's as-of time bounds it.
+    body = {
+        "query": "laser capacity",
+        "scope": {"theme_ids": ["photonics"]},
+        "max_tokens": 8192,
+        "include_source_facts": True,
+        "session_id": isolated,
+    }
+    routed = mcp.api.post("/api/v1/memory/recall", json=body)
+    assert routed.status_code == 200, routed.text
+    for memory in routed.json()["memories"]:
+        assert memory["type"] != "observation"
+        assert all(
+            s["available_at"] <= "2026-08-12T00:00:00Z" for s in memory["provenance"]["sources"]
+        )
+    # Asked for later than its own time, it still gets its own.
+    later = mcp.api.post(
+        "/api/v1/memory/recall", json=body | {"available_by": "2026-12-01T00:00:00Z"}
+    ).json()
+    assert all(
+        s["available_at"] <= "2026-08-12T00:00:00Z"
+        for m in later["memories"]
+        for s in m["provenance"]["sources"]
+    )
+    refused = mcp.api.post("/api/v1/memory/recall", json=body | {"bank": "beliefs"})
+    assert refused.status_code == 422 and refused.json()["error"]["code"] == "isolated_session"
+
+
+def issue_total(mcp: Mcp) -> int:
+    return mcp.get("/api/v1/issues", theme="photonics")["total"]
+
+
+def test_an_isolated_session_leaves_no_issue_and_is_refused_the_issue_tools(mcp: Mcp) -> None:
+    card = {"steps": [], "open_questions": ["Who else makes InP lasers?"]}
+    plain = mcp.open(LATER)
+    before = issue_total(mcp)
+    mcp.ok("close_session", session_id=plain, card=card)
+    assert issue_total(mcp) > before  # a session that is not isolated leaves its Issues
+
+    isolated = mcp.open(LATER, isolated=True)
+    before = issue_total(mcp)
+    arguments: list[tuple[str, dict[str, Any]]] = [
+        ("next_issue", {}),
+        ("list_issues", {}),
+        ("open_issue", {"title": "Is it short?"}),
+        ("narrow_issue", {"issue_id": NOBODY, "parent_id": NOBODY}),
+        ("complete_issue", {"issue_id": NOBODY}),
+        ("draft_hypothesis", {}),
+        ("get_hypothesis", {"hypothesis_id": NOBODY}),
+    ]
+    for tool, extra in arguments:
+        mcp.refused(tool, "isolated_session", session_id=isolated, **extra)
+    mcp.ok("close_session", session_id=isolated, card=card)
+
+    assert issue_total(mcp) == before  # nothing opened, and closing creates none
+    assert scalar(mcp, "SELECT count(*) FROM call_record WHERE origin = 'signal'") == 0
+    # The routes refuse it too, wherever the request names the session.
+    created = mcp.api.post(
+        "/api/v1/issues",
+        json={
+            "title": "Is it short?",
+            "theme": "photonics",
+            "kind": "question",
+            "produced_by": isolated,
+        },
+    )
+    assert created.status_code == 422 and created.json()["error"]["code"] == "isolated_session"
+    for path in ("/api/v1/issues", "/api/v1/issues/next"):
+        listed = mcp.api.get(path, params={"theme": "photonics", "session_id": isolated})
+        assert listed.status_code == 422 and listed.json()["error"]["code"] == "isolated_session"
+        assert (
+            mcp.api.get(path, params={"theme": "photonics", "session_id": plain}).status_code == 200
+        )
+
+
+def test_an_isolated_session_uses_only_the_facts_it_recorded(mcp: Mcp, llm: FakeLiteLLM) -> None:
+    other = mcp.open(BEFORE_10K)
+    stranger = record(mcp, other, URL_EX991, REVENUE_QUOTE, REVENUE_STATEMENT)["fact_id"]
+    isolated = mcp.open(LATER, isolated=True)
+    own = record(mcp, isolated, URL_10Q, SHARES_QUOTE, "Lumentum had 77.8 million shares.")[
+        "fact_id"
+    ]
+    citation = {"fact_id": stranger, "how": 1, "weight": "load_bearing"}
+
+    foreign = "fact_not_in_session"
+    mcp.refused("get_fact", foreign, session_id=isolated, fact_id=stranger)
+    mcp.refused(
+        "propose_belief", foreign, session_id=isolated, statement="Lumentum reported revenue.",
+        step="capture", citations=[citation],
+    )  # fmt: skip
+    mcp.refused("relate_facts", foreign, session_id=isolated, fact_id=own, counter_fact_id=stranger)
+    mcp.refused(
+        "judge_statement", foreign, session_id=isolated, statement="Lumentum had shares.",
+        fact_ids=[own], counter_fact_ids=[stranger],
+    )  # fmt: skip
+    assert mcp.ok("get_fact", session_id=isolated, fact_id=own)["id"] == own
+    belief = mcp.ok(
+        "propose_belief", session_id=isolated, statement="Lumentum had 77.8 million shares.",
+        step="capture", citations=[{"fact_id": own, "how": 1, "weight": "load_bearing"}],
+    )["id"]  # fmt: skip
+    mcp.refused("cite_belief", foreign, session_id=isolated, belief_id=belief, citation=citation)
+    # A session that is not isolated reads the Fact as before.
+    assert mcp.ok("get_fact", session_id=mcp.open(LATER), fact_id=stranger)["id"] == stranger
+    # The routes hold when the request carries the isolated session: a Belief citing it, the cite
+    # of a Fact to a Belief that session proposed, and the judge and counter-judge.
+    proposed = mcp.api.post(
+        "/api/v1/beliefs",
+        json={
+            "statement": "Lumentum reported revenue.",
+            "theme": "photonics",
+            "step": "capture",
+            "as_of": LATER,
+            "session_id": isolated,
+            "citations": [
+                {"kind": "fact", "ref_id": stranger, "valence": 1, "weight": "load_bearing"}
+            ],
+        },
+    )
+    assert proposed.status_code == 422 and proposed.json()["error"]["code"] == foreign
+    cited = mcp.api.post(
+        f"/api/v1/beliefs/{belief}/cite",
+        json={"kind": "fact", "ref_id": stranger, "valence": 0.5, "weight": "context"},
+    )
+    assert cited.status_code == 422 and cited.json()["error"]["code"] == foreign
+    related = mcp.api.post(
+        "/api/v1/statements/relate",
+        json={
+            "question": QUESTION,
+            "fact_id": own,
+            "counter_fact_id": stranger,
+            "session_id": isolated,
+        },
+    )
+    assert related.status_code == 422 and related.json()["error"]["code"] == foreign
+    judged = mcp.api.post(
+        "/api/v1/statements/judge",
+        json={
+            "question": QUESTION,
+            "statement": "x",
+            "fact_ids": [stranger],
+            "session_id": isolated,
+        },
+    )
+    assert judged.status_code == 422 and judged.json()["error"]["code"] == foreign
+    assert len(mcp.get(f"/api/v1/beliefs/{belief}")["citations"]) == 1
+
+
+def test_an_isolated_session_touches_only_the_beliefs_it_proposed(mcp: Mcp) -> None:
+    other = mcp.open(BEFORE_10K)
+    _, stranger = believe(
+        mcp, other, URL_EX991, REVENUE_QUOTE, "Lumentum reported $1.01 billion in revenue."
+    )
+    isolated = mcp.open(LATER, isolated=True)
+    first = record(mcp, isolated, URL_10Q, SHARES_QUOTE, "Lumentum had 77.8 million shares.")[
+        "fact_id"
+    ]
+    second = record(mcp, isolated, URL_10K, TENK_SHARES, TENK_STATEMENT)["fact_id"]
+    mine = mcp.ok(
+        "propose_belief",
+        session_id=isolated,
+        statement="Lumentum had 77.8 million shares in April.",
+        step="capture",
+        citations=[{"fact_id": first, "how": 1, "weight": "load_bearing"}],
+    )["id"]
+    newer = mcp.ok(
+        "propose_belief",
+        session_id=isolated,
+        statement="Lumentum had 89.7 million shares in August.",
+        step="capture",
+        citations=[{"fact_id": second, "how": 1, "weight": "load_bearing"}],
+    )["id"]
+    own_fact = {"fact_id": first, "how": 0.5, "weight": "context"}
+
+    wrong = "belief_not_in_session"
+    mcp.refused("cite_belief", wrong, session_id=isolated, belief_id=stranger, citation=own_fact)
+    mcp.refused(
+        "supersede_belief", wrong, session_id=isolated, belief_id=stranger, by=[mine], reason="x"
+    )
+    mcp.refused(
+        "supersede_belief", wrong, session_id=isolated, belief_id=mine, by=[stranger], reason="x"
+    )
+    # Its own are its own to cite and supersede.
+    assert (
+        mcp.ok("cite_belief", session_id=isolated, belief_id=newer, citation=own_fact)["citations"]
+        == 2
+    )
+    mcp.ok("supersede_belief", session_id=isolated, belief_id=mine, by=[newer], reason="newer")
+    # The routes agree when the request names the session.
+    path = f"/api/v1/beliefs/{stranger}"
+    cite = {"kind": "fact", "ref_id": first, "valence": 0.5, "weight": "context"}
+    routed = mcp.api.post(f"{path}/cite", params={"session_id": isolated}, json=cite)
+    assert routed.status_code == 422 and routed.json()["error"]["code"] == wrong
+    routed = mcp.api.post(
+        f"{path}/supersede", json={"by": [newer], "reason": "x", "session_id": isolated}
+    )
+    assert routed.status_code == 422 and routed.json()["error"]["code"] == wrong
+    assert len(mcp.get(path)["citations"]) == 1 and mcp.get(path)["status"] == "active"
+    # A session that is not isolated cites it as before.
+    plain = mcp.open(BEFORE_10K)
+    plain_fact = mcp.fact(plain, URL_10Q, SHARES_QUOTE)
+    assert mcp.ok(
+        "cite_belief", session_id=plain, belief_id=stranger,
+        citation={"fact_id": plain_fact, "how": 0.5, "weight": "context"},
+    )["citations"] == 2  # fmt: skip
+
+
+def test_an_isolated_sessions_facts_raise_no_notice_and_its_answers_name_no_belief(
+    mcp: Mcp, llm: FakeLiteLLM
+) -> None:
+    early = mcp.open(BEFORE_10K)
+    revenue, belief = believe(
+        mcp, early, URL_EX991, REVENUE_QUOTE, "Lumentum reported $1.01 billion in revenue."
+    )
+    judge_proven(mcp, belief)
+    isolated = mcp.open(LATER, isolated=True)
+    tenk = record(mcp, isolated, URL_10K, TENK_SHARES, TENK_STATEMENT)["fact_id"]
+    tenq = record(mcp, isolated, URL_10Q, SHARES_QUOTE, "Lumentum had 77.8 million shares.")[
+        "fact_id"
+    ]
+    llm.script_role("counter_judge", ChatReply.answer(relating("supports")))
+
+    # The lead relates the isolated session's newer Fact to the proven Belief's Fact: `supports`,
+    # and no notice (the same call with a plain session's Fact raises one: the test above).
+    related = mcp.api.post(
+        "/api/v1/statements/relate",
+        json={"question": QUESTION, "fact_id": revenue, "counter_fact_id": tenk},
+    )
+    assert related.status_code == 200, related.text
+    assert related.json()["relation"] == "supports"
+    assert related.json()["confirmed_beliefs"] == []
+    cited = mcp.api.post(
+        f"/api/v1/beliefs/{belief}/cite",
+        json={"kind": "fact", "ref_id": tenk, "relation": "supports", "weight": "context"},
+    )
+    assert cited.status_code == 200, cited.text
+    noticed = mcp.get(f"/api/v1/beliefs/{belief}")
+    assert (noticed["open_notices"], noticed["notices"]) == (0, [])
+    # Through its own tool, an isolated session's answer carries no Belief at all.
+    llm.script_role("counter_judge", ChatReply.answer(relating("supports")))
+    own = mcp.ok("relate_facts", session_id=isolated, fact_id=tenq, counter_fact_id=tenk)
+    assert own["relation"] == "supports" and "confirmed_beliefs" not in own

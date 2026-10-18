@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -186,6 +187,23 @@ def test_the_researcher_starts_from_the_frontier_and_uses_both_banks(run: Run):
     assert "born `unproven`" in prompt
 
 
+ISOLATED_TOOLS = [
+    "open_session",
+    "close_session",
+    "companies",
+    "search",
+    "read",
+    "locate",
+    "record_fact",
+    "get_fact",
+    "judge_statement",
+    "relate_facts",
+    "propose_belief",
+    "cite_belief",
+    "recall",
+]
+BUILT_IN = ["Read", "Write", "Edit", "Glob"]
+
 SCORECARD_QUESTION = (
     "As of 2025-02-28, does anything constrain supply in SanDisk's market, who holds it, and"
     " what would relieve it? {{not a placeholder}} & more"
@@ -233,15 +251,19 @@ def test_an_isolated_run_tells_the_researcher_to_open_an_isolated_session(run: R
     prompt = scorecard_run(run, "--dry-run").stdout.split("prompt:\n", 1)[1]
 
     assert "pass `isolated: true` to `open_session`" in prompt
-    assert "Do not call `prior_work` or `examine_belief`" in prompt
-    assert "Atlas refuses `recall` with `bank: beliefs`, `list_beliefs`, `get_belief`" in prompt
+    assert "Your tools are exactly the ones on the Tools line below" in prompt
+    assert "facts, never observations" in prompt
     assert "use only what the tools return" in prompt
     assert "Atlas will never judge it" in prompt
+    assert "Cite only Facts you recorded in this session" in prompt
     # The standing rules stay: nothing judged, nothing published.
     assert "You set no judgement" in prompt
     assert "You publish nothing" in prompt
     assert "{{" not in prompt.replace("{{not a placeholder}}", "")
-    assert re.search(r"^Tools: open_session, ", prompt, re.MULTILINE)
+    # The Tools line is the allow-list, not the researcher's whole set.
+    assert f"\nTools: {', '.join(ISOLATED_TOOLS)}\n" in prompt
+    for refused in ("prior_work", "examine_belief", "list_beliefs", "next_issue", "open_issue"):
+        assert refused not in prompt.split("\nTools: ", 1)[1].split("\n", 1)[0]
 
 
 def test_a_question_without_isolation_still_uses_prior_work_and_both_banks(run: Run):
@@ -478,6 +500,123 @@ def test_a_crashed_claude_exits_non_zero_with_the_token_cut_from_its_stderr(run:
     assert summary["result"].startswith("unparseable output")
     assert "boom [redacted]" in result.stderr
     assert TOKEN not in result.stdout + result.stderr
+
+
+def test_an_isolated_run_allows_only_the_listed_atlas_tools(run: Run):
+    result = scorecard_run(run, "--dry-run")
+
+    command = next(
+        line for line in result.stdout.splitlines() if line.startswith("command: claude -p ")
+    )
+    allowed = " ".join(f"mcp__atlas__{name}" for name in ISOLATED_TOOLS)
+    assert f" --allowedTools {allowed} Read Write Edit Glob " in command + " "
+    # Not the whole server, and none of the Belief, Issue or prior-work tools by name.
+    assert " mcp__atlas " not in command and "mcp__atlas__*" not in command
+    for refused in ("prior_work", "list_beliefs", "get_belief", "next_issue", "open_issue"):
+        assert f"mcp__atlas__{refused}" not in command
+    assert " --tools Read,Write,Edit,Glob" in command
+
+
+def test_a_real_isolated_run_hands_claude_the_same_allow_list(run: Run):
+    result = scorecard_run(run, ATLAS_MCP_URL="http://127.0.0.1:9/mcp")
+
+    assert result.returncode == 0, result.stderr
+    args = run.stub_args()
+    start = args.index("--allowedTools") + 1
+    end = next(i for i in range(start, len(args)) if args[i].startswith("--"))
+    assert args[start:end] == [f"mcp__atlas__{name}" for name in ISOLATED_TOOLS] + BUILT_IN
+
+
+def test_a_run_that_is_not_isolated_keeps_the_whole_server_allowed(run: Run):
+    result = scorecard_run(run, "--dry-run", ATLAS_AGENT_ISOLATED="false")
+
+    assert " --allowedTools mcp__atlas 'mcp__atlas__*' Read Write Edit Glob" in result.stdout
+    prompt = result.stdout.split("prompt:\n", 1)[1]
+    assert "\nTools: open_session, close_session, companies, search," in prompt
+    assert "prior_work" in prompt.split("\nTools: ", 1)[1].split("\n", 1)[0]
+
+
+def serve(tmp_path: Path, files: dict[str, Any]) -> subprocess.Popen[str]:
+    """A stand-in Atlas: a static file server (a subprocess, so the test process opens no
+    socket) whose `/api/v1/<name>` answers with the file's JSON."""
+    site = tmp_path / "site" / "api" / "v1"
+    site.mkdir(parents=True, exist_ok=True)
+    for name, body in files.items():
+        (site / name).write_text(json.dumps(body), encoding="utf-8")
+    return subprocess.Popen(
+        [sys.executable, "-u", "-m", "http.server", "0", "--bind", "127.0.0.1"],
+        cwd=tmp_path / "site",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+
+
+def test_a_scorecard_run_finds_its_session_by_question_and_seeds_not_by_date_alone(
+    run: Run, tmp_path: Path
+):
+    # Three sessions share the as-of time (scorecard cases do: 2025-05-31 is SanDisk's and IREN's).
+    as_of = "2025-05-31T00:00:00Z"
+    question = "As of 2025-05-31, does anything constrain supply in IREN's market?"
+    server = serve(
+        tmp_path,
+        {
+            "sessions": {
+                "items": [
+                    {
+                        "id": "sandisk-run",
+                        "as_of": as_of,
+                        "question": "As of 2025-05-31, does anything constrain SanDisk's supply?",
+                        "seed_company_ids": ["id-sandisk"],
+                    },
+                    {
+                        "id": "iren-other-seed",
+                        "as_of": as_of,
+                        "question": question,
+                        "seed_company_ids": ["id-sandisk"],
+                    },
+                    {
+                        "id": "iren-run",
+                        "as_of": as_of,
+                        "question": question,
+                        "seed_company_ids": ["id-iren"],
+                    },
+                ]
+            },
+            "companies": {
+                "items": [
+                    {"slug": "sandisk", "id": "id-sandisk"},
+                    {"slug": "iren", "id": "id-iren"},
+                ]
+            },
+        },
+    )
+    try:
+        assert server.stdout is not None
+        port = re.search(r"port (\d+)", server.stdout.readline())
+        assert port is not None
+        result = scorecard_run(
+            run,
+            ATLAS_MCP_URL=f"http://127.0.0.1:{port.group(1)}/mcp",
+            ATLAS_AGENT_AS_OF=as_of.replace("Z", "+00:00"),
+            ATLAS_AGENT_QUESTION=question,
+            ATLAS_AGENT_SEEDS="iren",
+        )
+        no_seeds = scorecard_run(
+            run,
+            ATLAS_MCP_URL=f"http://127.0.0.1:{port.group(1)}/mcp",
+            ATLAS_AGENT_AS_OF=as_of.replace("Z", "+00:00"),
+            ATLAS_AGENT_QUESTION="a question no session asked",
+            ATLAS_AGENT_SEEDS="iren",
+        )
+    finally:
+        server.terminate()
+        server.wait(timeout=10)
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout.splitlines()[0])["atlas_session_id"] == "iren-run"
+    # A question no session asked is no session: not the first one with the date.
+    assert json.loads(no_seeds.stdout.splitlines()[0])["atlas_session_id"] is None
 
 
 def test_the_summary_names_the_atlas_session_the_run_opened(run: Run, tmp_path: Path):

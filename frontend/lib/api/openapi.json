@@ -2234,6 +2234,23 @@
             }
           },
           {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -2359,6 +2376,23 @@
             "schema": {
               "type": "string",
               "title": "Theme"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
             }
           }
         ],
@@ -3014,6 +3048,23 @@
               "type": "string",
               "format": "uuid",
               "title": "Belief Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
             }
           }
         ],
@@ -10981,6 +11032,19 @@
               }
             ],
             "title": "Actor"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "the asking research session. An isolated one (ticket 29a) may supersede only Beliefs it proposed, by Beliefs it proposed: 422 `belief_not_in_session`"
           }
         },
         "additionalProperties": false,
@@ -22050,6 +22114,19 @@
               }
             ],
             "title": "Run Id"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "the asking research session (see the module)"
           }
         },
         "type": "object",
@@ -27654,6 +27731,19 @@
             "title": "Include Chunks",
             "description": "ask for the chunks the results came from, and locate each resolved fact's chunk in its section (its span in `provenance.sources`; the chunk's text is not returned)",
             "default": false
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "the research session asking (optional). An **isolated** session (ticket 29a, the early-call scorecard) is given facts only: no observation (it is built from several documents, any of which may be later than the session's as-of time), each fact kept only if the section it came from was public by `available_by` (the session's as-of time when none is given), and no recall of the conclusions bank (422 `isolated_session`)"
           }
         },
         "additionalProperties": false,
@@ -28335,6 +28425,19 @@
               }
             ],
             "title": "Run Id"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "the asking research session (see the module)"
           }
         },
         "type": "object",

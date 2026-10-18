@@ -54,8 +54,9 @@ class Api:
         _check(response)
         return response.content.decode("utf-8")  # the archive's parsed text is UTF-8
 
-    async def post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
-        return _json(await self._client.post("/api/v1" + path, json=body))
+    async def post(self, path: str, body: dict[str, Any], **params: Any) -> dict[str, Any]:
+        query = {key: value for key, value in params.items() if value is not None}
+        return _json(await self._client.post("/api/v1" + path, json=body, params=query))
 
 
 def rows(value: Any) -> list[dict[str, Any]]:

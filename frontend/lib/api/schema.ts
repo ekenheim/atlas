@@ -2662,6 +2662,11 @@ export interface components {
             reason: string;
             /** Actor */
             actor?: string | null;
+            /**
+             * Session Id
+             * @description the asking research session. An isolated one (ticket 29a) may supersede only Beliefs it proposed, by Beliefs it proposed: 422 `belief_not_in_session`
+             */
+            session_id?: string | null;
         };
         /**
          * BeliefsHealth
@@ -6835,6 +6840,11 @@ export interface components {
             votes: number;
             /** Run Id */
             run_id?: string | null;
+            /**
+             * Session Id
+             * @description the asking research session (see the module)
+             */
+            session_id?: string | null;
         };
         /** JudgeVote */
         JudgeVote: {
@@ -8819,6 +8829,11 @@ export interface components {
              * @default false
              */
             include_chunks: boolean;
+            /**
+             * Session Id
+             * @description the research session asking (optional). An **isolated** session (ticket 29a, the early-call scorecard) is given facts only: no observation (it is built from several documents, any of which may be later than the session's as-of time), each fact kept only if the section it came from was public by `available_by` (the session's as-of time when none is given), and no recall of the conclusions bank (422 `isolated_session`)
+             */
+            session_id?: string | null;
         };
         /** RecallResponse */
         RecallResponse: {
@@ -9098,6 +9113,11 @@ export interface components {
             counter_fact_id: string;
             /** Run Id */
             run_id?: string | null;
+            /**
+             * Session Id
+             * @description the asking research session (see the module)
+             */
+            session_id?: string | null;
         };
         /** @enum {string} */
         Relation: "contradicts" | "limits" | "dates" | "qualifies" | "supports";
@@ -13209,6 +13229,7 @@ export interface operations {
             query?: {
                 theme?: string | null;
                 status?: components["schemas"]["IssueStatus"] | null;
+                session_id?: string | null;
                 /** @description page size */
                 limit?: number;
                 /** @description items to skip */
@@ -13295,6 +13316,7 @@ export interface operations {
         parameters: {
             query: {
                 theme: string;
+                session_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -13676,7 +13698,9 @@ export interface operations {
     };
     cite_api_v1_beliefs__belief_id__cite_post: {
         parameters: {
-            query?: never;
+            query?: {
+                session_id?: string | null;
+            };
             header?: never;
             path: {
                 belief_id: string;

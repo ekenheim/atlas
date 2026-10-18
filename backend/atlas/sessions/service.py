@@ -364,7 +364,10 @@ class Sessions:
                 card = {**card, "thesis_judged": judged}
         with self._engine.begin() as connection:
             row = connection.execute(
-                text("SELECT finished_at, kind FROM research_session WHERE id = :id FOR UPDATE"),
+                text(
+                    "SELECT finished_at, kind, isolated FROM research_session"
+                    " WHERE id = :id FOR UPDATE"
+                ),
                 {"id": session_id},
             ).one_or_none()
             if row is None:
@@ -386,15 +389,18 @@ class Sessions:
             )
             session = get_session(connection, session_id)
             assert session is not None
-            create_session_issues(
-                connection,
-                self._actor,
-                session_id=session_id,
-                question=session.question,
-                theme=session.theme,
-                seed_company_ids=session.seed_company_ids,
-                card=card,
-            )
+            if not row.isolated:
+                # An isolated session (ticket 29a) leaves no Issue: its question and open
+                # questions would be the frontier of the next run.
+                create_session_issues(
+                    connection,
+                    self._actor,
+                    session_id=session_id,
+                    question=session.question,
+                    theme=session.theme,
+                    seed_company_ids=session.seed_company_ids,
+                    card=card,
+                )
             record(
                 connection,
                 self._actor,

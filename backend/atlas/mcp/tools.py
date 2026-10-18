@@ -107,7 +107,7 @@ class Ctx:
         """Refuse `what` in an isolated session (ticket 29a, the early-call scorecard): the
         session starts from nothing and may not read what later sessions concluded, whatever
         its prompt says. The refusal is recorded on the session like any other."""
-        if self.bound.isolated:
+        if self.session is not None and self.session.isolated:
             raise Refusal(
                 "isolated_session",
                 f"{what} is refused in an isolated session: it starts from nothing and sees no"
@@ -165,8 +165,20 @@ class Ctx:
         return text, parser or ""
 
     async def visible_fact(self, fact_id: uuid.UUID | str) -> tuple[dict[str, Any], dict[str, Any]]:
-        """A Fact and its Source Version, if that version was public by the as-of time."""
+        """A Fact and its Source Version, if that version was public by the as-of time (and, in
+        an isolated session, if the session recorded the Fact itself)."""
         fact = await self.api.get(f"/facts/{fact_id}")
+        if (
+            self.session is not None
+            and self.session.isolated
+            and fact.get("session_id") != str(self.session.id)
+        ):
+            raise Refusal(
+                "fact_not_in_session",
+                "an isolated session (the early-call scorecard) may use only the Facts it"
+                " recorded itself: that Fact was recorded elsewhere",
+                fact=str(fact_id),
+            )
         try:
             held = await self.visible_version(fact["assertion"]["source_version_id"])
         except Refusal as refusal:
@@ -249,8 +261,9 @@ class OpenSessionArgs(Args):
     " The as-of time fixed here is the session's for good. `isolated: true` opens an isolated"
     " session (a replay of a past date): `prior_work` is empty, a Fact is never matched with a"
     " standing one, `recall` of the conclusions bank (`bank: beliefs`), `list_beliefs`,"
-    " `get_belief` and `examine_belief` are refused (`isolated_session`), and its Beliefs are"
-    " never judged.",
+    " `get_belief`, `examine_belief` and every Issue tool are refused (`isolated_session`), recall"
+    " of the research bank returns facts only, a Fact or Belief of another session is refused"
+    " (`fact_not_in_session`, `belief_not_in_session`), and its Beliefs are never judged.",
     OpenSessionArgs,
     session="none",
 )
@@ -612,6 +625,7 @@ async def judge_statement(ctx: Ctx, args: JudgeArgs) -> dict[str, Any]:
             "counter_fact_ids": [str(each) for each in args.counter_fact_ids],
             "votes": args.votes,
             "run_id": str(args.run_id) if args.run_id else None,
+            "session_id": str(args.session_id),
         },
     )
     keys = (
@@ -644,15 +658,19 @@ class RelateArgs(Bound):
 async def relate_facts(ctx: Ctx, args: RelateArgs) -> dict[str, Any]:
     await ctx.visible_fact(args.fact_id)
     await ctx.visible_fact(args.counter_fact_id)
-    return await ctx.api.post(
+    related = await ctx.api.post(
         "/statements/relate",
         {
             "question": args.question or ctx.bound.question,
             "fact_id": str(args.fact_id),
             "counter_fact_id": str(args.counter_fact_id),
             "run_id": str(args.run_id) if args.run_id else None,
+            "session_id": str(args.session_id),
         },
     )
+    if ctx.bound.isolated:
+        related.pop("confirmed_beliefs", None)  # an isolated session's Facts raise no notice
+    return related
 
 
 # --- beliefs -------------------------------------------------------------------------------
@@ -781,7 +799,9 @@ class CiteBeliefArgs(Bound):
 async def cite_belief(ctx: Ctx, args: CiteBeliefArgs) -> dict[str, Any]:
     await ctx.visible_fact(args.citation.fact_id)
     answer = await ctx.api.post(
-        f"/beliefs/{args.belief_id}/cite", citation_body(args.citation, args.actor)
+        f"/beliefs/{args.belief_id}/cite",
+        citation_body(args.citation, args.actor),
+        session_id=str(args.session_id),
     )
     return belief_result(answer)
 
@@ -801,7 +821,12 @@ class SupersedeBeliefArgs(Bound):
 async def supersede_belief(ctx: Ctx, args: SupersedeBeliefArgs) -> dict[str, Any]:
     answer = await ctx.api.post(
         f"/beliefs/{args.belief_id}/supersede",
-        {"by": [str(each) for each in args.by], "reason": args.reason, "actor": args.actor},
+        {
+            "by": [str(each) for each in args.by],
+            "reason": args.reason,
+            "actor": args.actor,
+            "session_id": str(args.session_id),
+        },
     )
     return belief_result(answer)
 
@@ -837,6 +862,7 @@ def issue_result(issue: dict[str, Any]) -> dict[str, Any]:
     OpenIssueArgs,
 )
 async def open_issue(ctx: Ctx, args: OpenIssueArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("open_issue")
     issue = await ctx.api.post(
         "/issues",
         {
@@ -867,6 +893,7 @@ class NarrowIssueArgs(Bound):
     NarrowIssueArgs,
 )
 async def narrow_issue(ctx: Ctx, args: NarrowIssueArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("narrow_issue")
     issue = await ctx.api.post(
         f"/issues/{args.issue_id}/edges",
         {"kind": "requires" if args.requires else "narrows", "parent_id": str(args.parent_id)},
@@ -887,6 +914,7 @@ class CompleteIssueArgs(Bound):
     CompleteIssueArgs,
 )
 async def complete_issue(ctx: Ctx, args: CompleteIssueArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("complete_issue")
     for key, value in (("fact_id", args.fact_id), ("belief_id", args.belief_id)):
         if value is not None:
             await ctx.api.post(f"/issues/{args.issue_id}/produced", {key: str(value)})
@@ -908,6 +936,7 @@ class NextIssueArgs(Maybe):
     session="optional",
 )
 async def next_issue(ctx: Ctx, args: NextIssueArgs) -> dict[str, Any]:
+    ctx.refuse_isolated("next_issue")
     theme = args.theme or (ctx.session.theme if ctx.session else None)
     if theme is None:
         raise Refusal("theme_required", "name a theme, or pass the session_id of one that has it")
@@ -959,6 +988,7 @@ async def recall(ctx: Ctx, args: RecallArgs) -> dict[str, Any]:
             "available_by": stamp,
             "include_source_facts": True,
             "bank": args.bank,
+            "session_id": str(args.session_id),
         },
     )
     section_keys = (

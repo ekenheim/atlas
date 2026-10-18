@@ -14,18 +14,20 @@ only; no model call, no write):
    their documents became public, what Atlas refused it). A sheet holds **no price, no priced date,
    no closed-book verdict and no code rank**: the reviewers see the key and the Beliefs only.
 2. `report`: from the stored bundles, the runs file (the lead's closed-book verdicts and code
-   ranks) and the reviewers' marks file, writes `report.md` and `results.json`: per run the raw
-   hit, the closed-book verdict and the code's rank side by side (no composite score), the hits of
-   the positive runs, the false positives of the negative runs, the lead time in days of the
-   earliest as-of that hit, the misses by class (M1 to M5, FP) and what the pre-registered rule
-   chooses to build. Seven cases are no hit rate, and the report says so.
+   ranks; the code's within-company rank and pooled percentile may come from a code-readings
+   file instead) and the reviewers' marks file, writes `report.md` and `results.json`: per run
+   the raw hit, the closed-book verdict and the code's rank side by side (no composite score),
+   the hits of the positive runs, the false positives of the negative runs, the lead time in
+   days of the earliest as-of that hit, the misses by class (M1 to M5, FP) and what the
+   pre-registered rule chooses to build. Seven cases are no hit rate, and the report says so.
 
 The key (`KEY`) is the answer key fixed on 2026-10-18 before any run, from
 `docs/research/early-signal-case-studies.md`; nothing in it changes after the first run
 (`.scratch/atlas-beliefs/issues/29-the-early-call-scorecard.md`, Amendment 1 holds the rules).
 
     uv run python scripts/scorecard.py sheets --runs runs.json --base-url http://localhost:8000
-    uv run python scripts/scorecard.py report --runs runs.json --marks marks.json --bundles DIR
+    uv run python scripts/scorecard.py report --runs runs.json --marks marks.json --bundles DIR \\
+        [--code-readings readings.json]
 
 The runs file::
 
@@ -53,7 +55,7 @@ import json
 import sys
 from collections import Counter
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -289,6 +291,43 @@ def parse_runs(document: Any) -> Runs:
     return Runs(_object(top.get("frozen", {}), "frozen"), tuple(runs), not_run)
 
 
+def apply_code_readings(runs: Runs, readings: Any) -> Runs:
+    """The code's readings (`scripts/signal_replay.py`, committed by the lead before any session)
+    laid over the runs: `{"<case>@<as-of>": {"rank": 3 | null, "pooled_percentile": 0.97}}`,
+    the within-company rank among the company's top 20 and the pooled percentile across the
+    universe (k = 20, `--since` 365 days before the as-of date; Amendment 1), both reported
+    beside the session's reading and never combined with it. A reading for a run that is not in
+    the file is refused."""
+    table = _object(readings, "the code readings")
+    labels = {run.label for run in runs.runs}
+    for label in table:
+        if label not in labels:
+            raise ScorecardError(f"code readings: {label!r} is not a run in the runs file")
+    updated: list[Run] = []
+    for run in runs.runs:
+        if run.label not in table:
+            updated.append(run)
+            continue
+        reading = _object(table[run.label], f"code reading {run.label}")
+        rank = reading.get("rank")
+        if rank is not None and (isinstance(rank, bool) or not isinstance(rank, int) or rank < 1):
+            raise ScorecardError(f"code reading {run.label}: rank is a rank from 1 or null")
+        pooled = _optional_number(reading, "pooled_percentile", f"code reading {run.label}")
+        if pooled is not None and not 0 <= pooled <= 1:
+            raise ScorecardError(f"code reading {run.label}: pooled_percentile is from 0 to 1")
+        updated.append(
+            replace(
+                run,
+                code_read="rank" in reading or run.code_read,
+                code_rank=rank if "rank" in reading else run.code_rank,
+                code_pooled_percentile=pooled
+                if "pooled_percentile" in reading
+                else run.code_pooled_percentile,
+            )
+        )
+    return Runs(runs.frozen, tuple(updated), runs.not_run)
+
+
 def coverage(runs: Runs) -> list[dict[str, str]]:
     """Every case at every as-of date: run, reported not run with its reason, or missing."""
     have = {run.label for run in runs.runs}
@@ -401,6 +440,24 @@ def trace_summary(bundle: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def foreign_citations(bundle: dict[str, Any]) -> list[dict[str, str]]:
+    """The citations of the run's Beliefs that are not of a Fact the run's own session recorded
+    (another session's Fact, or an Assertion): an isolated session may cite only its own, so
+    each is a leak or a bug and the reviewer is told."""
+    session = _object(bundle["session"], "the session")
+    own = {
+        str(_object(fact, "a Fact")["id"]) for fact in _list(session.get("fact_items", []), "Facts")
+    }
+    found: list[dict[str, str]] = []
+    for belief in _list(bundle["beliefs"], "Beliefs"):
+        row = _object(belief, "a Belief")
+        for citation in _list(row.get("citations", []), "citations"):
+            cited = _object(citation, "a citation")
+            if cited.get("kind") != "fact" or str(cited["ref_id"]) not in own:
+                found.append({"belief_id": str(row["id"]), "ref_id": str(cited["ref_id"])})
+    return found
+
+
 # --- the review sheet --------------------------------------------------------------------------
 
 
@@ -435,6 +492,14 @@ def review_sheet(run: Run, bundle: dict[str, Any]) -> str:
         "",
     ]
     beliefs = [_object(each, "a Belief") for each in _list(bundle["beliefs"], "Beliefs")]
+    foreign = foreign_citations(bundle)
+    strangers = {each["ref_id"] for each in foreign}
+    if foreign:
+        lines += [
+            f"WARNING: {len(foreign)} citation(s) below are of a Fact the run's own session did"
+            " not record. An isolated session may cite only its own Facts: flag the run.",
+            "",
+        ]
     if not beliefs:
         lines += [
             "The session proposed no Belief. The run is a miss unless the card says otherwise.",
@@ -460,7 +525,26 @@ def review_sheet(run: Run, bundle: dict[str, Any]) -> str:
                 f"    document: {row.get('source_title') or '(untitled)'},"
                 f" public {str(row['available_at'])[:10]}",
             ]
+            if str(row["ref_id"]) in strangers:
+                lines.append(
+                    "    WARNING: this Fact was not recorded in the run's own session"
+                    " (another session's, or not a Fact): flag it"
+                )
         lines += ["", "- Mark: ____   (hit / miss / false_positive)", "- Reason: ____", ""]
+    card = session.get("card_markdown")
+    lines += [
+        "## The session's card",
+        "",
+        "What the session wrote down as its answer (read it beside the Beliefs; a Belief is"
+        " marked on its own Facts, not on the card):",
+        "",
+        *(
+            [f"> {line}" for line in str(card).splitlines()]
+            if isinstance(card, str) and card.strip()
+            else ["The session wrote no card."]
+        ),
+        "",
+    ]
     summary = trace_summary(bundle)
     lines += [
         "## Trace summary",
@@ -667,6 +751,12 @@ def build_report(
             flags.append(f"{len(outcome.unresolved)} Belief(s) await the lead's adjudication")
         if outcome.outcome == "miss" and outcome.miss_class is None:
             flags.append("a miss with no class")
+        strangers = foreign_citations(bundles[run.label])
+        if strangers:
+            flags.append(
+                f"cites {len(strangers)} Fact(s) the run's own session did not record"
+                " (isolation leak or bug)"
+            )
         if case.positive and run.closed_book == "stated":
             flags.append("not discriminating: the closed-book model states it")
         trace = trace_summary(bundles[run.label])
@@ -710,8 +800,15 @@ def build_report(
         "negative_false_positives": (
             f"{sum(1 for o in negative if o.outcome == 'false_positive')} of {len(negative)}"
         ),
+        # A false positive of a negative is an FP; a miss is its class (None: unclassified).
         "misses_by_class": dict(
-            sorted(Counter(str(o.miss_class) for o in scored if o.outcome == "miss").items())
+            sorted(
+                Counter(
+                    "FP" if o.outcome == "false_positive" else str(o.miss_class)
+                    for o in scored
+                    if o.outcome in ("miss", "false_positive")
+                ).items()
+            )
         ),
         "decision": decide_build(scored),
         "frozen": runs.frozen,
@@ -732,8 +829,9 @@ def render_report(result: dict[str, Any]) -> str:
         "",
         "## Per run",
         "",
-        "| Run | Session | Raw | Closed book | Code rank | Miss class | Beliefs | Calls | Flags |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| Run | Session | Raw | Closed book | Code rank (within company) |"
+        " Pooled percentile (k=20, 365 days) | Miss class | Beliefs | Calls | Flags |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in result["runs"]:
         if not row["code_read"]:
@@ -744,9 +842,15 @@ def render_report(result: dict[str, Any]) -> str:
             rank = str(row["code_rank"])
         if rank and row["code_rank_in_sample"]:
             rank += " (in-sample)"
+        pooled = (
+            ""
+            if row["code_pooled_percentile"] is None
+            else f"{row['code_pooled_percentile']:.0%}"
+            + (" (in-sample)" if row["code_rank_in_sample"] else "")
+        )
         lines.append(
             f"| {row['run']} | `{row['session_id']}` | {row['raw'] or 'not scored'} |"
-            f" {row['closed_book'] or ''} | {rank} | {row['miss_class'] or ''} |"
+            f" {row['closed_book'] or ''} | {rank} | {pooled} | {row['miss_class'] or ''} |"
             f" {row['beliefs']} | {row['tool_calls']} | {'; '.join(row['flags'])} |"
         )
     lines += [
@@ -830,6 +934,8 @@ def command_sheets(arguments: argparse.Namespace) -> int:
 
 def command_report(arguments: argparse.Namespace) -> int:
     runs = parse_runs(_load(arguments.runs))
+    if arguments.code_readings:
+        runs = apply_code_readings(runs, _load(arguments.code_readings))
     marks_file = _object(_load(arguments.marks), "the marks file")
     bundles = {
         run.label: _object(_load(str(Path(arguments.bundles) / f"{run.label}.json")), run.label)
@@ -866,6 +972,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     report.add_argument("--runs", required=True)
     report.add_argument("--marks", required=True)
     report.add_argument("--bundles", required=True)
+    report.add_argument(
+        "--code-readings",
+        help="the code's readings by run: rank and pooled percentile (see apply_code_readings)",
+    )
     report.add_argument("--out")
     report.set_defaults(handler=command_report)
     arguments = parser.parse_args(argv)

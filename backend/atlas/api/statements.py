@@ -18,6 +18,11 @@ own judges in front of a session, over the existing role machinery (no new promp
   on a counterevidence Fact and a Fact: `contradicts`, `limits`, `dates`, `qualifies`,
   `supports` or `unrelated`. Only `contradicts` disputes a step.
 
+Both take an optional `session_id`, the asking research session. For an **isolated** one (ticket
+29a, the early-call scorecard) every Fact named must be one it recorded itself: 422
+`fact_not_in_session` otherwise, so it cannot read, judge against or relate another session's
+Fact; and its Facts never raise a Belief notice (`confirmed_beliefs` is empty).
+
 422 for an unknown Fact, 404 for an unknown run, 503 when LiteLLM (or, for a run of their own,
 Hindsight) isn't configured, and 503 `role_unavailable` for a quota or an outage (the bridge's
 "Unknown items in responses API response" among them: transient, so call again).
@@ -56,6 +61,7 @@ from atlas.roles.finding_judge import (
     JudgedFinding,
 )
 from atlas.runs import RunRecorder
+from atlas.sessions import session_is_isolated
 from atlas.settings import Settings
 
 Relation = Literal[
@@ -72,6 +78,9 @@ class JudgeRequest(BaseModel):
     counter_fact_ids: Annotated[list[uuid.UUID], Field(max_length=8)] = []
     votes: Annotated[int, Field(ge=1, le=3)] = 1
     run_id: uuid.UUID | None = None
+    session_id: uuid.UUID | None = Field(
+        default=None, description="the asking research session (see the module)"
+    )
 
 
 class JudgedClauseOut(BaseModel):
@@ -117,6 +126,9 @@ class RelateRequest(BaseModel):
     fact_id: uuid.UUID  # the Fact challenged
     counter_fact_id: uuid.UUID  # the counterevidence Fact
     run_id: uuid.UUID | None = None
+    session_id: uuid.UUID | None = Field(
+        default=None, description="the asking research session (see the module)"
+    )
 
 
 class FactRelation(BaseModel):
@@ -179,13 +191,31 @@ def statements_router(engine: Engine, settings: Settings) -> APIRouter:
         finally:
             recorder.close()
 
-    def rows_of(ids: list[uuid.UUID]) -> dict[uuid.UUID, RowMapping]:
+    def rows_of(ids: list[uuid.UUID], session_id: uuid.UUID | None) -> dict[uuid.UUID, RowMapping]:
         with engine.connect() as connection:
             found = fact_rows(connection, list(dict.fromkeys(ids)))
         by_id = {row["id"]: row for row in found}
         for each in ids:
             if each not in by_id:
                 raise _Refused(error_response(422, "unknown_fact", f"no such Fact: {each}"))
+        with engine.connect() as connection:
+            if session_is_isolated(connection, session_id):
+                own = set(
+                    connection.execute(
+                        text("SELECT assertion_id FROM fact WHERE session_id = :session"),
+                        {"session": session_id},
+                    ).scalars()
+                )
+                for each in ids:
+                    if each not in own:
+                        raise _Refused(
+                            error_response(
+                                422,
+                                "fact_not_in_session",
+                                f"Fact {each} was not recorded in this isolated session (the"
+                                " early-call scorecard): it may use only its own Facts",
+                            )
+                        )
         return by_id
 
     def relate_all(
@@ -244,7 +274,7 @@ def statements_router(engine: Engine, settings: Settings) -> APIRouter:
     )
     def judge(body: JudgeRequest) -> StatementJudgement | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         try:
-            rows = rows_of([*body.fact_ids, *body.counter_fact_ids])
+            rows = rows_of([*body.fact_ids, *body.counter_fact_ids], body.session_id)
             caller, run_id = caller_and_run(body.run_id, "statement_judge")
         except _Refused as refused:
             return refused.response
@@ -334,7 +364,7 @@ def statements_router(engine: Engine, settings: Settings) -> APIRouter:
     )
     def relate(body: RelateRequest) -> FactRelation | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         try:
-            rows = rows_of([body.fact_id, body.counter_fact_id])
+            rows = rows_of([body.fact_id, body.counter_fact_id], body.session_id)
             caller, run_id = caller_and_run(body.run_id, "statement_relate")
         except _Refused as refused:
             return refused.response

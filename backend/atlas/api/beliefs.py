@@ -9,9 +9,11 @@
   `judge_unavailable` when no verdict could be given: call again later) (ticket 23)
 - `POST /beliefs/{id}/cite`, `/judge` (an author's judgement; clears open flags and notices),
   `/supersede`. An **isolated** session (ticket 29a) cannot examine a Belief (422
-  `isolated_session`). A Belief proposed by an isolated session (ticket 29a, the early-call
-  scorecard) is never judged: `/judge` is 409 `isolated_session_belief`, so it makes no call and
-  never reaches the conclusions bank
+  `isolated_session`), and cites (`?session_id=`) or supersedes (`session_id` in the body) only
+  Beliefs it proposed (422 `belief_not_in_session`); a Belief of an isolated session cites only
+  Facts that session recorded (422 `fact_not_in_session`). A Belief proposed by an isolated
+  session (ticket 29a, the early-call scorecard) is never judged: `/judge` is 409
+  `isolated_session_belief`, so it makes no call and never reaches the conclusions bank
 - `POST /beliefs/{id}/examine` (`{session_id, outcome, note?, actor?}`; ticket 26): a session tested
   the Belief against what was public by its as-of time (`confirmed`, `qualified`, `contradicted`,
   `nothing_new`); insert-only history and the Belief's `last_examined_*`; no judgement. 422
@@ -185,8 +187,10 @@ def beliefs_router(
     @router.post(
         "/{belief_id}/cite", response_model=Belief, responses={**NOT_FOUND, **CONFLICT, **INVALID}
     )
-    def cite(belief_id: uuid.UUID, request: CitationIn) -> Belief | JSONResponse:  # pyright: ignore[reportUnusedFunction]
-        return _run(lambda: service.cite(belief_id, request))
+    def cite(  # pyright: ignore[reportUnusedFunction]
+        belief_id: uuid.UUID, request: CitationIn, session_id: uuid.UUID | None = None
+    ) -> Belief | JSONResponse:
+        return _run(lambda: service.cite(belief_id, request, session_id))
 
     @router.post(
         "/{belief_id}/judge", response_model=Belief, responses={**NOT_FOUND, **CONFLICT, **INVALID}

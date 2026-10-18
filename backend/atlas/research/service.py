@@ -166,6 +166,15 @@ class RecallRequest(BaseModel):
         " fact's chunk in its section (its span in `provenance.sources`; the chunk's text is"
         " not returned)",
     )
+    session_id: uuid.UUID | None = Field(
+        default=None,
+        description="the research session asking (optional). An **isolated** session (ticket"
+        " 29a, the early-call scorecard) is given facts only: no observation (it is built from"
+        " several documents, any of which may be later than the session's as-of time), each fact"
+        " kept only if the section it came from was public by `available_by` (the session's"
+        " as-of time when none is given), and no recall of the conclusions bank (422"
+        " `isolated_session`)",
+    )
 
 
 def reading_index_recall(
@@ -270,6 +279,20 @@ def _available_by(memory: RecalledMemory, by: datetime) -> bool:
     )
 
 
+def _isolated_fact(memory: RecalledMemory, by: datetime) -> bool:
+    """What an isolated session may be given (ticket 29a): a fact, not an observation, whose
+    every section was public by `by`, and that is no retained Belief. An observation is built
+    from several documents and `_available_by` keeps it when any one was public, so a later
+    document's content would come with it."""
+    citation = memory.provenance
+    return (
+        memory.type != "observation"
+        and not citation.beliefs
+        and bool(citation.sources)
+        and all(source.available_at <= by for source in citation.sources)
+    )
+
+
 class ReflectRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -350,9 +373,30 @@ class Research:
 
     # --- recall --------------------------------------------------------------------------------
 
+    def _isolated_bound(self, request: RecallRequest) -> datetime | None:
+        """The time an isolated asking session's recall is bound by (`available_by`, else the
+        session's as-of time), None when the request names no isolated session (ticket 29a)."""
+        if request.session_id is None:
+            return None
+        with self._engine.connect() as connection:
+            row = connection.execute(
+                text("SELECT isolated, as_of FROM research_session WHERE id = :id"),
+                {"id": request.session_id},
+            ).one_or_none()
+        if row is None or not row.isolated:
+            return None
+        return min(request.available_by, row.as_of) if request.available_by else row.as_of
+
     def recall(self, request: RecallRequest) -> RecallResponse:
         scope = self.apply_scope(request.scope)
         gateway = self._gateway
+        isolated_by = self._isolated_bound(request)
+        if request.bank == "beliefs" and isolated_by is not None:
+            raise ResearchRefused(
+                "isolated_session",
+                "recall of the conclusions bank is refused in an isolated session: it starts"
+                " from nothing and sees no earlier conclusion",
+            )
         if request.bank == "beliefs":
             if self._beliefs_gateway is None:
                 raise ResearchRefused(
@@ -373,7 +417,10 @@ class Research:
         resolver = ProvenanceResolver(self._engine, self._archive, gateway)
         memories = [recalled_memory(memory, result, resolver) for memory in result.memories]
         dropped = 0
-        if request.available_by is not None:
+        if isolated_by is not None:
+            kept = [m for m in memories if _isolated_fact(m, isolated_by)]
+            dropped, memories = len(memories) - len(kept), kept
+        elif request.available_by is not None:
             kept = [m for m in memories if _available_by(m, request.available_by)]
             dropped, memories = len(memories) - len(kept), kept
         provenance = [memory.provenance for memory in memories]

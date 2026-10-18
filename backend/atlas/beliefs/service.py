@@ -139,6 +139,11 @@ class BeliefSupersede(BaseModel):
     by: list[uuid.UUID] = Field(min_length=1, description="the Beliefs that replace it")
     reason: str = Field(min_length=1)
     actor: str | None = None
+    session_id: uuid.UUID | None = Field(
+        default=None,
+        description="the asking research session. An isolated one (ticket 29a) may supersede"
+        " only Beliefs it proposed, by Beliefs it proposed: 422 `belief_not_in_session`",
+    )
 
 
 class CompanyRef(BaseModel):
@@ -580,14 +585,50 @@ class Beliefs:
         )
         return belief
 
-    def cite(self, belief_id: uuid.UUID, citation: CitationIn) -> Belief:
+    def cite(
+        self, belief_id: uuid.UUID, citation: CitationIn, session_id: uuid.UUID | None = None
+    ) -> Belief:
         with self._engine.begin() as connection:
-            return self.cite_within(connection, belief_id, citation)
+            return self.cite_within(connection, belief_id, citation, session_id)
+
+    @staticmethod
+    def _own_beliefs_only(
+        connection: Connection, session_id: uuid.UUID | None, belief_ids: list[uuid.UUID]
+    ) -> None:
+        """An isolated asking session (ticket 29a) touches only the Beliefs it proposed."""
+        if (
+            session_id is None
+            or not connection.execute(
+                text(
+                    "SELECT COALESCE((SELECT isolated FROM research_session WHERE id = :id), false)"
+                ),
+                {"id": session_id},
+            ).scalar_one()
+        ):
+            return
+        foreign = connection.execute(
+            text(
+                "SELECT count(*) FROM belief WHERE id = ANY(:ids)"
+                " AND produced_by IS DISTINCT FROM :session"
+            ),
+            {"ids": belief_ids, "session": session_id},
+        ).scalar_one()
+        if foreign:
+            raise BeliefRefused(
+                "belief_not_in_session",
+                "an isolated session (the early-call scorecard) may use only the Beliefs it"
+                " proposed itself",
+            )
 
     def cite_within(
-        self, connection: Connection, belief_id: uuid.UUID, citation: CitationIn
+        self,
+        connection: Connection,
+        belief_id: uuid.UUID,
+        citation: CitationIn,
+        session_id: uuid.UUID | None = None,
     ) -> Belief:
         before = self._lock_active(connection, belief_id)
+        self._own_beliefs_only(connection, session_id, [belief_id])
         self._cite(connection, belief_id, citation)
         belief = get_belief(connection, belief_id)
         assert belief is not None
@@ -751,6 +792,7 @@ class Beliefs:
         who = request.actor or self._actor.name
         with self._engine.begin() as connection:
             before = self._lock_active(connection, belief_id)
+            self._own_beliefs_only(connection, request.session_id, [belief_id, *successors])
             found = {
                 row.id: row.status
                 for row in connection.execute(
@@ -815,6 +857,29 @@ class Beliefs:
         return content_hash(before.model_dump(mode="json"))
 
     def _cite(self, connection: Connection, belief_id: uuid.UUID, citation: CitationIn) -> None:
+        owner = connection.execute(
+            text(
+                "SELECT b.produced_by FROM belief b JOIN research_session s ON s.id = b.produced_by"
+                " WHERE b.id = :id AND s.isolated"
+            ),
+            {"id": belief_id},
+        ).scalar_one_or_none()
+        if owner is not None and (
+            citation.kind != "fact"
+            or not connection.execute(
+                text(
+                    "SELECT EXISTS (SELECT FROM fact WHERE assertion_id = :id AND session_id = :s)"
+                ),
+                {"id": citation.ref_id, "s": owner},
+            ).scalar_one()
+        ):
+            # The Belief of an isolated session (ticket 29a) rests on that session's own Facts:
+            # another session's were chosen with hindsight.
+            raise BeliefRefused(
+                "fact_not_in_session",
+                "a Belief of an isolated session (the early-call scorecard) may cite only Facts"
+                " that session recorded itself",
+            )
         if citation.kind == "fact":
             exists = connection.execute(
                 text("SELECT EXISTS (SELECT FROM fact WHERE assertion_id = :id)"),
