@@ -1165,6 +1165,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/chokepoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Board */
+        get: operations["board_api_v1_chokepoints_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_chokepoints_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chokepoints/{chokepoint_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["read_api_v1_chokepoints__chokepoint_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chokepoints/{chokepoint_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Append */
+        post: operations["append_api_v1_chokepoints__chokepoint_id__events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/watch-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Runs */
+        get: operations["runs_api_v1_watch_runs_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_watch_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/watch-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["read_api_v1_watch_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hypotheses/{hypothesis_id}/predictions": {
         parameters: {
             query?: never;
@@ -2736,6 +2823,8 @@ export interface components {
             /** Themes */
             themes: components["schemas"]["ThemeBeliefs"][];
         };
+        /** @enum {string} */
+        BoardFilter: "lead" | "candidate" | "thesis_ready" | "killed" | "stale" | "needs_review";
         /** Bottlenecks */
         Bottlenecks: {
             /** @description refreshed: `model.content` is the open gaps; otherwise why there are none */
@@ -3868,6 +3957,219 @@ export interface components {
             /** Change */
             change: number;
         };
+        /**
+         * Chokepoint
+         * @description The fold of the chokepoint's events.
+         */
+        Chokepoint: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Theme */
+            theme: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Session */
+            created_by_session: string | null;
+            /**
+             * Created By Run
+             * @description a row of the `run` table
+             */
+            created_by_run: string | null;
+            /** Constraint */
+            constraint: string;
+            /** Layer */
+            layer: string;
+            /** Holders */
+            holders: components["schemas"]["Holder"][];
+            /** @description the status last set; `stale` is not stored */
+            status: components["schemas"]["ChokepointStatus"];
+            /**
+             * Status Reason
+             * @description the reason given with that status
+             */
+            status_reason: string | null;
+            /** @description whether `thesis_ready` would be allowed now */
+            thesis_gate: components["schemas"]["ThesisGate"];
+            /**
+             * Needs Review
+             * @description `thesis_ready` whose gate no longer holds (a step changed under it)
+             */
+            needs_review: boolean;
+            /**
+             * Stale
+             * @description derived: no field_set or step_set event for 56 days, a note and a status change not counting (never for a killed one)
+             */
+            stale: boolean;
+            /**
+             * Steps
+             * @description the six bottleneck-test steps, a to f
+             */
+            steps: components["schemas"]["StepState"][];
+            /** Kill Criteria */
+            kill_criteria: string[];
+            relief_horizon: components["schemas"]["ReliefHorizon"] | null;
+            /** @description context, never evidence */
+            crowding: components["schemas"]["Crowding"] | null;
+            /**
+             * Issue Ids
+             * @description the Issues linked to it
+             */
+            issue_ids: string[];
+            /**
+             * Last Event At
+             * Format: date-time
+             */
+            last_event_at: string;
+            /**
+             * Last Evidence At
+             * Format: date-time
+             * @description the last created, field_set or step_set event: what staleness reads
+             */
+            last_evidence_at: string;
+            /** Event Count */
+            event_count: number;
+        };
+        /** ChokepointCreate */
+        ChokepointCreate: {
+            theme: components["schemas"]["Theme"];
+            /** @description the scarce thing */
+            constraint: components["schemas"]["Text"];
+            /** @description where in the chain it sits */
+            layer: components["schemas"]["Text"];
+            /** Holders */
+            holders?: components["schemas"]["Holder"][];
+            /**
+             * Session Id
+             * @description the research session (its theme must be the chokepoint's)
+             */
+            session_id?: string | null;
+            /**
+             * Run Id
+             * @description a row of the `run` table (the pipeline's run record), not a watch run
+             */
+            run_id?: string | null;
+            /** @description who; default: the session's actor, else the API's */
+            actor?: components["schemas"]["Text"] | null;
+        };
+        /** ChokepointDetail */
+        ChokepointDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Theme */
+            theme: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By Session */
+            created_by_session: string | null;
+            /**
+             * Created By Run
+             * @description a row of the `run` table
+             */
+            created_by_run: string | null;
+            /** Constraint */
+            constraint: string;
+            /** Layer */
+            layer: string;
+            /** Holders */
+            holders: components["schemas"]["Holder"][];
+            /** @description the status last set; `stale` is not stored */
+            status: components["schemas"]["ChokepointStatus"];
+            /**
+             * Status Reason
+             * @description the reason given with that status
+             */
+            status_reason: string | null;
+            /** @description whether `thesis_ready` would be allowed now */
+            thesis_gate: components["schemas"]["ThesisGate"];
+            /**
+             * Needs Review
+             * @description `thesis_ready` whose gate no longer holds (a step changed under it)
+             */
+            needs_review: boolean;
+            /**
+             * Stale
+             * @description derived: no field_set or step_set event for 56 days, a note and a status change not counting (never for a killed one)
+             */
+            stale: boolean;
+            /**
+             * Steps
+             * @description the six bottleneck-test steps, a to f
+             */
+            steps: components["schemas"]["StepState"][];
+            /** Kill Criteria */
+            kill_criteria: string[];
+            relief_horizon: components["schemas"]["ReliefHorizon"] | null;
+            /** @description context, never evidence */
+            crowding: components["schemas"]["Crowding"] | null;
+            /**
+             * Issue Ids
+             * @description the Issues linked to it
+             */
+            issue_ids: string[];
+            /**
+             * Last Event At
+             * Format: date-time
+             */
+            last_event_at: string;
+            /**
+             * Last Evidence At
+             * Format: date-time
+             * @description the last created, field_set or step_set event: what staleness reads
+             */
+            last_evidence_at: string;
+            /** Event Count */
+            event_count: number;
+            /**
+             * History
+             * @description every event, oldest first
+             */
+            history: components["schemas"]["ChokepointEvent"][];
+        };
+        /** ChokepointEvent */
+        ChokepointEvent: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Chokepoint Id
+             * Format: uuid
+             */
+            chokepoint_id: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Actor */
+            actor: string;
+            /** Session Id */
+            session_id: string | null;
+            /** Run Id */
+            run_id: string | null;
+            kind: components["schemas"]["EventKind"];
+            /** Payload */
+            payload: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Reason */
+            reason: string | null;
+        };
+        /** @enum {string} */
+        ChokepointStatus: "lead" | "candidate" | "thesis_ready" | "killed";
         /** CitationIn */
         CitationIn: {
             /**
@@ -4673,6 +4975,8 @@ export interface components {
         };
         /** @enum {string} */
         CoverageGap: "not_seeded" | "no_sources";
+        /** @enum {string} */
+        Crowding: "early" | "emerging" | "consensus";
         /** DiffClaim */
         DiffClaim: {
             /**
@@ -5079,6 +5383,35 @@ export interface components {
             /** Finished At */
             finished_at: string | null;
         };
+        /** EventCreate */
+        EventCreate: {
+            kind: components["schemas"]["WriteKind"];
+            /**
+             * Payload
+             * @description by kind: `field_set` any of constraint, layer, holders, relief_horizon ({horizon, basis} or null), crowding (early|emerging|consensus|null), kill_criteria, issue_ids (a list given replaces the whole list; add_issue_ids appends); `step_set` {step (a constraint, b demand_vs_supply, c relief, d control, e capture, f invalidation; the letter or the name), status, evidence {fact_ids, lead_ids, issue_ids} (replaces the step's evidence) or add_evidence (appends)}; `status_set` {status}; `note` {text}
+             */
+            payload: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Reason
+             * @description why; `killed` needs one
+             */
+            reason?: string | null;
+            /**
+             * Session Id
+             * @description the research session: its as-of time bounds the Facts, leads and Issues cited, its theme must be the chokepoint's, and it must be open and of now
+             */
+            session_id?: string | null;
+            /**
+             * Run Id
+             * @description a row of the `run` table
+             */
+            run_id?: string | null;
+            actor?: components["schemas"]["Text"] | null;
+        };
+        /** @enum {string} */
+        EventKind: "created" | "field_set" | "step_set" | "status_set" | "note";
         /**
          * Evidence
          * @description A Source Version section that resolved citations lead to (Evidence, not Memory).
@@ -6014,6 +6347,18 @@ export interface components {
             related_symbols: string[];
             /** Owner Override */
             owner_override: string;
+        };
+        /**
+         * Holder
+         * @description Who holds the scarce input: a name, with the universe's slug and a CIK when known. A
+         *     holder outside the universe is allowed (the board looks beyond the universe).
+         */
+        Holder: {
+            name: components["schemas"]["Text"];
+            /** @description the company's slug, if it has one */
+            slug?: components["schemas"]["Text"] | null;
+            /** Cik */
+            cik?: string | null;
         };
         /** Hypothesis */
         Hypothesis: {
@@ -7758,6 +8103,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[Chokepoint] */
+        Page_Chokepoint_: {
+            /** Items */
+            items: components["schemas"]["Chokepoint"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[Claim] */
         Page_Claim_: {
             /** Items */
@@ -8015,6 +8371,17 @@ export interface components {
         Page_TriageDecision_: {
             /** Items */
             items: components["schemas"]["TriageDecision"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[WatchRun] */
+        Page_WatchRun_: {
+            /** Items */
+            items: components["schemas"]["WatchRun"][];
             /** Total */
             total: number;
             /** Limit */
@@ -9414,6 +9781,13 @@ export interface components {
             relationship: components["schemas"]["Relationship"];
             /** Audit Event Id */
             audit_event_id: number;
+        };
+        /** ReliefHorizon */
+        ReliefHorizon: {
+            /** @description when supply could catch up */
+            horizon: components["schemas"]["Text"];
+            /** @description what that rests on */
+            basis: components["schemas"]["Text"];
         };
         /**
          * ReplayAnswer
@@ -11176,6 +11550,37 @@ export interface components {
             available_at: string;
         };
         /**
+         * StepEvidence
+         * @description What justifies a step's status: `primary` and `contradicted` need Facts, `lead` a lead
+         *     or an Issue. Given as `evidence`, it replaces the step's whole evidence.
+         */
+        StepEvidence: {
+            /** Fact Ids */
+            fact_ids?: string[];
+            /** Lead Ids */
+            lead_ids?: string[];
+            /** Issue Ids */
+            issue_ids?: string[];
+        };
+        /** @enum {string} */
+        StepKey: "a" | "b" | "c" | "d" | "e" | "f";
+        /** StepState */
+        StepState: {
+            step: components["schemas"]["StepKey"];
+            /**
+             * Name
+             * @description constraint, demand_vs_supply, relief, control, capture or invalidation
+             */
+            name: string;
+            status: components["schemas"]["StepStatus"];
+            evidence: components["schemas"]["StepEvidence"];
+            /**
+             * Set At
+             * @description when the status was last set; null: never
+             */
+            set_at: string | null;
+        };
+        /**
          * StepStatement
          * @description One point of a step, citing the Beliefs it rests on.
          */
@@ -11187,6 +11592,8 @@ export interface components {
             /** Judged */
             judged?: boolean | null;
         };
+        /** @enum {string} */
+        StepStatus: "unexamined" | "lead" | "primary" | "contradicted";
         /** @enum {string} */
         TagMatch: "any_strict" | "all_strict";
         /**
@@ -11244,6 +11651,8 @@ export interface components {
              */
             updated_at: string;
         };
+        Text: string;
+        Theme: string;
         /** ThemeBelief */
         ThemeBelief: {
             /**
@@ -11510,6 +11919,18 @@ export interface components {
              * @description Candidates still `lead`, awaiting a decision
              */
             open_candidate_count: number;
+        };
+        /**
+         * ThesisGate
+         * @description What `thesis_ready` needs: steps a, b and d `primary`, a kill criterion, an open linked
+         *     Issue. `missing` names what does not hold (`step_a_primary`, `kill_criteria`,
+         *     `open_issue`, ...).
+         */
+        ThesisGate: {
+            /** Holds */
+            holds: boolean;
+            /** Missing */
+            missing: string[];
         };
         /** ThesisJudgeRequest */
         ThesisJudgeRequest: {
@@ -12032,7 +12453,80 @@ export interface components {
             available_at: string;
         };
         /** @enum {string} */
+        WatchMode: "architect" | "delta";
+        /** WatchRun */
+        WatchRun: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Theme */
+            theme: string;
+            /**
+             * Run Date
+             * Format: date
+             */
+            run_date: string;
+            mode: components["schemas"]["WatchMode"];
+            /** Memo */
+            memo: string;
+            /** Counts */
+            counts: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Tool Calls */
+            tool_calls: number;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Tokens */
+            tokens: number | null;
+            /** Session Id */
+            session_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** WatchRunCreate */
+        WatchRunCreate: {
+            theme: components["schemas"]["Theme"];
+            /**
+             * Run Date
+             * Format: date
+             */
+            run_date: string;
+            /** @description `architect`: the first run, decomposing the industry */
+            mode: components["schemas"]["WatchMode"];
+            /** @description the memo, markdown */
+            memo: components["schemas"]["Text"];
+            /** Counts */
+            counts?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Tool Calls
+             * @description default: the session's recorded calls, else 0
+             */
+            tool_calls?: number | null;
+            /**
+             * Cost Usd
+             * @description the run's cost, if known
+             */
+            cost_usd?: number | null;
+            /**
+             * Tokens
+             * @description the run's tokens, if known
+             */
+            tokens?: number | null;
+            /** Session Id */
+            session_id?: string | null;
+        };
+        /** @enum {string} */
         Weight: "load_bearing" | "context";
+        /** @enum {string} */
+        WriteKind: "field_set" | "step_set" | "status_set" | "note";
         /** XbrlSource */
         XbrlSource: {
             /**
@@ -15254,6 +15748,271 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    board_api_v1_chokepoints_get: {
+        parameters: {
+            query?: {
+                theme?: string | null;
+                status?: components["schemas"]["BoardFilter"] | null;
+                session_id?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Chokepoint_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_api_v1_chokepoints_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChokepointCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChokepointDetail"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    read_api_v1_chokepoints__chokepoint_id__get: {
+        parameters: {
+            query?: {
+                session_id?: string | null;
+            };
+            header?: never;
+            path: {
+                chokepoint_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChokepointDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    append_api_v1_chokepoints__chokepoint_id__events_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chokepoint_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChokepointDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    runs_api_v1_watch_runs_get: {
+        parameters: {
+            query?: {
+                theme?: string | null;
+                session_id?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_WatchRun_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    create_api_v1_watch_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchRunCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchRun"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    read_api_v1_watch_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchRun"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
