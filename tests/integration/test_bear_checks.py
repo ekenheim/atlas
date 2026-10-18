@@ -70,6 +70,7 @@ class BearAtlas(Atlas):
         public_at: str,
         *paragraphs: str,
         name: str | None = None,
+        broken: bool = False,
     ) -> str:
         """A filing of `form` public at `public_at`, built from these paragraphs, in the ledger."""
         when = datetime.fromisoformat(public_at)
@@ -97,6 +98,8 @@ class BearAtlas(Atlas):
             ),
         )
         body = "".join(f"<p>{each}</p>" for each in paragraphs)
+        # A byte neither UTF-8 nor Windows-1252 makes the parse incomplete (replaced).
+        raw = f"<html><body>{body}</body></html>".encode() + (b"\x81" if broken else b"")
         settings = self.settings()
         ledger = SourceLedger(self.engine, open_archive(settings), Actor.from_settings(settings))
         recorded = ledger.record(
@@ -105,7 +108,7 @@ class BearAtlas(Atlas):
                 url=url,
                 fetched_at=when,
                 not_modified=False,
-                content=f"<html><body>{body}</body></html>".encode(),
+                content=raw,
                 media_type="text/html",
                 validators=HttpValidators(),
                 attempts=(),
@@ -168,6 +171,7 @@ def test_dilution_and_net_cash_from_the_recorded_lumentum_companyfacts(atlas: Be
         "cash": 2_043_500_000,
         "short_term_investments": None,
         "debt": 1_637_400_000,
+        "debt_concepts": ["DebtLongtermAndShorttermCombinedAmount"],
     }
     assert {s["concept"] for s in net_cash["sources"]} == {
         "us-gaap:CashAndCashEquivalentsAtCarryingValue",
@@ -187,7 +191,7 @@ def test_customer_concentration_reads_the_customer_table_of_the_recorded_lumentu
     # represented 10% or more of our total net revenue". The 79.2% of revenue outside the United
     # States of the next paragraph is geography, not a customer.
     assert answer["status"] == "flag"
-    assert answer["value"]["max_percent"] == 26.6
+    assert answer["value"]["current_percent"] == 26.6
     (source,) = answer["sources"]  # only the row at or above 25%
     assert source["quote"] == "Customer A	26.6	%	15.4	%	18.9	%"
     assert source["form_type"] == "10-K"
@@ -305,8 +309,9 @@ def test_coherent_has_no_debt_or_margin_tags_so_those_checks_are_unknown(atlas: 
     assert checks["gaap_gross_margin"]["status"] == "unknown"
     # "We had two customers who each contributed more than 10% of revenue during fiscal 2026."
     concentration = checks["customer_concentration"]
-    assert concentration["status"] == "clear"
-    assert concentration["value"]["max_percent"] == 10.0
+    # "More than 10%" is a lower bound, not a value: no evidence either way, so unknown.
+    assert concentration["status"] == "unknown"
+    assert concentration["value"]["matches"][0]["lower_bound"] is True
 
 
 def test_a_figure_older_than_fifteen_months_is_unknown_not_the_old_number(
@@ -358,7 +363,7 @@ def test_customer_concentration_quotes_the_sentence_of_the_latest_annual_report(
     answer = atlas.checks("schema-drift", "2025-06-01T00:00:00Z")["customer_concentration"]
 
     assert answer["status"] == "flag"
-    assert answer["value"]["max_percent"] == 31.0
+    assert answer["value"]["current_percent"] == 31.0
     (source,) = answer["sources"]
     assert source["source_version_id"] == tenk
     assert source["form_type"] == "10-K"
@@ -382,7 +387,7 @@ def test_a_later_annual_report_replaces_the_earlier_and_a_future_one_is_not_read
     assert before_any["status"] == "unknown"
     assert first["status"] == "flag"  # the 2026 report is not read before it is public
     assert second["status"] == "clear"  # 12% is below the 25% line; the old report is not read
-    assert second["value"]["max_percent"] == 12.0
+    assert second["value"]["current_percent"] == 12.0
     assert second["sources"][0]["quote"] == LOW_CONCENTRATION
 
 
@@ -557,3 +562,115 @@ def test_an_isolated_session_is_refused_the_tool(atlas: BearAtlas) -> None:
     assert is_error
     assert refused["refused"] == "isolated_session"
     assert tool_calls(atlas, isolated) == [("bear_checks", "refused", "isolated_session")]
+
+
+# --- clear only on positive evidence ------------------------------------------------------------
+
+
+def test_a_report_with_no_customer_share_is_unknown_and_a_whole_one_without_the_phrase_clear(
+    atlas: BearAtlas,
+) -> None:
+    atlas.record("schema-drift", "10-K", "2026-03-01T21:00:00+00:00", FILLER)
+
+    checks = atlas.checks("schema-drift", "2026-04-01T00:00:00Z")
+
+    assert checks["customer_concentration"]["status"] == "unknown"
+    assert checks["customer_concentration"]["sources"] == []
+    # Going concern: the whole 10-K was read and the phrase is not in it.
+    assert checks["going_concern"]["status"] == "clear"
+    assert "whole" in checks["going_concern"]["basis"]
+
+
+def test_the_statement_that_no_customer_exceeded_ten_percent_is_clear_with_its_span(
+    atlas: BearAtlas,
+) -> None:
+    sentence = "No single customer accounted for more than 10% of our revenue in fiscal 2026."
+    tenk = atlas.record("schema-drift", "10-K", "2026-03-01T21:00:00+00:00", FILLER, sentence)
+
+    answer = atlas.checks("schema-drift", "2026-04-01T00:00:00Z")["customer_concentration"]
+
+    assert answer["status"] == "clear"
+    (source,) = answer["sources"]
+    assert source["quote"] == sentence
+    assert atlas.parsed(tenk)[source["char_start"] : source["char_end"]] == sentence
+    assert answer["value"]["no_customer_above"] == [10.0]
+
+
+def test_a_partly_parsed_report_that_flags_nothing_is_unknown_and_one_that_flags_still_flags(
+    atlas: BearAtlas,
+) -> None:
+    atlas.record(
+        "schema-drift",
+        "10-K",
+        "2026-03-01T21:00:00+00:00",
+        FILLER,
+        "No single customer accounted for more than 10% of our revenue.",
+        broken=True,
+    )
+    atlas.record("nokia", "20-F", "2026-03-01T21:00:00+00:00", FILLER, CONCENTRATION, GOING_CONCERN)
+    atlas.record(
+        "coherent",
+        "10-K",
+        "2026-03-01T21:00:00+00:00",
+        FILLER,
+        CONCENTRATION,
+        GOING_CONCERN,
+        broken=True,
+    )
+
+    partial = atlas.checks("schema-drift", "2026-04-01T00:00:00Z")
+    flagged = atlas.checks("coherent", "2026-04-01T00:00:00Z")
+
+    assert partial["customer_concentration"]["status"] == "unknown"
+    assert "partly parsed" in partial["customer_concentration"]["basis"]
+    assert partial["going_concern"]["status"] == "unknown"
+    assert "partly parsed" in partial["going_concern"]["basis"]
+    # A flag in the part read stands.
+    assert flagged["customer_concentration"]["status"] == "flag"
+    assert flagged["going_concern"]["status"] == "flag"
+
+
+def test_going_concern_that_is_not_alleviated_or_is_conditional_still_flags(
+    atlas: BearAtlas,
+) -> None:
+    atlas.record(
+        "schema-drift",
+        "10-Q",
+        "2026-05-08T21:00:00+00:00",
+        FILLER,
+        "The new facility has not alleviated the substantial doubt about our ability to"
+        " continue as a going concern.",
+    )
+    atlas.record(
+        "nokia",
+        "10-Q",
+        "2026-05-08T21:00:00+00:00",
+        FILLER,
+        "Without additional financing, there is substantial doubt about the ability of the"
+        " Company to continue as a going concern.",
+    )
+
+    for company in ("schema-drift", "nokia"):
+        assert atlas.checks(company, "2026-06-01T00:00:00Z")["going_concern"]["status"] == "flag"
+
+
+def test_the_current_period_share_decides_and_a_group_is_reported_apart(
+    atlas: BearAtlas,
+) -> None:
+    atlas.record(
+        "schema-drift",
+        "10-K",
+        "2026-03-01T21:00:00+00:00",
+        FILLER,
+        "Customer A accounted for 12%, 30% and 22% of our revenue in fiscal 2026, 2025 and 2024.",
+        "Our ten largest customers accounted for 62% of our net revenue in fiscal 2026.",
+    )
+
+    answer = atlas.checks("schema-drift", "2026-04-01T00:00:00Z")["customer_concentration"]
+
+    # Customer A's fiscal 2026 share is 12% (the 30% was a year earlier): below the line. The
+    # ten largest together are 62%, which is a group, not one customer, and not a flag.
+    assert answer["status"] == "clear"
+    assert answer["value"]["current_percent"] == 12.0
+    (group,) = answer["value"]["top_customers_share"]
+    assert group["current_percent"] == 62.0

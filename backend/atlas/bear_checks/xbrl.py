@@ -14,7 +14,7 @@ from typing import Any
 
 from atlas.bear_checks.models import BearCheck, BearCheckSource
 from atlas.financials import MetricValue, Observation, PeriodKey
-from atlas.financials.xbrl import period_type
+from atlas.financials.xbrl import is_monetary_amount, period_type
 
 STALE_DAYS = 456  # fifteen months
 DILUTION_FLAG = Decimal("0.10")  # growth above 10% in a year
@@ -37,10 +37,6 @@ METRICS = (
     "revenue",
     "cost_of_revenue",
     "gross_profit",
-    "cash",
-    "total_debt",
-    "debt_current",
-    "debt_noncurrent",
 )
 
 
@@ -74,8 +70,73 @@ def _percent(value: Decimal) -> float:
     return round(float(value), 2)
 
 
-def dilution(selected: Mapping[PeriodKey, Observation], as_of: datetime) -> BearCheck:
-    """Shares outstanding now against a year earlier; flag above 10% growth."""
+SPLIT_TOLERANCE = Decimal("0.02")
+# Ratios of share counts a year apart that are splits (and reverse splits), not issuance.
+SPLIT_RATIOS = tuple(
+    Decimal(n) / Decimal(d)
+    for n, d in (
+        (2, 1), (3, 1), (4, 1), (5, 1), (10, 1), (3, 2),
+        (1, 2), (1, 3), (1, 4), (1, 5), (1, 10), (2, 3),
+    )
+)  # fmt: skip
+WEIGHTED_SERIES = (
+    ("us-gaap", "WeightedAverageNumberOfDilutedSharesOutstanding"),
+    ("ifrs-full", "AdjustedWeightedAverageShares"),
+)
+
+
+def _split_like(ratio: Decimal) -> bool:
+    return any(abs(ratio - each) <= each * SPLIT_TOLERANCE for each in SPLIT_RATIOS)
+
+
+def _several_classes(observations: Iterable[Observation], one: Observation) -> bool:
+    """Whether the same filing gives another value for the same cover fact and date: the
+    filer's share classes (companyfacts drops the class, so they collide on one key)."""
+    return any(
+        each.key == one.key and each.accession == one.accession and each.value != one.value
+        for each in observations
+    )
+
+
+def _weighted_pair(
+    selected: Mapping[PeriodKey, Observation], as_of: datetime
+) -> tuple[str, Observation, Observation] | None:
+    """The latest weighted diluted share count (a year or a quarter) and the same period a year
+    earlier, as the latest filing reports them: restated for any split in between."""
+    for taxonomy, concept in WEIGHTED_SERIES:
+        series = [
+            each
+            for key, each in selected.items()
+            if (key.taxonomy, key.concept, key.unit) == (taxonomy, concept, "shares")
+            and each.value > 0
+            and each.period_start is not None
+            and period_type(each.period_start, each.period_end) in ("quarter", "year")
+        ]
+        for latest in sorted(series, key=lambda each: each.period_end, reverse=True):
+            if _stale(latest.period_end, as_of):
+                break
+            kind = period_type(latest.period_start, latest.period_end)
+            earlier = [
+                each
+                for each in series
+                if period_type(each.period_start, each.period_end) == kind
+                and 350 <= (latest.period_end - each.period_end).days <= 380
+            ]
+            if earlier:
+                return f"{taxonomy}:{concept}", latest, earlier[0]
+    return None
+
+
+def dilution(
+    selected: Mapping[PeriodKey, Observation],
+    observations: Iterable[Observation],
+    as_of: datetime,
+) -> BearCheck:
+    """Shares outstanding now against a year earlier; flag above 10% growth. A count that moves
+    by a split's ratio is not issuance: the check then uses the weighted diluted shares as the
+    latest filing reports them (restated for the split) or is unknown. A filer with several
+    share classes is unknown (companyfacts does not say which class a count is)."""
+    everything = list(observations)
     reasons: list[str] = []
     for taxonomy, concept in SHARE_SERIES:
         series = sorted(
@@ -104,33 +165,72 @@ def dilution(selected: Mapping[PeriodKey, Observation], as_of: datetime) -> Bear
             reasons.append(f"{name} has no count within 60 days of {target}")
             continue
         before = min(earlier, key=lambda each: abs((each.period_end - target).days))
-        growth = latest.value / before.value - 1
-        flagged = growth > DILUTION_FLAG
-        return BearCheck(
-            key="dilution",
-            status="flag" if flagged else "clear",
-            value={
-                "concept": name,
-                "shares": _number(latest.value),
-                "shares_as_of": latest.period_end.isoformat(),
-                "shares_year_earlier": _number(before.value),
-                "year_earlier_as_of": before.period_end.isoformat(),
-                "growth_pct": _percent(growth * 100),
-            },
-            basis=(
-                f"{name}: {_number(latest.value):,} at {latest.period_end} against"
-                f" {_number(before.value):,} at {before.period_end}, {_percent(growth * 100):+}%;"
-                " flag above +10%"
-            ),
-            sources=_sources((latest, before)),
-        )
+        if _several_classes(everything, latest) or _several_classes(everything, before):
+            return _unknown_dilution(
+                f"{name} gives several values for one date in one filing: the filer reports"
+                " several share classes, and the classes compared cannot be told apart"
+            )
+        ratio = latest.value / before.value
+        if _split_like(ratio):
+            return _split_dilution(selected, as_of, name, ratio, latest, before)
+        return _dilution_check(name, latest, before, f"{name}: ")
     detail = "; ".join(reasons) if reasons else "no share-count observation (dei or balance sheet)"
+    return _unknown_dilution(f"shares outstanding cannot be compared with a year earlier: {detail}")
+
+
+def _unknown_dilution(basis: str) -> BearCheck:
+    return BearCheck(key="dilution", status="unknown", value=None, basis=basis, sources=[])
+
+
+def _dilution_check(
+    name: str, latest: Observation, before: Observation, lead: str, note: str = ""
+) -> BearCheck:
+    growth = latest.value / before.value - 1
     return BearCheck(
         key="dilution",
-        status="unknown",
-        value=None,
-        basis=f"shares outstanding cannot be compared with a year earlier: {detail}",
-        sources=[],
+        status="flag" if growth > DILUTION_FLAG else "clear",
+        value={
+            "concept": name,
+            "shares": _number(latest.value),
+            "shares_as_of": latest.period_end.isoformat(),
+            "shares_year_earlier": _number(before.value),
+            "year_earlier_as_of": before.period_end.isoformat(),
+            "growth_pct": _percent(growth * 100),
+        },
+        basis=(
+            f"{lead}{_number(latest.value):,} at {latest.period_end} against"
+            f" {_number(before.value):,} at {before.period_end}, {_percent(growth * 100):+}%;"
+            f" flag above +10%{note}"
+        ),
+        sources=_sources((latest, before)),
+    )
+
+
+def _split_dilution(
+    selected: Mapping[PeriodKey, Observation],
+    as_of: datetime,
+    name: str,
+    ratio: Decimal,
+    latest: Observation,
+    before: Observation,
+) -> BearCheck:
+    said = f"{name} changed by a factor of {_percent(ratio)}, which looks like a split"
+    pair = _weighted_pair(selected, as_of)
+    if pair is None:
+        return _unknown_dilution(
+            f"{said}, and there is no split-adjusted weighted diluted share count to use instead"
+        )
+    weighted, now, then = pair
+    if _split_like(now.value / then.value):
+        return _unknown_dilution(
+            f"{said}, and the weighted diluted shares ({weighted}) move by a split's ratio too"
+        )
+    return _dilution_check(
+        weighted,
+        now,
+        then,
+        f"split-adjusted weighted diluted shares ({weighted}): ",
+        f" ({said}; the weighted counts are the latest filing's, restated for it)",
     )
 
 
@@ -271,60 +371,197 @@ def gaap_gross_margin(values: Sequence[MetricValue], as_of: datetime) -> BearChe
     )
 
 
-def net_cash(
-    selected: Mapping[PeriodKey, Observation], values: Sequence[MetricValue], as_of: datetime
-) -> BearCheck:
-    """Cash and short-term investments less debt at the latest balance sheet date that has cash
-    and debt; flag net debt. Debt is the filer's total, else its current and noncurrent parts
-    (a filer tagging only one of them is unknown: debt it did not tag is not zero)."""
-    instants: dict[tuple[str, str], dict[date, MetricValue]] = {}
-    for value in values:
-        if value.metric in ("cash", "total_debt", "debt_current", "debt_noncurrent") and (
-            value.period_start is None
-        ):
-            instants.setdefault((value.metric, value.unit), {})[value.period_end] = value
-    cash_units = sorted(
-        (unit for metric, unit in instants if metric == "cash"),
-        key=lambda unit: -max(instants[("cash", unit)]).toordinal(),
+CASH_CONCEPTS = (
+    ("us-gaap", "CashAndCashEquivalentsAtCarryingValue"),
+    ("ifrs-full", "CashAndCashEquivalents"),
+)
+# Debt concepts by what they are, per taxonomy. A total includes the current part; a side is
+# the current or the noncurrent debt; `other` concepts (a line of credit, notes) may be a part
+# of a side or besides it, which a filing's tags do not say.
+DEBT: dict[str, dict[str, tuple[str, ...]]] = {
+    "us-gaap": {
+        "totals": ("DebtLongtermAndShorttermCombinedAmount", "LongTermDebt"),
+        "current_total": ("DebtCurrent",),
+        "current": (
+            "LongTermDebtCurrent",
+            "ShortTermBorrowings",
+            "ConvertibleNotesPayableCurrent",
+            "ConvertibleDebtCurrent",
+            "NotesPayableCurrent",
+        ),
+        "noncurrent": (
+            "LongTermDebtNoncurrent",
+            "ConvertibleDebtNoncurrent",
+            "ConvertibleNotesPayableNoncurrent",
+            "NotesPayableNoncurrent",
+        ),
+        "other": (
+            "LineOfCredit",
+            "LongTermLineOfCredit",
+            "ConvertibleNotesPayable",
+            "NotesPayable",
+            "SecuredDebt",
+            "UnsecuredDebt",
+            "LongTermDebtAndCapitalLeaseObligations",
+        ),
+    },
+    "ifrs-full": {
+        "totals": ("Borrowings",),
+        "current_total": ("CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings",),
+        "current": (),
+        "noncurrent": ("LongtermBorrowings", "NoncurrentPortionOfNoncurrentBorrowings"),
+        "other": (),
+    },
+}
+DEBT_TOLERANCE = Decimal("0.01")
+
+
+class _Debt:
+    def __init__(self, amount: Decimal, text: str, used: list[Observation]) -> None:
+        self.amount = amount
+        self.text = text
+        self.used = used
+
+
+def _distinct(found: Sequence[Observation]) -> list[tuple[Decimal, list[Observation]]]:
+    """The observations grouped by value, in order: one concept tagged twice is one debt."""
+    groups: list[tuple[Decimal, list[Observation]]] = []
+    for each in found:
+        for value, same in groups:
+            if value == each.value:
+                same.append(each)
+                break
+        else:
+            groups.append((each.value, [each]))
+    return groups
+
+
+def _names(observations: Sequence[Observation]) -> str:
+    return " = ".join(each.concept for each in observations)
+
+
+def _debt(
+    selected: Mapping[PeriodKey, Observation], taxonomy: str, unit: str, end: date
+) -> _Debt | str:
+    """The company's debt at a balance sheet date from the distinct debt concepts tagged, or why
+    that cannot be told."""
+    families = DEBT.get(taxonomy)
+    if families is None:
+        return f"debt concepts of {taxonomy} are not read"
+
+    def tagged(family: str) -> list[Observation]:
+        return [
+            each
+            for concept in families[family]
+            if (each := selected.get(PeriodKey(taxonomy, concept, unit, None, end))) is not None
+        ]
+
+    totals = _distinct(tagged("totals"))
+    if len(totals) > 1:
+        return "the debt totals tagged disagree: " + "; ".join(_names(o) for _, o in totals)
+    current_total = _distinct(tagged("current_total"))
+    current_parts = _distinct(tagged("current"))
+    noncurrent = _distinct(tagged("noncurrent"))
+    if len(noncurrent) > 1:
+        return (
+            "noncurrent debt is tagged as "
+            + " and ".join(_names(o) for _, o in noncurrent)
+            + " with different amounts: whether one is part of the other is not tagged"
+        )
+    current: tuple[Decimal, list[Observation]] | None = None
+    if current_total:
+        current = current_total[0]
+        if any(value > current[0] for value, _ in current_parts):
+            return "a current debt concept exceeds the current debt total tagged"
+    elif current_parts:
+        current = (
+            sum((value for value, _ in current_parts), Decimal(0)),
+            [o for _, group in current_parts for o in group],
+        )
+    current_text = (
+        " + ".join(_names(group) for _, group in (current_total or current_parts))
+        if current is not None
+        else ""
     )
+    parts_amount: Decimal | None = None
+    if current is not None and noncurrent:
+        parts_amount = current[0] + noncurrent[0][0]
+    total_amount = totals[0][0] if totals else None
+    used: list[Observation] = []
+    if total_amount is not None:
+        if parts_amount is not None and abs(parts_amount - total_amount) > max(
+            abs(total_amount) * DEBT_TOLERANCE, Decimal(1)
+        ):
+            return (
+                f"the total debt tagged ({_names(totals[0][1])}) is not the sum of its current"
+                " and noncurrent parts"
+            )
+        amount = total_amount
+        text = _names(totals[0][1])
+        used = list(totals[0][1])
+        if parts_amount is not None and current is not None:
+            text += (
+                f" (the current {_names(current[1])} and noncurrent {_names(noncurrent[0][1])}"
+                " add up to it)"
+            )
+    elif parts_amount is not None and current is not None:
+        amount = parts_amount
+        text = f"{current_text} (current) + {_names(noncurrent[0][1])} (noncurrent)"
+        used = [*current[1], *noncurrent[0][1]]
+    else:
+        return "no total debt, or both current and noncurrent debt, is tagged"
+    known = {amount, *(each.value for each in used)}
+    if current is not None:
+        known.add(current[0])
+    if noncurrent:
+        known.add(noncurrent[0][0])
+    for other in tagged("other"):
+        if other.value != 0 and other.value not in known:
+            return (
+                f"{other.concept} ({_number(other.value):,}) is tagged beside the debt above:"
+                " whether it is part of it is not tagged"
+            )
+    return _Debt(amount, text, used)
+
+
+def net_cash(selected: Mapping[PeriodKey, Observation], as_of: datetime) -> BearCheck:
+    """Cash and short-term investments less debt at the latest balance sheet date that has cash;
+    flag net debt. Debt is the distinct debt concepts tagged, each named in the basis: the
+    filer's total, or its current and noncurrent debt (a duplicate tag counts once). When the
+    tags do not say what is a total and what a part, or debt is not tagged (not zero), the check
+    is unknown."""
     unknown = BearCheck(key="net_cash", status="unknown", value=None, basis="", sources=[])
-    if not cash_units:
+    cash_sets = [
+        (taxonomy, each)
+        for taxonomy, concept in CASH_CONCEPTS
+        for key, each in selected.items()
+        if (key.taxonomy, key.concept) == (taxonomy, concept)
+        and key.start is None
+        and is_monetary_amount(key.unit)
+    ]
+    if not cash_sets:
         unknown.basis = "no cash and cash equivalents in XBRL"
         return unknown
-    unit = cash_units[0]
-    end = max(instants[("cash", unit)])
+    taxonomy, cash = max(cash_sets, key=lambda pair: pair[1].period_end)
+    unit, end = cash.unit, cash.period_end
     if _stale(end, as_of):
         unknown.basis = f"the latest balance sheet with cash is at {end}"
         return unknown
-    cash = instants[("cash", unit)][end]
-    debt_parts: list[MetricValue]
-    total = instants.get(("total_debt", unit), {}).get(end)
-    current = instants.get(("debt_current", unit), {}).get(end)
-    noncurrent = instants.get(("debt_noncurrent", unit), {}).get(end)
-    if total is not None:
-        debt_parts = [total]
-    elif current is not None and noncurrent is not None:
-        debt_parts = [current, noncurrent]
-    else:
-        unknown.basis = f"no total debt, or current and noncurrent debt, tagged at {end}"
+    debt = _debt(selected, taxonomy, unit, end)
+    if isinstance(debt, str):
+        unknown.basis = f"balance sheet at {end}: {debt}"
         return unknown
     investments = next(
         (
             each
-            for taxonomy, concept in SHORT_TERM_INVESTMENT_CONCEPTS
+            for tax, concept in SHORT_TERM_INVESTMENT_CONCEPTS
             for key, each in selected.items()
             if (key.taxonomy, key.concept, key.unit, key.start, key.end)
-            == (taxonomy, concept, unit, None, end)
+            == (tax, concept, unit, None, end)
         ),
         None,
     )
-    debt = sum((each.value for each in debt_parts), Decimal(0))
-    net = cash.value + (investments.value if investments else Decimal(0)) - debt
-    used = [
-        *cash.sources,
-        *([investments] if investments else []),
-        *[s for p in debt_parts for s in p.sources],
-    ]
+    net = cash.value + (investments.value if investments else Decimal(0)) - debt.amount
     return BearCheck(
         key="net_cash",
         status="flag" if net < 0 else "clear",
@@ -334,14 +571,15 @@ def net_cash(
             "net_cash": _number(net),
             "cash": _number(cash.value),
             "short_term_investments": _number(investments.value) if investments else None,
-            "debt": _number(debt),
+            "debt": _number(debt.amount),
+            "debt_concepts": [each.concept for each in debt.used],
         },
         basis=(
             f"balance sheet at {end}: cash {_number(cash.value):,}"
             + (f" + short-term investments {_number(investments.value):,}" if investments else "")
-            + f" - debt {_number(debt):,} = {_number(net):,} ({unit});"
+            + f" - debt {_number(debt.amount):,} [{debt.text}] = {_number(net):,} ({unit});"
             + (" flag: net debt" if net < 0 else " no flag: net cash")
             + ("" if investments else "; no short-term investments tagged, counted as none")
         ),
-        sources=_sources(used),
+        sources=_sources([cash, *([investments] if investments else []), *debt.used]),
     )

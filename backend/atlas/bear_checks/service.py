@@ -20,7 +20,7 @@ from sqlalchemy import Connection, Engine, text
 from atlas.archive import Archive
 from atlas.bear_checks import xbrl
 from atlas.bear_checks.models import BearCheck, BearChecks, BearCheckSource
-from atlas.bear_checks.patterns import customer_concentration, going_concern
+from atlas.bear_checks.patterns import customer_concentration, going_concern, no_large_customer
 from atlas.financials import load_metric_catalog, metric_values, select_as_of
 from atlas.financials.service import company_observations
 from atlas.ledger.reads import current_parse
@@ -78,15 +78,16 @@ def bear_checks(
             is None
         ):
             raise UnknownCompany(f"unknown company: {company_id}")
-        selected = select_as_of(company_observations(connection, company_id), as_of)
+        observations = company_observations(connection, company_id)
+        selected = select_as_of(observations, as_of)
         values = metric_values(selected, catalog, xbrl.METRICS)
         checks = [
-            xbrl.dilution(selected, as_of),
+            xbrl.dilution(selected, observations, as_of),
             _shelf_or_atm(connection, company_id, as_of),
             xbrl.gaap_gross_margin(values, as_of),
             _customer_concentration(connection, archive, company_id, as_of),
             _going_concern(connection, archive, company_id, as_of),
-            xbrl.net_cash(selected, values, as_of),
+            xbrl.net_cash(selected, as_of),
         ]
     return BearChecks(company_id=company_id, as_of=as_of, checks=checks)
 
@@ -168,16 +169,25 @@ def _latest_report(
     )
 
 
-def _parsed_text(
-    connection: Connection, archive: Archive, report: _Report
-) -> tuple[str, str] | str:
-    """The report's current parse and its parser version, or why there is none."""
+@dataclass(frozen=True)
+class _Text:
+    body: str
+    parser_version: str
+    complete: bool  # a parse that read the whole document (`parsed`, not `incomplete`)
+
+
+def _parsed_text(connection: Connection, archive: Archive, report: _Report) -> _Text | str:
+    """The report's current parse, or why there is none."""
     parse = current_parse(connection, report.version_id)
     if parse is None or parse.parse_status not in _WITH_TEXT or parse.parsed_object_uri is None:
         return "has no parsed text"
     if parse.language not in (None, "en"):
         return "is not in English"
-    return archive.get(parse.parsed_object_uri).decode("utf-8"), parse.parser_version
+    return _Text(
+        archive.get(parse.parsed_object_uri).decode("utf-8"),
+        parse.parser_version,
+        parse.parse_status == "parsed",
+    )
 
 
 def _source(
@@ -199,9 +209,18 @@ def _describe(report: _Report) -> str:
     return f"{report.form_type} public {report.available_at.astimezone(UTC).date()}"
 
 
+def _document(report: _Report) -> dict[str, Any]:
+    return {"source_version_id": str(report.version_id), "form": report.form_type}
+
+
 def _customer_concentration(
     connection: Connection, archive: Archive, company_id: uuid.UUID, as_of: datetime
 ) -> BearCheck:
+    """Flag when a customer's current-period share of revenue is 25% or more (a sentence or a
+    table row of the latest 10-K or 20-F). Clear only on positive evidence: a customer's share
+    below 25% stated as a value ("more than 10%" is a lower bound, not a value), or the
+    statement that no customer exceeded a threshold of 25% or less, in a whole parse. A text
+    that says nothing of the kind is unknown."""
     unknown = BearCheck(
         key="customer_concentration", status="unknown", value=None, basis="", sources=[]
     )
@@ -213,54 +232,105 @@ def _customer_concentration(
     if isinstance(parsed, str):
         unknown.basis = f"the latest annual report ({_describe(report)}) {parsed}"
         return unknown
-    body, parser_version = parsed
-    matches = customer_concentration(body)
-    flagged = [each for each in matches if each.maximum >= CONCENTRATION_FLAG_PERCENT]
-    listed = flagged or sorted(matches, key=lambda each: each.maximum, reverse=True)[:1]
+    matches = customer_concentration(parsed.body)
+    customers = [each for each in matches if each.kind == "customer"]
+    groups = [each for each in matches if each.kind == "top_customers"]
+    flagged = [each for each in customers if each.current >= CONCENTRATION_FLAG_PERCENT]
+    stated = [each for each in customers if not each.floor]
+    none_large = [
+        each
+        for each in no_large_customer(parsed.body)
+        if each.threshold <= CONCENTRATION_FLAG_PERCENT
+    ]
     value: dict[str, Any] = {
-        "document": {"source_version_id": str(report.version_id), "form": report.form_type},
-        "max_percent": float(max((each.maximum for each in matches), default=0)) or None,
-        "sentences_matched": len(matches),
+        "document": _document(report),
+        "current_percent": float(max((each.current for each in customers), default=0)) or None,
         "matches": [
             {
                 "percents": [float(p) for p in each.percents],
+                "current_percent": float(each.current),
+                "lower_bound": each.floor,
                 "char_start": each.char_start,
                 "char_end": each.char_end,
                 "quote": each.sentence,
             }
-            for each in (flagged or matches)[:MAX_MATCHES]
+            for each in (flagged or customers)[:MAX_MATCHES]
         ],
+        "top_customers_share": [
+            {
+                "percents": [float(p) for p in each.percents],
+                "current_percent": float(each.current),
+                "char_start": each.char_start,
+                "char_end": each.char_end,
+                "quote": each.sentence,
+            }
+            for each in groups[:MAX_MATCHES]
+        ],
+        "no_customer_above": [float(each.threshold) for each in none_large],
     }
+    limit = CONCENTRATION_FLAG_PERCENT
     if flagged:
-        status = "flag"
-        basis = (
-            f"{len(flagged)} sentence(s) of the latest annual report ({_describe(report)}) say a"
-            f" share of revenue of {CONCENTRATION_FLAG_PERCENT}% or more; flag at"
-            f" {CONCENTRATION_FLAG_PERCENT}%"
+        return BearCheck(
+            key="customer_concentration",
+            status="flag",
+            value=value,
+            basis=(
+                f"{len(flagged)} sentence(s) or table row(s) of the latest annual report"
+                f" ({_describe(report)}) give a customer's current-period share of revenue as"
+                f" {limit}% or more; flag at {limit}%"
+            ),
+            sources=[
+                _source(
+                    report, parsed.parser_version, each.char_start, each.char_end, each.sentence
+                )
+                for each in flagged[:MAX_MATCHES]
+            ],
         )
-    else:
-        status = "clear"
-        basis = (
-            f"no sentence of the latest annual report ({_describe(report)}) says something"
-            f" 'accounted for' {CONCENTRATION_FLAG_PERCENT}% or more of revenue"
-            f" ({len(matches)} sentence(s) matched the pattern with a lower share); only a"
-            " sentence of that wording is read, not tables"
+    if not parsed.complete:
+        unknown.basis = (
+            f"the latest annual report ({_describe(report)}) was only partly parsed: no flag in"
+            " the part read is not evidence that there is none"
         )
-    return BearCheck(
-        key="customer_concentration",
-        status=status,
-        value=value,
-        basis=basis,
-        sources=[
-            _source(report, parser_version, each.char_start, each.char_end, each.sentence)
-            for each in listed
-        ],
+        unknown.value = value
+        return unknown
+    evidence = [*stated, *none_large]
+    if evidence:
+        return BearCheck(
+            key="customer_concentration",
+            status="clear",
+            value=value,
+            basis=(
+                f"the latest annual report ({_describe(report)}) states "
+                + (
+                    f"a customer's share below {limit}% in {len(stated)} place(s)"
+                    if stated
+                    else f"that no customer exceeded {none_large[0].threshold}% of revenue"
+                )
+                + ("; and that no customer exceeded a threshold" if stated and none_large else "")
+            ),
+            sources=[
+                _source(
+                    report, parsed.parser_version, each.char_start, each.char_end, each.sentence
+                )
+                for each in evidence[:MAX_MATCHES]
+            ],
+        )
+    unknown.value = value
+    unknown.basis = (
+        f"the latest annual report ({_describe(report)}) states no customer's share of revenue"
+        f" below {limit}% and not that no customer exceeded a threshold ("
+        f"{len(customers)} customer sentence(s) or row(s) give only a lower bound or nothing"
+        " below the line); only that wording is read"
     )
+    return unknown
 
 
 def _going_concern(
     connection: Connection, archive: Archive, company_id: uuid.UUID, as_of: datetime
 ) -> BearCheck:
+    """Flag when the latest periodic report names substantial doubt about continuing as a going
+    concern (a sentence that actually denies it does not count). Clear only from a whole parse
+    of a 10-K, 10-Q, 20-F or 40-F; a partial parse that flags nothing is unknown."""
     unknown = BearCheck(key="going_concern", status="unknown", value=None, basis="", sources=[])
     report = _latest_report(connection, company_id, as_of, GOING_CONCERN_FORMS)
     if report is None:
@@ -272,15 +342,18 @@ def _going_concern(
     if isinstance(parsed, str):
         unknown.basis = f"the latest periodic report ({_describe(report)}) {parsed}"
         return unknown
-    body, parser_version = parsed
-    matches = going_concern(body)
+    matches = going_concern(parsed.body)
     stated = [each for each in matches if not each.negated]
     value: dict[str, Any] = {
-        "document": {"source_version_id": str(report.version_id), "form": report.form_type},
+        "document": _document(report),
         "sentences": len(stated),
         "negated_sentences": len(matches) - len(stated),
         "hedged_only": bool(stated) and all(each.hedged for each in stated),
     }
+    sources = [
+        _source(report, parsed.parser_version, each.char_start, each.char_end, each.sentence)
+        for each in (stated or matches)[:MAX_MATCHES]
+    ]
     if stated:
         return BearCheck(
             key="going_concern",
@@ -291,22 +364,24 @@ def _going_concern(
                 f" the ability to continue as a going concern in {len(stated)} sentence(s)"
                 + (" (all conditional: 'could', 'may', 'if')" if value["hedged_only"] else "")
             ),
-            sources=[
-                _source(report, parser_version, each.char_start, each.char_end, each.sentence)
-                for each in stated[:MAX_MATCHES]
-            ],
+            sources=sources,
         )
+    if not parsed.complete:
+        unknown.value = value
+        unknown.sources = sources
+        unknown.basis = (
+            f"the latest periodic report ({_describe(report)}) was only partly parsed: no"
+            " going-concern language in the part read is not evidence that there is none"
+        )
+        return unknown
     return BearCheck(
         key="going_concern",
         status="clear",
         value=value,
         basis=(
-            f"the latest periodic report ({_describe(report)}) has no sentence naming substantial"
-            f" doubt about the ability to continue as a going concern"
+            f"the whole latest periodic report ({_describe(report)}) was read and has no"
+            " sentence naming substantial doubt about the ability to continue as a going concern"
             + (f" ({len(matches)} sentence(s) say there is none)" if matches else "")
         ),
-        sources=[
-            _source(report, parser_version, each.char_start, each.char_end, each.sentence)
-            for each in matches[:MAX_MATCHES]
-        ],
+        sources=sources,
     )

@@ -77,7 +77,7 @@ def test_a_concentration_match_is_the_whole_sentence_and_its_span_is_exact():
 
     assert match.sentence == sentence  # "Inc." does not end the sentence
     assert text[match.char_start : match.char_end] == sentence
-    assert match.maximum == Decimal("33")
+    assert match.current == Decimal("33")
 
 
 def test_the_percentages_of_one_sentence_are_one_match_and_two_sentences_are_two():
@@ -186,7 +186,7 @@ def test_the_rows_of_a_customer_revenue_table_are_concentration_too():
         "Customer A\t26.6\t%\t15.4\t%\t18.9\t%",
         "Customer B\t15.0\t%\t16.0\t%\t11.4\t%",
     ]
-    assert [each.maximum for each in matches] == [Decimal("26.6"), Decimal("16.0")]
+    assert [each.current for each in matches] == [Decimal("26.6"), Decimal("15.0")]
     first = matches[0]
     assert text[first.char_start : first.char_end] == first.sentence
 
