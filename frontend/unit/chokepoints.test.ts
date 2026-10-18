@@ -233,6 +233,7 @@ const COMPANIES: Company[] = [
 ].map((each) => each as unknown as Company);
 
 const INDEX: CompaniesIndex = {
+  byId: new Map(COMPANIES.map((each) => [each.id, each])),
   bySlug: new Map(COMPANIES.map((each) => [each.slug, each])),
   byCik: new Map(COMPANIES.map((each) => [(each.cik ?? "").replace(/^0+/, ""), each])),
   byName: new Map(

@@ -2365,6 +2365,11 @@ textarea {
   font-size: 0.9rem;
 }
 
+.verdict-since {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .bar-line {
   color: var(--text-2);
   margin: 0 0 var(--s4);

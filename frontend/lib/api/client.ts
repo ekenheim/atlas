@@ -221,8 +221,10 @@ const hypothesesByTheme = new Map<string, Promise<HypothesesPage>>();
 const themeMaps = new Map<string, Promise<Partial<ThemeMap>>>();
 let companiesMemo: Promise<CompaniesIndex> | null = null;
 
-/** The universe looked up three ways: by slug, by CIK (unpadded) and by case-folded name. */
+/** The universe looked up by id, and three ways for a holder: by slug, by CIK (unpadded) and by
+ * case-folded name. */
 export interface CompaniesIndex {
+  byId: ReadonlyMap<string, Company>;
   bySlug: ReadonlyMap<string, Company>;
   byCik: ReadonlyMap<string, Company>;
   byName: ReadonlyMap<string, Company>;
@@ -234,6 +236,7 @@ export const cikKey = (cik: string) => cik.replace(/^0+/, "");
 export const nameKey = (name: string) => name.trim().toLowerCase();
 
 function indexCompanies(companies: readonly Company[]): CompaniesIndex {
+  const byId = new Map(companies.map((company) => [company.id, company]));
   const bySlug = new Map<string, Company>();
   const byCik = new Map<string, Company>();
   const byName = new Map<string, Company>();
@@ -244,7 +247,7 @@ function indexCompanies(companies: readonly Company[]): CompaniesIndex {
       if (name && !byName.has(nameKey(name))) byName.set(nameKey(name), company);
     }
   }
-  return { bySlug, byCik, byName };
+  return { byId, bySlug, byCik, byName };
 }
 
 /** The sections of a theme's map a page can ask for. */
