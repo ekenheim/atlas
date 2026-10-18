@@ -2,8 +2,17 @@
 const withId = (page: string) => (id: string) => `/${page}/?id=${encodeURIComponent(id)}`;
 
 export const routes = {
-  /** The reader's way in: each theme's research questions. */
+  /** The reader's way in: what Atlas believes per theme, what changed, what is due. */
   home: "/",
+  /** The prospective record: calls, predictions and how they came out; `search` is `theme=`. */
+  record: "/record/",
+  recordFor: (theme: string) => `/record/?theme=${encodeURIComponent(theme)}`,
+  /** Everything that waits on the owner. */
+  decide: "/decide/",
+  /** The operations index: Memory, Agents, Issues, edges, the workbench. */
+  system: "/system/",
+  /** One Issue: what is to find out, and what it produced. */
+  issue: withId("issue"),
   companies: "/companies/",
   /** What Memory holds, per company. */
   memory: "/memory/",
