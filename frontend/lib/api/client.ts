@@ -327,6 +327,26 @@ export const api = {
   issue: (id: string) => get("/api/v1/issues/{issue_id}", { path: { issue_id: id } }),
   /** One Fact, with its quote and span. */
   fact: (id: string) => get("/api/v1/facts/{fact_id}", { path: { fact_id: id } }),
+  /** The owner accepts a proposed update: it becomes a correction of the Hypothesis. */
+  acceptUpdate: async (id: string, note?: string) => {
+    const accepted = await post(
+      "/api/v1/proposed-updates/{proposed_update_id}/accept",
+      { path: { proposed_update_id: id } },
+      note ? { note } : {},
+    );
+    forgetHypotheses();
+    return accepted;
+  },
+  /** The owner dismisses a proposed update, with the reason. */
+  dismissUpdate: async (id: string, reason: string) => {
+    const dismissed = await post(
+      "/api/v1/proposed-updates/{proposed_update_id}/dismiss",
+      { path: { proposed_update_id: id } },
+      { reason },
+    );
+    forgetHypotheses();
+    return dismissed;
+  },
   /** Open proposed updates to published Hypotheses (waiting on the owner). */
   proposedUpdates: (state: "open" | "accepted" | "dismissed" = "open") =>
     get("/api/v1/proposed-updates", { query: { state, ...PAGE } }),

@@ -1,12 +1,15 @@
 "use client";
 
-// Everything that waits on the owner, in one counted queue: a version at the publish gate, an
-// open proposed update, a Belief to judge. Each row opens the object's page, where the controls
-// are. Edge exceptions, Candidates and identity reviews are the lead's delegated work: counts.
+// Everything that waits on the owner, in one counted queue, with the action in its row: judge a
+// Belief, accept or dismiss a proposed update, publish a version that passes its gate, check a
+// thesis nobody has. An item leaves the queue when its action succeeds. Edge exceptions,
+// Candidates and identity reviews are the lead's delegated work: counts.
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
+import { CitationQuote } from "../../components/beliefs";
 import { CheckThesisButton } from "../../components/check-thesis";
+import { JudgeBelief, PublishVersion, UpdateActions } from "../../components/decide-actions";
 import { StatStrip } from "../../components/stat-strip";
 import { api, type Hypothesis, type PublishGate } from "../../lib/api/client";
 import { beliefsToJudge, forgetDecideCount, whyToJudge } from "../../lib/decide";
@@ -62,21 +65,77 @@ async function loadGates(): Promise<{ rows: GateRow[]; failed: number }> {
   return { rows, failed };
 }
 
+/** A Belief's load-bearing quote, shown with the row so the judgement is made on the words. */
+function BeliefQuote({ id }: { id: string }) {
+  const belief = useApi(id, api.belief);
+  if (belief.state !== "ready") return <span className="sk sk-line" />;
+  const quote = belief.data.citations.find(
+    (citation) => citation.weight === "load_bearing" && citation.valence > 0,
+  );
+  return quote ? <CitationQuote citation={quote} /> : <p className="muted-small">No quote cites it yet.</p>;
+}
+
+/** One waiting item: the title opens the object, the actions sit under it and above the link. */
+function Item({
+  title,
+  href,
+  sub,
+  pill,
+  children,
+}: {
+  title: string;
+  href: string;
+  sub: ReactNode;
+  pill: string;
+  children?: ReactNode;
+}) {
+  return (
+    <li className="reader-row">
+      <div>
+        <div className="row-title">
+          <Link href={href}>{title}</Link>
+        </div>
+        <div className="reader-row-sub">{sub}</div>
+      </div>
+      <span className="reader-pill reader-disputed">{pill}</span>
+      {children ? <div className="row-actions">{children}</div> : null}
+    </li>
+  );
+}
+
 export default function DecidePage() {
   const [revision, setRevision] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  // What the owner has dealt with this visit leaves the queue at once, whatever the next read says.
+  const [handled, setHandled] = useState<ReadonlySet<string>>(new Set());
   const gates = useApi(`gates#${revision}`, loadGates);
-  const updates = useApi("updates", loadUpdates);
-  const beliefs = useApi("beliefs", loadBeliefs);
+  const updates = useApi(`updates#${revision}`, loadUpdates);
+  const beliefs = useApi(`beliefs#${revision}`, loadBeliefs);
   const exceptions = useApi("exceptions", api.exceptionsTotal);
   const candidates = useApi("candidates", api.candidatesTotal);
   const identity = useApi("identity", api.identityPendingTotal);
 
-  const toJudge = beliefs.state === "ready" ? beliefsToJudge(beliefs.data) : [];
-  const gateRows = gates.state === "ready" ? gates.data.rows : [];
-  const updateRows = updates.state === "ready" ? updates.data : [];
+  const done = (key: string) => (message: string) => {
+    setNotice(message);
+    setHandled((each) => new Set([...each, key]));
+    forgetDecideCount();
+    setRevision((each) => each + 1);
+  };
+
+  const toJudge =
+    beliefs.state === "ready"
+      ? beliefsToJudge(beliefs.data).filter((each) => !handled.has(`belief:${each.id}`))
+      : [];
+  const gateRows =
+    gates.state === "ready"
+      ? gates.data.rows.filter((each) => !handled.has(`gate:${each.hypothesis.id}`))
+      : [];
+  const updateRows =
+    updates.state === "ready"
+      ? updates.data.filter((each) => !handled.has(`update:${each.id}`))
+      : [];
   const waiting = gateRows.length + updateRows.length + toJudge.length;
-  const loading = [gates, updates, beliefs].some((each) => each.state === "loading");
+  const loading = [gates, updates, beliefs].some((each) => each.state === "loading") && waiting === 0;
   const blocking =
     gates.state === "ready"
       ? gates.data.rows.reduce(
@@ -89,11 +148,9 @@ export default function DecidePage() {
   return (
     <div className="decide-page">
       <h1>Decide</h1>
-      {notice ? (
-        <p role="status" aria-live="polite">
-          {notice}
-        </p>
-      ) : null}
+      <p role="status" aria-live="polite" className={notice ? "decide-notice" : "sr-only"}>
+        {notice ?? ""}
+      </p>
       <StatStrip
         stats={[
           {
@@ -110,65 +167,82 @@ export default function DecidePage() {
 
       {!loading && waiting === 0 ? <p className="measure">Nothing waits on you.</p> : null}
 
-      {gateRows.length > 0 || updateRows.length > 0 || toJudge.length > 0 ? (
+      {waiting > 0 ? (
         <ul className="reader-rows decide-rows" aria-label="Waiting on you">
-          {gateRows.map((row) => (
-            <li className="reader-row" key={`gate-${row.hypothesis.id}`}>
-              <div>
-                <div className="row-title">
-                  <Link href={routes.hypothesis(row.hypothesis.id)}>{row.title}</Link>
-                </div>
-                <div className="reader-row-sub">
-                  Version {row.gate.version} ·{" "}
-                  {row.gate.failures.length === 0
-                    ? "ready to publish"
-                    : row.gate.failures.map((failure) => gateFailureText(failure)).join(" · ")}
-                </div>
-                {needsThesisCheck(row.gate) && row.gate.version !== null ? (
-                  <div className="row-secondary">
-                    <CheckThesisButton
-                      hypothesisId={row.hypothesis.id}
-                      version={row.gate.version}
-                      onChecked={(message) => {
-                        setNotice(message);
-                        forgetDecideCount();
-                        setRevision((each) => each + 1);
-                      }}
-                    />
-                  </div>
+          {gateRows.map((row) => {
+            const passes = row.gate.failures.length === 0;
+            const version = row.gate.version;
+            return (
+              <Item
+                key={`gate-${row.hypothesis.id}`}
+                title={row.title}
+                href={routes.hypothesis(row.hypothesis.id)}
+                pill="Publish"
+                sub={
+                  <>
+                    Version {version} ·{" "}
+                    {passes
+                      ? "ready to publish"
+                      : row.gate.failures.map((failure) => gateFailureText(failure)).join(" · ")}
+                  </>
+                }
+              >
+                {version !== null && passes ? (
+                  <PublishVersion
+                    hypothesisId={row.hypothesis.id}
+                    version={version}
+                    onDone={done(`gate:${row.hypothesis.id}`)}
+                  />
                 ) : null}
-              </div>
-              <span className="reader-pill reader-disputed">Publish</span>
-            </li>
-          ))}
+                {version !== null && needsThesisCheck(row.gate) ? (
+                  <CheckThesisButton
+                    hypothesisId={row.hypothesis.id}
+                    version={version}
+                    onChecked={(message) => {
+                      setNotice(message);
+                      forgetDecideCount();
+                      setRevision((each) => each + 1);
+                    }}
+                  />
+                ) : null}
+              </Item>
+            );
+          })}
           {updateRows.map((update) => (
-            <li className="reader-row" key={`update-${update.id}`}>
-              <div>
-                <div className="row-title">
-                  <Link href={routes.hypothesis(update.hypothesis_id, update.hypothesis_version)}>
-                    {update.summary}
-                  </Link>
-                </div>
-                <div className="reader-row-sub">
-                  Proposed update to version {update.hypothesis_version} ·{" "}
-                  {activity(update.created_at)}
-                </div>
-              </div>
-              <span className="reader-pill reader-disputed">Review</span>
-            </li>
+            <Item
+              key={`update-${update.id}`}
+              title={update.summary}
+              href={routes.hypothesis(update.hypothesis_id, update.hypothesis_version)}
+              pill="Review"
+              sub={
+                <>
+                  Proposed update to version {update.hypothesis_version} · {activity(update.created_at)}
+                </>
+              }
+            >
+              <UpdateActions id={update.id} summary={update.summary} onDone={done(`update:${update.id}`)} />
+            </Item>
           ))}
           {toJudge.map((belief) => (
-            <li className="reader-row" key={`belief-${belief.id}`}>
-              <div>
-                <div className="row-title">
-                  <Link href={routes.belief(belief.id)}>{belief.statement}</Link>
-                </div>
-                <div className="reader-row-sub">
+            <Item
+              key={`belief-${belief.id}`}
+              title={belief.statement}
+              href={routes.belief(belief.id)}
+              pill="Judge"
+              sub={
+                <>
                   {whyToJudge(belief)} · {belief.companies.map((each) => each.display_name).join(", ")}
-                </div>
-              </div>
-              <span className="reader-pill reader-disputed">Judge</span>
-            </li>
+                </>
+              }
+            >
+              <BeliefQuote id={belief.id} />
+              <JudgeBelief
+                id={belief.id}
+                statement={belief.statement}
+                current={belief.judgement}
+                onDone={done(`belief:${belief.id}`)}
+              />
+            </Item>
           ))}
         </ul>
       ) : null}

@@ -2008,3 +2008,37 @@ h1,
   position: relative;
   z-index: 1;
 }
+
+/* Inline actions in a Decide row: above the row's link, never covered by it. */
+.row-actions {
+  grid-column: 1 / -1;
+  position: relative;
+  z-index: 2;
+}
+
+.row-actions .quote-card {
+  margin: var(--s2) 0;
+}
+
+.inline-form {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+  margin: var(--s2) 0 0;
+}
+
+.inline-form label {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--s2);
+}
+
+.inline-form input[type="number"] {
+  width: 5rem;
+}
+
+.decide-notice {
+  color: var(--ok);
+  margin: 0 0 var(--s3);
+}
