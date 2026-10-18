@@ -51,12 +51,15 @@ from atlas.hypotheses.model import (
     HypothesisVersion,
     Mechanism,
     VersionProvenance,
+    thesis_judgement,
     version_from_row,
 )
 from atlas.hypotheses.steps import step_belief_ids
+from atlas.hypotheses.thesis import ThesisJudged, judge_thesis
 from atlas.investigations.skeptic import counterevidence_by_claim
 from atlas.investigations.tasks import accepted_claims
 from atlas.jobs.queue import JobQueue
+from atlas.judging import Judges, JudgeUnavailable
 from atlas.proposed_updates.triggers import record_dependencies
 
 
@@ -88,6 +91,25 @@ class InvalidTransition(HypothesisError):
 
 class UnsupportedFindings(HypothesisError):
     code = "unsupported_finding"
+
+
+class NotBeliefBacked(HypothesisConflict):
+    """The version was not drafted from Beliefs: it has no thesis to judge against them."""
+
+    code = "not_belief_backed"
+
+
+class ThesisMisstatedStands(HypothesisConflict):
+    """The thesis was judged misstated and its text has not changed: it is not judged again."""
+
+    code = "thesis_misstated_stands"
+
+
+class JudgeOutage(HypothesisError):
+    """The judge gave no verdict (off, unconfigured or unreachable): nothing was recorded."""
+
+    code = "judge_unavailable"
+    status = 503
 
 
 class PublishRefused(HypothesisError):
@@ -267,18 +289,33 @@ def requires_unflagged_beliefs(
 
 
 def requires_supported_thesis(
-    _connection: Connection, _hypothesis: RowMapping, version: HypothesisVersion
+    connection: Connection, hypothesis: RowMapping, version: HypothesisVersion
 ) -> GateFailure | None:
-    """The thesis statement was not judged misstated against its Beliefs' Facts (ticket 24): a
-    draft whose thesis still reached beyond its quotes after one rewrite is stored, not refused,
-    and held here until a correction changes the thesis. Not covered by the Belief override."""
-    if version.content.thesis_judged != "misstated":
+    """A version drafted from Beliefs has a thesis a judge has seen and found supported
+    (tickets 24 and 30). One judged misstated against its Beliefs' Facts (after one rewrite in
+    the draft, or when a correction or a later judging found it so) fails `thesis_misstated`;
+    one no judge has seen (the judge was off or unreachable for the correction that wrote it,
+    or for the draft) fails `thesis_unchecked`, and `POST .../versions/{n}/judge-thesis` judges
+    it. The verdict is the version's effective one (`model.thesis_judgements`). Neither is
+    covered by the Belief override. A version of an investigation has no such thesis."""
+    if not version.content.thesis_belief_ids:
         return None
-    reason = version.content.thesis_misstated_reason or "it reaches beyond its Beliefs' quotes"
+    judgement = thesis_judgement(connection, hypothesis["id"], version.version)
+    belief_ids = tuple(version.content.thesis_belief_ids)
+    if judgement is not None and judgement.verdict == "supported":
+        return None
+    if judgement is not None and judgement.verdict == "misstated":
+        reason = judgement.reason or "it reaches beyond its Beliefs' quotes"
+        return GateFailure(
+            "thesis_misstated",
+            f"the thesis statement was judged misstated against its Beliefs' quotes: {reason}",
+            belief_ids=belief_ids,
+        )
+    why = "" if judgement is None else f" ({judgement.reason})"
     return GateFailure(
-        "thesis_misstated",
-        f"the thesis statement was judged misstated against its Beliefs' quotes: {reason}",
-        belief_ids=tuple(version.content.thesis_belief_ids),
+        "thesis_unchecked",
+        "no judge has checked the thesis statement against its Beliefs' quotes" + why,
+        belief_ids=belief_ids,
     )
 
 
@@ -322,6 +359,7 @@ class Hypotheses:
         gate: Sequence[PublishCheck] = DEFAULT_PUBLISH_GATE,
         hooks: Sequence[PublishHook] = (),
         themes_config: Path | None = None,
+        judges: Judges | None = None,
     ) -> None:
         self._engine = engine
         self._queue = queue
@@ -329,6 +367,9 @@ class Hypotheses:
         self._hooks = tuple(hooks)
         # Where a published version's call finds its companies' TradingView symbols.
         self._themes_config = themes_config
+        # Judges the thesis of a correction and of a version judged again (ticket 30); None:
+        # a correction stores no verdict and a version cannot be judged again.
+        self._judges = judges
 
     def create(self, actor: Actor, investigation_id: uuid.UUID) -> uuid.UUID:
         """Save the investigation's result: a `draft` Hypothesis and its drafting job."""
@@ -528,7 +569,11 @@ class Hypotheses:
             _set_status(connection, actor, hypothesis, to, "transition", None, note)
 
     def correct(self, actor: Actor, hypothesis_id: uuid.UUID, correction: Correction) -> int:
-        """A new version from the latest one with the researcher's changes; its number."""
+        """A new version from the latest one with the researcher's changes; its number. A
+        correction that changes the thesis of a version drafted from Beliefs has the new thesis
+        judged at once (ticket 30), before the Hypothesis is locked; a judge that is off or
+        cannot be reached leaves it unjudged, never fails the correction."""
+        judged = self._judge_correction(hypothesis_id, correction)
         with self._engine.begin() as connection:
             hypothesis = _lock(connection, hypothesis_id)
             if hypothesis["status"] in ("closed", "rejected"):
@@ -578,15 +623,23 @@ class Hypotheses:
                 )
                 if value is not None
             }
-            # A thesis the researcher rewrites is no longer the one the judge saw (ticket 24).
-            judged: dict[str, object] = {}
-            if (
+            # A thesis the researcher rewrites is no longer the one the judge saw (tickets 24,
+            # 30): it carries the verdict of the judging made for it, or none.
+            verdict: dict[str, object] = {}
+            thesis_changed = (
                 changes.get("thesis_statement", content.thesis_statement)
                 != content.thesis_statement
-            ):
-                judged = {"thesis_judged": None, "thesis_misstated_reason": None}
+            )
+            decided = judged if judged is not None and judged.verdict != "unjudged" else None
+            if thesis_changed:
+                verdict = {
+                    "thesis_judged": None if decided is None else decided.verdict,
+                    "thesis_misstated_reason": decided.reason
+                    if decided is not None and decided.verdict == "misstated"
+                    else None,
+                }
             new_content = HypothesisContent.model_validate(
-                content.model_dump() | changes | judged | {"findings": findings}
+                content.model_dump() | changes | verdict | {"findings": findings}
             )
             number = base.version + 1
             version = insert_version(
@@ -612,7 +665,119 @@ class Hypotheses:
                 old_hash=base.content_sha256,
                 new_hash=version.content_sha256,
             )
+            if thesis_changed and judged is not None:
+                _insert_judgement(
+                    connection, actor, hypothesis_id, number, version.id, judged, "correction", None
+                )
         return number
+
+    def _judge_correction(
+        self, hypothesis_id: uuid.UUID, correction: Correction
+    ) -> ThesisJudged | None:
+        """The judge's verdict on the thesis a correction writes, when the correction changes
+        the thesis of a version drafted from Beliefs and the judge answers; else None."""
+        if self._judges is None or correction.thesis_statement is None:
+            return None
+        with self._engine.connect() as connection:
+            base = _latest(connection, hypothesis_id)
+            found = (
+                connection.execute(
+                    text("SELECT question, as_of FROM hypothesis WHERE id = :id"),
+                    {"id": hypothesis_id},
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if (
+            base is None
+            or base.version != correction.based_on_version
+            or not base.content.thesis_belief_ids
+            or correction.thesis_statement == base.content.thesis_statement
+        ):
+            return None
+        try:
+            return judge_thesis(
+                self._engine,
+                self._judges,
+                question=None if found is None else found["question"],
+                statement=correction.thesis_statement,
+                belief_ids=base.content.thesis_belief_ids,
+                as_of=None if found is None else found["as_of"],
+            )
+        except JudgeUnavailable:
+            return None
+
+    def judge_thesis(
+        self, actor: Actor, hypothesis_id: uuid.UUID, version_number: int, note: str | None
+    ) -> None:
+        """Judge the thesis of a version drafted from Beliefs again and record the verdict apart
+        from the version (`hypothesis_thesis_judgement`, insert-only; ticket 30): the version's
+        content, published or not, never changes. Nothing is recorded when the judge gives no
+        verdict (`JudgeOutage`)."""
+        with self._engine.connect() as connection:
+            hypothesis = (
+                connection.execute(
+                    text("SELECT id, question, as_of FROM hypothesis WHERE id = :id"),
+                    {"id": hypothesis_id},
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if hypothesis is None:
+                raise HypothesisNotFound("hypothesis not found")
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT * FROM hypothesis_version WHERE hypothesis_id = :id"
+                        " AND version = :version"
+                    ),
+                    {"id": hypothesis_id, "version": version_number},
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            raise HypothesisNotFound("version not found")
+        version = version_from_row(row)
+        if not version.content.thesis_belief_ids:
+            raise NotBeliefBacked(
+                "the version was not drafted from Beliefs: its thesis rests on no Belief's Facts"
+            )
+        # The same text is not asked again until a correction changes it: a judge asked
+        # until it says what the researcher wants would be no judge (ticket 30).
+        with self._engine.connect() as connection:
+            standing = thesis_judgement(connection, hypothesis_id, version_number)
+        if standing is not None and standing.verdict == "misstated":
+            raise ThesisMisstatedStands(
+                "the thesis was judged misstated and stands until a correction changes its text"
+                f" ({standing.reason or 'it reaches beyond its Beliefs'})"
+            )
+        if self._judges is None:
+            raise JudgeOutage("the thesis could not be judged (judging is not configured)")
+        try:
+            judged = judge_thesis(
+                self._engine,
+                self._judges,
+                question=hypothesis["question"],
+                statement=version.content.thesis_statement,
+                belief_ids=version.content.thesis_belief_ids,
+                as_of=hypothesis["as_of"],
+            )
+        except JudgeUnavailable as unavailable:
+            raise JudgeOutage(
+                f"the thesis could not be judged ({unavailable.reason}); call again later"
+            ) from unavailable
+        with self._engine.begin() as connection:
+            _insert_judgement(
+                connection,
+                actor,
+                hypothesis_id,
+                version_number,
+                version.id,
+                judged,
+                "rejudge",
+                note,
+            )
 
     def publish(
         self,
@@ -763,6 +928,50 @@ class GateCheck:
     status: HypothesisStatus
     blocked: GateBlock | None
     failures: tuple[GateFailure, ...]
+
+
+def _insert_judgement(
+    connection: Connection,
+    actor: Actor,
+    hypothesis_id: uuid.UUID,
+    version_number: int,
+    version_id: uuid.UUID,
+    judged: ThesisJudged,
+    source: str,
+    note: str | None,
+) -> None:
+    """Record a judging of a version's thesis (insert-only) and audit it (ticket 30)."""
+    connection.execute(
+        text(
+            "INSERT INTO hypothesis_thesis_judgement (id, hypothesis_id, version, source,"
+            " verdict, reason, judge_role, prompt_version, role_call_id, actor, note)"
+            " VALUES (:id, :hypothesis, :version, :source, :verdict, :reason, :role, :prompt,"
+            " :call, :actor, :note)"
+        ),
+        {
+            "id": uuid.uuid4(),
+            "hypothesis": hypothesis_id,
+            "version": version_number,
+            "source": source,
+            "verdict": judged.verdict,
+            "reason": judged.reason,
+            "role": judged.judge_role,
+            "prompt": judged.prompt_version,
+            "call": judged.role_call_id,
+            "actor": actor.name,
+            "note": note,
+        },
+    )
+    record(
+        connection,
+        actor,
+        "hypothesis.thesis_judged",
+        entity_type="hypothesis_version",
+        entity_id=str(version_id),
+        new_hash=content_hash(
+            {"verdict": judged.verdict, "reason": judged.reason, "source": source}
+        ),
+    )
 
 
 # --- shared helpers -------------------------------------------------------------------------------

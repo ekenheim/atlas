@@ -23,7 +23,8 @@ investigation. One attempt of the draft:
    marks, no qualifier the quotes lack, a thesis that says what may be true. A transcript
    quote reaches the grounding check and the judge with its speaker's label (ticket 25).
    The thesis statement is grounded and judged the same way, first, against the Facts of the
-   Beliefs it cites, with the judge told it is a thesis (`finding.thesis`, `finding_judge.v5`):
+   Beliefs it cites that were public by the cutoff (ticket 30), with the judge told it is a
+   thesis (`finding.thesis`, `finding_judge.v5`):
    its bare hedged proposition ("may be straining ...") is caution, not a claim beyond the
    quotes, and needs no basis; its facts (actors, figures, scope words) still do. A thesis
    still misstated after its one rewrite is stored as that last text with `thesis_judged:
@@ -54,6 +55,7 @@ from atlas.companies import load_universe
 from atlas.hypotheses.model import HypothesisContent, Mechanism, VersionProvenance
 from atlas.hypotheses.service import insert_version
 from atlas.hypotheses.steps import STEP_ORDER, HypothesisStep, StepStatement, step_belief
+from atlas.hypotheses.thesis import MAX_FACTS_PER_STATEMENT, fact_citations, facts_available_by
 from atlas.investigations.argument import fact_rows
 from atlas.investigations.grounding import CheckedFinding, check_findings
 from atlas.investigations.meaning import judge_findings, voting
@@ -75,7 +77,6 @@ from atlas.settings import Settings
 
 EDITOR_ACTOR = Actor("atlas-editor")
 MAX_BELIEFS_PER_STEP = 8
-MAX_FACTS_PER_STATEMENT = 12
 _OPEN_ISSUES = 20
 _BELIEF_PAGE = 500
 
@@ -134,15 +135,6 @@ def proven_beliefs(
             if belief is not None:
                 by_step[summary.step].append(belief)
     return [belief for step in STEP_ORDER for belief in by_step[step]]
-
-
-def _fact_citations(belief: Belief) -> list[uuid.UUID]:
-    """The load-bearing Facts a Belief rests on (positive valence, kind `fact`)."""
-    return [
-        each.ref_id
-        for each in belief.citations
-        if each.kind == "fact" and each.weight == "load_bearing" and each.valence > 0
-    ]
 
 
 class BeliefHypothesisDrafter:
@@ -323,7 +315,7 @@ class BeliefHypothesisDrafter:
                 fact
                 for _, cited in [thesis, *((s, c) for _, s, c in said)]
                 for ref in cited
-                for fact in _fact_citations(refs[ref])
+                for fact in fact_citations(refs[ref])
             )
         )
         with self._engine.connect() as connection:
@@ -343,6 +335,9 @@ class BeliefHypothesisDrafter:
                     text("SELECT display_name, legal_name FROM company")
                 ).all()
             ]
+            # The thesis is held to Facts public by the cutoff (ticket 30); a Belief's later
+            # citation of a document after it is no ground for it.
+            public = facts_available_by(connection, wanted, hypothesis["as_of"])
         claims: dict[str, Mapping[Any, Any]] = {}
         checking: list[tuple[CardFindingDraft, list[str]]] = []
         owners: list[tuple[str | None, list[str]]] = []  # step (None: the thesis), b-refs
@@ -350,7 +345,10 @@ class BeliefHypothesisDrafter:
         def add(owner: str | None, statement: str, cited: list[str]) -> bool:
             facts = list(
                 dict.fromkeys(
-                    fact for ref in cited for fact in _fact_citations(refs[ref]) if fact in rows
+                    fact
+                    for ref in cited
+                    for fact in fact_citations(refs[ref])
+                    if fact in rows and (owner is not None or fact in public)
                 )
             )[:MAX_FACTS_PER_STATEMENT]
             if not facts:

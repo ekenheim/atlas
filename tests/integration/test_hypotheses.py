@@ -734,6 +734,34 @@ def test_the_dossier_exports_as_json_and_markdown_with_citations_and_run_metadat
 # --- lifecycle and immutability -------------------------------------------------------------------
 
 
+def test_a_version_of_an_investigation_has_no_thesis_to_judge_against_beliefs(
+    atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
+) -> None:
+    hypothesis = drafted(atlas, llm, searxng)
+    hypothesis_id = hypothesis["id"]
+    judge_calls = roles(llm).count("finding_judge")
+
+    refused = atlas.api.post(f"/api/v1/hypotheses/{hypothesis_id}/versions/1/judge-thesis")
+
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["error"]["code"] == "not_belief_backed"
+    # A correction of its thesis is not judged either, its gate has no thesis check, and its
+    # versions have no thesis judgement.
+    corrected = correct(
+        atlas,
+        hypothesis_id,
+        based_on_version=1,
+        note="rewrites the thesis",
+        thesis_statement="Coherent supplies the lasers.",
+    )
+    assert corrected.status_code == 201, corrected.text
+    assert roles(llm).count("finding_judge") == judge_calls
+    for version in get(atlas, hypothesis_id)["versions"]:
+        assert (version["content"]["thesis_judged"], version["thesis_judgement"]) == (None, None)
+    gate = atlas.get(f"/api/v1/hypotheses/{hypothesis_id}/publish-gate")
+    assert not [each for each in gate["failures"] if each["code"].startswith("thesis_")]
+
+
 def test_the_lifecycle_is_enforced_and_a_published_version_is_immutable(
     atlas: Atlas, llm: FakeLiteLLM, searxng: FakeSearXNG
 ) -> None:

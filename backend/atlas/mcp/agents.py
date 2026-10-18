@@ -584,6 +584,9 @@ async def get_hypothesis(ctx: Ctx, args: GetHypothesisArgs) -> dict[str, Any]:
             "thesis_belief_ids": content.get("thesis_belief_ids"),
             "thesis_judged": content.get("thesis_judged"),
             "thesis_misstated_reason": content.get("thesis_misstated_reason"),
+            # The effective verdict (ticket 30), which the gate reads: a later judging of the
+            # version, else the content's; none when no judge has seen the thesis.
+            "thesis_judgement": latest.get("thesis_judgement"),
             "steps": steps,
             "steps_without_statement": [each["step"] for each in steps if not each["statements"]],
             "unsupported_findings": rows(content.get("unsupported_findings")),

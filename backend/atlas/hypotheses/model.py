@@ -120,6 +120,24 @@ class VersionProvenance(BaseModel):
     belief_ids: list[uuid.UUID] = Field(default_factory=list[uuid.UUID])
 
 
+class ThesisJudgement(BaseModel):
+    """The finding judge's word on a Belief-backed version's thesis, and where it comes from
+    (ticket 30): the draft's own judging (`draft`), the judging of a correction that changed the
+    thesis (`correction`: also an insert-only row, with its role call), or a later judging of the
+    version on its own (`rejudge`: such a row). `unjudged`: a judging that found nothing to judge it
+    against. A version no judge has seen has none."""
+
+    model_config = ConfigDict(frozen=True)
+
+    verdict: Literal["supported", "misstated", "unjudged"]
+    reason: str | None
+    at: datetime
+    by: str
+    source: Literal["draft", "correction", "rejudge"]
+    # The judge's call, when one is on record (a row's; the draft's own is not kept here).
+    role_call_id: uuid.UUID | None = None
+
+
 class HypothesisVersion(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -136,6 +154,11 @@ class HypothesisVersion(BaseModel):
     published: bool
     published_at: datetime | None
     published_by: str | None
+    # The effective verdict on the thesis of a version drafted from Beliefs: its latest
+    # `hypothesis_thesis_judgement` row, else what its content records (`content.thesis_judged`,
+    # which stays as stored); null when no judge has seen it. Filled when a Hypothesis or a
+    # version is read, not when a version is written.
+    thesis_judgement: ThesisJudgement | None = None
 
 
 class HypothesisTransition(BaseModel):
@@ -221,17 +244,89 @@ def list_hypotheses(
 def get_version(
     connection: Connection, hypothesis_id: uuid.UUID, version: int
 ) -> HypothesisVersion | None:
-    row = (
-        connection.execute(
-            text(
-                "SELECT * FROM hypothesis_version WHERE hypothesis_id = :id AND version = :version"
-            ),
-            {"id": hypothesis_id, "version": version},
-        )
-        .mappings()
-        .one_or_none()
+    return next(
+        (each for each in _versions(connection, hypothesis_id) if each.version == version), None
     )
-    return None if row is None else version_from_row(row)
+
+
+def _versions(connection: Connection, hypothesis_id: uuid.UUID) -> list[HypothesisVersion]:
+    """The Hypothesis's versions in order, each with its effective thesis judgement."""
+    versions = [
+        version_from_row(each)
+        for each in connection.execute(
+            text("SELECT * FROM hypothesis_version WHERE hypothesis_id = :id ORDER BY version"),
+            {"id": hypothesis_id},
+        ).mappings()
+    ]
+    judgements = thesis_judgements(connection, hypothesis_id, versions)
+    return [
+        each.model_copy(update={"thesis_judgement": judgements[each.version]}) for each in versions
+    ]
+
+
+def thesis_judgements(
+    connection: Connection, hypothesis_id: uuid.UUID, versions: list[HypothesisVersion]
+) -> dict[int, ThesisJudgement | None]:
+    """Each version's effective thesis judgement (ticket 30; `docs/decisions.md`, "A corrected
+    thesis is judged"). A version's own latest `hypothesis_thesis_judgement` row decides
+    (`rejudge`). A correction that left the thesis as its base had it has its base's verdict,
+    whatever that rests on. Otherwise it is what the version's content records: the draft's
+    (`draft`) or the correction's (`correction`); none when the content records none."""
+    latest: dict[int, ThesisJudgement] = {}
+    for row in connection.execute(
+        text(
+            "SELECT version, verdict, reason, source, role_call_id, actor, at"
+            " FROM hypothesis_thesis_judgement"
+            " WHERE hypothesis_id = :id ORDER BY at, id"
+        ),
+        {"id": hypothesis_id},
+    ).mappings():
+        latest[row["version"]] = ThesisJudgement(
+            verdict=row["verdict"],
+            reason=row["reason"],
+            at=row["at"],
+            by=row["actor"],
+            source=row["source"],
+            role_call_id=row["role_call_id"],
+        )
+    by_number = {each.version: each for each in versions}
+    effective: dict[int, ThesisJudgement | None] = {}
+    for each in versions:  # in order: a base is settled before the corrections of it
+        base = None if each.based_on_version is None else by_number.get(each.based_on_version)
+        content = each.content
+        if each.version in latest:
+            effective[each.version] = latest[each.version]
+        elif (
+            base is not None
+            and each.origin == "correction"
+            and base.content.thesis_statement == content.thesis_statement
+        ):
+            effective[each.version] = effective[base.version]
+        elif content.thesis_judged is None:
+            effective[each.version] = None
+        else:
+            effective[each.version] = ThesisJudgement(
+                verdict=content.thesis_judged,
+                reason=content.thesis_misstated_reason,
+                at=each.created_at,
+                by=each.created_by,
+                source="draft" if each.origin == "editor_draft" else "correction",
+            )
+    return effective
+
+
+def thesis_judgement(
+    connection: Connection, hypothesis_id: uuid.UUID, version: int
+) -> ThesisJudgement | None:
+    """The effective thesis judgement of one version of the Hypothesis, or None."""
+    versions = [
+        version_from_row(each)
+        for each in connection.execute(
+            text("SELECT * FROM hypothesis_version WHERE hypothesis_id = :id ORDER BY version"),
+            {"id": hypothesis_id},
+        ).mappings()
+    ]
+    return thesis_judgements(connection, hypothesis_id, versions).get(version)
 
 
 def version_from_row(row: RowMapping) -> HypothesisVersion:
@@ -242,13 +337,7 @@ def version_from_row(row: RowMapping) -> HypothesisVersion:
 
 def _hypothesis(connection: Connection, row: RowMapping) -> Hypothesis:
     params = {"id": row["id"]}
-    versions = [
-        version_from_row(each)
-        for each in connection.execute(
-            text("SELECT * FROM hypothesis_version WHERE hypothesis_id = :id ORDER BY version"),
-            params,
-        ).mappings()
-    ]
+    versions = _versions(connection, row["id"])
     transitions = [
         HypothesisTransition.model_validate(dict(each))
         for each in connection.execute(

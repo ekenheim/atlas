@@ -34,6 +34,17 @@ test("a thesis is checked, overreaches, or is not checked yet; an investigation'
     state: "misstated",
     text: "Says more than its quotes: it says merchant",
   });
+  // A later judging of the version (ticket 30) decides over what its content records.
+  const judgement = (verdict: string, reason: string | null) =>
+    ({
+      content: { steps: [step("control", "a")], thesis_judged: null },
+      thesis_judgement: { verdict, reason, at: "", by: "owner", source: "rejudge" },
+    }) as unknown as HypothesisVersion;
+  expect(thesisCheck(judgement("supported", null))?.state).toBe("supported");
+  expect(thesisCheck(judgement("misstated", "it says merchant"))?.text).toBe(
+    "Says more than its quotes: it says merchant",
+  );
+  expect(thesisCheck(judgement("unjudged", "no Fact"))?.state).toBe("unchecked");
   // A version of an investigation has no steps, so no check to report.
   expect(thesisCheck(version({ thesis_judged: "supported" }))).toBeNull();
   expect(thesisCheck(version({ steps: [] }))).toBeNull();

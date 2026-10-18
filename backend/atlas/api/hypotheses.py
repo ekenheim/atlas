@@ -15,13 +15,23 @@
   `invalid_transition` otherwise; `reviewed` only by publishing).
 - `POST /hypotheses/{id}/versions`: a correction: a new version from the latest one with the
   changed fields and a note. Findings must cite accepted Claims of the investigation (422
-  `unsupported_finding`).
+  `unsupported_finding`). A correction that changes the thesis of a version drafted from Beliefs
+  has the new thesis judged at once (ticket 30: `thesis_judged` in the new version's content;
+  none when the judge is off or unreachable, and the correction still succeeds).
+- `POST /hypotheses/{id}/versions/{version}/judge-thesis` (201, `{"note"?}` or no body): judge
+  that version's thesis again, as a thesis against its Beliefs' Facts, and record the verdict in
+  the insert-only `hypothesis_thesis_judgement` (audited `hypothesis.thesis_judged`); the
+  version itself, published or not, never changes, and its `thesis_judgement` shows the latest
+  verdict (`source` `rejudge`). 409 `not_belief_backed` for a version of an investigation; 503
+  `judge_unavailable` (nothing recorded) when the judge is off or cannot be reached.
 - `POST /hypotheses/{id}/publish-version` (`{"version", "note"?}`): publish the latest version
   behind the publish gate: at least one falsifier, one unresolved question, and the owner's
   approval of every Relationship the version depends on. A refusal is 422
   `publish_gate_failed` with `failures`, every failed check by code (`no_falsifier`,
   `no_unresolved_question`, `relationship_not_approved` with the `relationship_ids`,
-  `relationship_review_pending` with the `assertion_ids`). A published version is immutable,
+  `relationship_review_pending` with the `assertion_ids`, and for a version drafted from
+  Beliefs `thesis_misstated` or `thesis_unchecked`: its effective thesis judgement is
+  misstated, or there is none). A published version is immutable,
   and its Research Snapshot is written in the same transaction (`GET /snapshots`).
 - `GET /hypotheses/{id}/publish-gate`: the same gate read for the latest version without
   publishing: `blocked` says why it can't be published whatever the checks say
@@ -37,7 +47,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Literal, Self
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Engine
@@ -77,6 +87,7 @@ from atlas.hypotheses import (
 from atlas.hypotheses.findings import ProposedFinding
 from atlas.hypotheses.service import GateBlock
 from atlas.jobs import JobQueue
+from atlas.judging import Judges
 from atlas.settings import Settings
 from atlas.snapshots import snapshot_hook
 
@@ -156,7 +167,7 @@ class GateFailureView(BaseModel):
     belief_ids: list[uuid.UUID] = Field(
         default_factory=list[uuid.UUID],
         description="`belief_not_proven`: the load-bearing Beliefs that are not proven;"
-        " `thesis_misstated`: the Beliefs the misstated thesis cites",
+        " `thesis_misstated`, `thesis_unchecked`: the Beliefs the thesis cites",
     )
 
 
@@ -170,6 +181,12 @@ class PublishGateView(BaseModel):
     )
     publishable: bool = Field(description="not blocked and no check failed")
     failures: list[GateFailureView]
+
+
+class ThesisJudgeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class PublishRefusal(ErrorDetail):
@@ -215,7 +232,11 @@ def hypotheses_router(
     router = APIRouter(prefix="/api/v1/hypotheses", tags=["hypotheses"])
     # Publishing freezes the version's Research Snapshot in the publishing transaction.
     hypotheses = Hypotheses(
-        engine, queue, hooks=(snapshot_hook(archive),), themes_config=settings.themes_config
+        engine,
+        queue,
+        hooks=(snapshot_hook(archive),),
+        themes_config=settings.themes_config,
+        judges=Judges(engine, settings),
     )
 
     def found(hypothesis_id: uuid.UUID) -> Hypothesis | JSONResponse:
@@ -330,6 +351,24 @@ def hypotheses_router(
         )
         try:
             hypotheses.correct(actor, hypothesis_id, correction)
+        except HypothesisError as error:
+            return failed(error)
+        return found(hypothesis_id)
+
+    @router.post(
+        "/{hypothesis_id}/versions/{version}/judge-thesis",
+        status_code=201,
+        response_model=Hypothesis,
+        responses={**NOT_FOUND, **CONFLICT, **NOT_CONFIGURED},
+    )
+    def judge_thesis(  # pyright: ignore[reportUnusedFunction]
+        hypothesis_id: uuid.UUID,
+        version: int,
+        request: Annotated[ThesisJudgeRequest | None, Body()] = None,
+    ) -> Hypothesis | JSONResponse:
+        note = None if request is None else _note(request.note)
+        try:
+            hypotheses.judge_thesis(actor, hypothesis_id, version, note)
         except HypothesisError as error:
             return failed(error)
         return found(hypothesis_id)
