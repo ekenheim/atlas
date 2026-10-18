@@ -42,10 +42,21 @@ def archive_search_router(engine: Engine, archive: Archive) -> APIRouter:
         as_of: Annotated[datetime | None, Query(description="default: now")] = None,
         top: Annotated[int, Query(ge=1, le=200)] = 20,
         per_document: Annotated[int, Query(ge=1, le=50)] = 3,
+        session_id: Annotated[
+            uuid.UUID | None,
+            Query(description="the research session asking (web pages: see the module)"),
+        ] = None,
     ) -> ArchiveSearch | JSONResponse:
         try:
             return archive_search(
-                engine, archive, q, company_id, as_of or datetime.now(UTC), top, per_document
+                engine,
+                archive,
+                q,
+                company_id,
+                as_of or datetime.now(UTC),
+                top,
+                per_document,
+                session_id,
             )
         except UnknownCompany as refused:
             return error_response(422, "unknown_company", str(refused))
@@ -64,10 +75,14 @@ def archive_search_router(engine: Engine, archive: Archive) -> APIRouter:
             Query(description="a form, document or source type to keep (10-Q, 8-K, transcript)"),
         ] = None,
         limit: Annotated[int, Query(ge=1, le=500)] = 50,
+        session_id: Annotated[
+            uuid.UUID | None,
+            Query(description="the research session asking (web pages: see the module)"),
+        ] = None,
     ) -> ArchiveDocuments | JSONResponse:
         try:
             return archive_documents(
-                engine, company_id, as_of or datetime.now(UTC), since, kind or (), limit
+                engine, company_id, as_of or datetime.now(UTC), since, kind or (), limit, session_id
             )
         except UnknownCompany as refused:
             return error_response(422, "unknown_company", str(refused))

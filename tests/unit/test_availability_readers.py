@@ -21,7 +21,11 @@ COMPARISON = re.compile(
 )
 
 # (path under backend/atlas, the comparison's text) -> why the raw column is right there.
-ALLOWED: dict[tuple[str, str], str] = {}
+ALLOWED: dict[tuple[str, str], str] = {
+    ("bear_checks/service.py", "available_at > :since"): (
+        "a condition formatted into `_PRIMARY`, whose `a` is source_version_availability"
+    ),
+}
 
 
 def _statements(tree: ast.AST) -> list[tuple[int, str]]:

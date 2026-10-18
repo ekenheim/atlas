@@ -138,6 +138,9 @@ class FetchObservation(BaseModel):
     gate_decision_id: uuid.UUID | None
     # The owner's recorded override this fetch was made under (TradingView, ticket 31).
     owner_override: str | None = None
+    # The research session that asked for this fetch (`fetch_page`, `sources fetch
+    # --session-id`), if one did: a page fetched after a session's as-of time is read only by it.
+    session_id: uuid.UUID | None = None
 
 
 class ContentLinks(BaseModel):
@@ -269,7 +272,8 @@ def get_version(connection: Connection, version_id: uuid.UUID) -> SourceVersionD
     fetches = connection.execute(
         text(
             "SELECT id, outcome, url, fetched_at, observed_at, raw_sha256, comparison_sha256,"
-            " etag, last_modified, attempts, job_id, gate_decision_id, owner_override"
+            " etag, last_modified, attempts, job_id, gate_decision_id, owner_override,"
+            " session_id"
             " FROM fetch_observation"
             " WHERE source_version_id = :id ORDER BY observed_at, fetched_at, id"
         ),

@@ -250,10 +250,37 @@ def _check_facts(
             )
     if session is None:
         return
-    # The same rule as the MCP tools': a Fact of a Source Version public after the session's
-    # as-of time (its effective availability) is not visible to it.
+    # The same rule as the MCP tools' (`Ctx.visible_version`) and the archive search's: a Fact of
+    # a Source Version public after the session's as-of time (its effective availability) is not
+    # visible to it. A web page (W3) is visible when it was public and fetched by the as-of time,
+    # or when this session fetched it with its as-of time at most `PROSPECTIVE_WINDOW` before
+    # that fetch. (The session is never isolated here: `_check_session` refused it.)
+    visible = {
+        row.assertion_id
+        for row in connection.execute(
+            text(
+                "SELECT s.id AS assertion_id FROM assertion s"
+                " JOIN source_version v ON v.id = s.source_version_id"
+                " JOIN source_document d ON d.id = v.source_document_id"
+                " JOIN source_version_availability a ON a.source_version_id = v.id"
+                " WHERE s.id = ANY(:ids)"
+                "   AND ((d.provider <> 'web' AND a.available_at <= :as_of)"
+                "     OR (d.provider = 'web' AND ("
+                "       (a.available_at <= :as_of AND v.fetched_at <= :as_of)"
+                "       OR EXISTS (SELECT 1 FROM fetch_observation o"
+                "         WHERE o.source_version_id = v.id AND o.session_id = :session"
+                "           AND o.fetched_at <= :fetched_by))))"
+            ),
+            {
+                "ids": list(set(ids)),
+                "as_of": session.as_of,
+                "session": session.id,
+                "fetched_by": session.as_of + PROSPECTIVE_WINDOW,
+            },
+        )
+    }
     for row in found:
-        if row.available_at > session.as_of:
+        if row.assertion_id not in visible:
             raise ChokepointError(
                 422,
                 "fact_available_after_as_of",

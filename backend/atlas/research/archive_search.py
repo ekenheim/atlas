@@ -17,6 +17,11 @@ English Source Versions of some companies available at an as-of time, for the re
   filings one hit with the other documents in `also_in`.
 - **Section.** Each hit names the section (`atlas.retention.sections`, the anchor retention and
   Assertions use) its passage starts in.
+- **Web pages** (provider `web`, `atlas sources fetch`) are never public before Atlas had
+  them: a page is searched when it was public and fetched by the as-of time, or when the
+  `session_id` asking fetched it itself with its as-of time within 36 hours before that fetch
+  (a prospective session reads what it fetched minutes after its start); never for an isolated
+  session, and for no other session before its fetch.
 - **Cache.** The archive reads are kept in an in-process LRU of the last `TEXT_CACHE` (256)
   parsed texts, by the parse's archived object URI (a parse never changes); the passages, their
   tokens and the sections are cached per text too (`indexed_passages`, bound 256 texts;
@@ -30,7 +35,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 
 from pydantic import BaseModel, Field
-from sqlalchemy import Engine, text
+from sqlalchemy import Connection, Engine, text
 
 from atlas.archive import Archive
 from atlas.evaluation.baseline import Document, search
@@ -102,9 +107,28 @@ _VERSIONS = """
     JOIN source_version v ON v.source_document_id = d.id
     JOIN source_version_availability a ON a.source_version_id = v.id
     WHERE d.company_id = ANY(:companies) AND d.source_type <> 'xbrl_companyfacts'
-      AND a.available_at <= :as_of
+      AND ((d.provider <> 'web' AND a.available_at <= :as_of)
+        OR (d.provider = 'web' AND NOT :isolated AND (
+          (a.available_at <= :as_of AND v.fetched_at <= :as_of)
+          OR EXISTS (
+            SELECT 1 FROM fetch_observation o
+            WHERE o.source_version_id = v.id AND o.session_id = CAST(:session AS uuid)
+              AND :as_of >= o.fetched_at - interval '36 hours'))))
     ORDER BY d.id, a.available_at DESC, v.version_number DESC
 """
+
+
+def _web_rule(connection: Connection, session_id: uuid.UUID | None) -> dict[str, object]:
+    """The parameters of `_VERSIONS`' rule for web pages: the session asking and whether it is
+    isolated (which sees no page at all)."""
+    isolated = False
+    if session_id is not None:
+        isolated = bool(
+            connection.execute(
+                text("SELECT isolated FROM research_session WHERE id = :id"), {"id": session_id}
+            ).scalar_one_or_none()
+        )
+    return {"session": session_id, "isolated": isolated}
 
 
 def archive_search(
@@ -115,6 +139,7 @@ def archive_search(
     as_of: datetime,
     top: int = 20,
     per_document: int = 3,
+    session_id: uuid.UUID | None = None,
 ) -> ArchiveSearch:
     """The `top` best passages for the query among the companies' documents at `as_of`
     (module docstring). Raises `UnknownCompany` for an id not in the universe."""
@@ -132,7 +157,14 @@ def archive_search(
         if unknown:
             raise UnknownCompany(f"unknown company: {', '.join(unknown)}")
         rows = (
-            connection.execute(text(_VERSIONS), {"companies": list(company_ids), "as_of": as_of})
+            connection.execute(
+                text(_VERSIONS),
+                {
+                    "companies": list(company_ids),
+                    "as_of": as_of,
+                    **_web_rule(connection, session_id),
+                },
+            )
             .mappings()
             .all()
         )
@@ -237,6 +269,7 @@ def archive_documents(
     since: datetime | None = None,
     kinds: Sequence[str] = (),
     limit: int = 50,
+    session_id: uuid.UUID | None = None,
 ) -> ArchiveDocuments:
     """The documents `archive_search` would search (module docstring: the latest version public
     by `as_of`, with a parse that has text, in English), newest first by when each became
@@ -258,7 +291,14 @@ def archive_documents(
         if unknown:
             raise UnknownCompany(f"unknown company: {', '.join(unknown)}")
         rows = (
-            connection.execute(text(_VERSIONS), {"companies": list(company_ids), "as_of": as_of})
+            connection.execute(
+                text(_VERSIONS),
+                {
+                    "companies": list(company_ids),
+                    "as_of": as_of,
+                    **_web_rule(connection, session_id),
+                },
+            )
             .mappings()
             .all()
         )

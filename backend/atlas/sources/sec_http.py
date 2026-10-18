@@ -81,6 +81,9 @@ class HttpResult:
     media_type: str | None
     validators: HttpValidators
     attempts: tuple[FetchAttempt, ...]
+    # A redirect's target, as the server wrote it, when the client was told not to follow
+    # redirects (`follow_redirects=False`): the caller gates each hop itself.
+    location: str | None = None
 
 
 def _retry_after_seconds(value: str | None) -> float | None:
@@ -117,6 +120,7 @@ class SecHttpClient:
         max_retry_after_s: float = 600.0,
         timeout_s: float = 30.0,
         require_contact: bool = True,
+        follow_redirects: bool = True,
     ) -> None:
         user_agent = user_agent.strip()
         # SEC requires a contact email; other sources get a generic User-Agent.
@@ -135,7 +139,7 @@ class SecHttpClient:
             transport=transport,
             headers={"User-Agent": user_agent, "Accept-Encoding": "gzip, deflate"},
             timeout=timeout_s,
-            follow_redirects=True,
+            follow_redirects=follow_redirects,
         )
 
     async def __aenter__(self) -> Self:
@@ -270,4 +274,7 @@ class SecHttpClient:
             media_type=content_type.split(";", 1)[0].strip() if content_type else None,
             validators=validators,
             attempts=attempts,
+            location=response.headers.get("Location")
+            if 300 <= response.status_code < 400 and not not_modified
+            else None,
         )

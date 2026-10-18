@@ -41,6 +41,14 @@ for agent in scout researcher skeptic; do
   ! grep -q "smoke-not-a-token" <<<"$out" || fail "$agent dry run printed the token"
 done
 
+# The Chokepoint Watch (ticket W2) needs its theme and driver; given its mode and since date, its
+# dry run asks Atlas nothing.
+out="$(run -e CLAUDE_CODE_OAUTH_TOKEN=smoke-not-a-token -e ATLAS_AGENT_THEME=smoke \
+  -e ATLAS_WATCH_DEMAND_DRIVER="a smoke driver" -e ATLAS_WATCH_MODE=architect \
+  "$image" watch --dry-run)" || fail "run.sh watch --dry-run"
+grep -q "mcp__atlas__board" <<<"$out" || fail "watch dry run allows no board tool"
+! grep -q "smoke-not-a-token" <<<"$out" || fail "watch dry run printed the token"
+
 # A real run with no token stops before it calls anything.
 status=0
 msg="$(run "$image" scout 2>&1)" || status=$?

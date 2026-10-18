@@ -92,6 +92,10 @@ TOOLS = {
     "add_chokepoint",
     "update_chokepoint",
     "write_memo",
+    "bear_checks",
+    "filing_search",
+    "web_search",
+    "fetch_page",
 }
 NO_SESSION_REQUIRED = {"open_session", "companies", "next_issue"}
 

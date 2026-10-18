@@ -254,7 +254,7 @@ def insert_candidate(atlas: ExplorerAtlas, theme: str, name: str, cik: str) -> N
 
 def test_themes_list_each_theme_with_its_coverage(atlas: ExplorerAtlas) -> None:
     themes = {t["id"]: t for t in atlas.get("/api/v1/themes")}
-    assert sorted(themes) == ["memory-packaging", "photonics", "scorecard"]
+    assert sorted(themes) == ["memory-packaging", "photonics", "robotics", "scorecard"]
     unseeded = themes["photonics"]
     assert unseeded["id"] == "photonics"
     assert unseeded["title"] == "Photonics for AI data centers"
@@ -268,6 +268,23 @@ def test_themes_list_each_theme_with_its_coverage(atlas: ExplorerAtlas) -> None:
     theme = {t["id"]: t for t in atlas.get("/api/v1/themes")}["photonics"]
     assert (theme["company_count"], theme["companies_without_sources"]) == (12, 11)
     assert theme["open_candidate_count"] == 1
+
+
+def test_the_robotics_theme_starts_with_no_company_and_its_own_layers(atlas: ExplorerAtlas) -> None:
+    # The Chokepoint Watch's greenfield theme (W6): no seed company; its layers are its own (W6a).
+    robotics = {t["id"]: t for t in atlas.get("/api/v1/themes")}["robotics"]
+    assert robotics["title"] == "Robotics manufacturing"
+    assert (robotics["company_count"], robotics["companies_without_sources"]) == (0, 0)
+    assert robotics["empty_layers"] == [
+        "system",
+        "actuator",
+        "reducer",
+        "motor",
+        "sensor",
+        "controller",
+        "magnet-material",
+        "equipment",
+    ]
 
 
 MEMORY_PACKAGING = {

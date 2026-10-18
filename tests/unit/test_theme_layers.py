@@ -64,7 +64,7 @@ SQUEEZED_BUYERS = {"extreme-networks", "pacific-biosciences", "napco", "aeroviro
 def test_the_universe_loads_with_both_themes_and_the_seven_seeds() -> None:
     universe = load_universe(THEMES)
 
-    assert sorted(universe.themes) == ["memory-packaging", "photonics", "scorecard"]
+    assert sorted(universe.themes) == ["memory-packaging", "photonics", "robotics", "scorecard"]
     assert len(universe.themes["photonics"].companies) == 12
     # Ticket 33's scan admitted five buyers squeezed by memory supply, with no layer.
     assert set(universe.themes["memory-packaging"].companies) == set(SEEDS) | SQUEEZED_BUYERS

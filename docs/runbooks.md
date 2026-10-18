@@ -690,6 +690,23 @@ A Scout, a Researcher and a Skeptic run on a schedule as Kubernetes CronJobs in 
 6. **Running one by hand, or checking an image.** `docker run --rm --read-only --tmpfs /tmp ghcr.io/ekenheim/atlas-agent:X.Y.Z scout --dry-run` prints the command, the MCP config and the filled-in prompt and calls nothing (no token needed). A real run needs `-e CLAUDE_CODE_OAUTH_TOKEN` and a route to the MCP URL, and spends subscription usage like any other Claude Code run. `agent/run.sh` runs the same way outside the image, with `claude` and `node` installed, from a checkout.
 7. **Changing the pins.** The Node base (version and digest) and the `@anthropic-ai/claude-code` version are in `agent/Dockerfile` (`CLAUDE_CODE_VERSION`): choose a version published at least two weeks ago (`npm view @anthropic-ai/claude-code time --json`), change the default, and tag a release; the release workflow builds the image, smokes it (`scripts/agent-image-smoke.sh`: the pinned `claude --version`, `run.sh <agent> --dry-run` for each routine, non-root, read-only root, no credential in the environment) and only then pushes it beside `atlas`, with the same tags. Then bump the tag in the CronJobs.
 
+## The Chokepoint Watch (Chokepoint Watch ticket W2)
+
+One weekly run per theme of the Watch agent (`agent/prompts/watch.md`, spec `.scratch/atlas-watch/spec.md`): it loads the board, settles due predictions, sweeps for deltas, updates and extends the board, deep-dives at most two chokepoints and writes the memo. Same image, token and MCP URL as the other scheduled agents (the section above).
+
+1. **The CronJob** (home-ops; the lead's): one per theme, `args: ["watch"]`, **Saturday** 05:00 UTC (no other judge-using agent fires on a Saturday: the scorecard, the DRAM Researcher and the Watch share the judge's 5-hour window), `concurrencyPolicy: Forbid`, `backoffLimit: 0`, the same Secret as the others. It calls `agent/run.sh watch`.
+2. **Environment.**
+   - `ATLAS_AGENT_THEME`: **required**, no default (the other agents default to `photonics`).
+   - `ATLAS_WATCH_DEMAND_DRIVER`: **required**, the theme's demand driver in one line, at most 300 characters, no newline; it goes into the prompt as text, verbatim.
+   - `ATLAS_WATCH_MODE`: `architect` or `delta`. Unset: `run.sh` asks Atlas (`GET /api/v1/watch-runs?theme=&limit=1`): `architect` when the theme has no watch run yet (week one: the agent decomposes the industry from the driver down, sweeping 90 days), else `delta`.
+   - `ATLAS_WATCH_SINCE`: `YYYY-MM-DD`, where the sweep starts. Unset: the last run's `run_date` (delta), or 90 days before the as-of time (architect).
+   - The common ones apply: `ATLAS_AGENT_CALL_BOUND` (default 60), `ATLAS_AGENT_MAX_TURNS` (100), `ATLAS_AGENT_AS_OF` (default now), `ATLAS_AGENT_MODEL`.
+   - Atlas unreachable when `run.sh` must ask: it prints one JSON line with `ok: false` and the reason, exits 1 and never calls `claude`. Set mode and since both to run without asking.
+3. **What it is allowed.** Exactly the tools on the prompt's `Tools:` line (`--allowedTools mcp__atlas__<tool>` each; never the whole server), plus Read, Write, Edit and Glob. A test fails if the two lists differ.
+4. **The pod's log** is the usual JSON line with `agent: "watch"` and two more keys, `mode` and `since`.
+5. **Reading the memo.** `GET /api/v1/watch-runs?theme=<theme>` lists the runs newest first (`memo` is the markdown: what changed, the board, new, downgraded and killed, predictions, leads for next week, run notes; `counts`, `tool_calls`); `GET /api/v1/watch-runs/{id}` one. The board itself is `GET /api/v1/chokepoints?theme=`. A quiet week is a valid memo ("Nothing material this week"), not a failure.
+6. **By hand.** `ATLAS_AGENT_THEME=<theme> ATLAS_WATCH_DEMAND_DRIVER="..." agent/run.sh watch --dry-run` prints the command, the allow-list and the filled-in prompt. With mode and since both given it makes no network call; otherwise it says it would ask Atlas and shows a placeholder for each. A real run spends subscription usage.
+
 ## Archive signals (atlas-beliefs ticket 18)
 
 The nightly `scan_signals` job scores the sentences of newly archived documents for the cues of a bottleneck and stores the hits as leads (`docs/decisions.md`, "Archive signals are leads"). No LLM, no Hindsight, so no quota or outage pause holds it.

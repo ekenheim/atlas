@@ -117,3 +117,12 @@ Per-site onboarding for `public_issuer` and non-US `public_regulatory` sources. 
 2. For `public_issuer` and non-US regulators, add the site to §5.
 3. Build the adapter with retry classification, rate limiting, a fixture implementation, metric labels and a kill switch (build plan §12, §13.3).
 4. Update [`threat-model.md`](threat-model.md) if the source adds a new path for untrusted content.
+
+### 6.1 Adding a site for `atlas sources fetch` (a company's own pages, decks and slides)
+
+`atlas sources fetch` fetches one page through the fetch gate (`atlas.sources.gate`), so a site is fetchable only once the lead has onboarded it, after reading its terms:
+
+1. Read the site's terms of use and its `robots.txt`.
+2. Add a row to §5 above (terms URL and date, robots.txt, rate budget, archive and hosted-LLM decision).
+3. Add the entry to `configs/sources/sites.yaml`: every host the pages and their files are served from (`hosts`), `terms_url`, `terms_checked_on`, `automation` (`allowed` only if the terms permit automated access to the pages Atlas wants; `forbidden`, with a `block_reason`, if they do not; `unchecked` if unread), the clause in `terms_note`, `rate_per_s`, for a company's investor-relations or press site `own_site_of: [<company slug>]`, and, for a third party's site, its `license_class` if it is not `third_party`. Bump the file's `version`.
+4. A page of an `own_site_of` company's site is Tier A, `public_issuer`; any other page the register allows is Tier B, `third_party` unless the entry names a licence class. Until the entry exists, or while `automation` is `unchecked` or `forbidden` without a recorded consent, `sources fetch` records a `blocked` gate decision and requests nothing. `robots.txt` is read before the first request of every fetch and obeyed. The register's `example-issuer` and `example-trade-press` entries are synthetic, for the tests.

@@ -251,16 +251,23 @@ class EdgarFullTextSearch:
 
     @classmethod
     def from_settings(
-        cls, settings: Settings, *, transport: httpx2.AsyncBaseTransport | None = None
+        cls,
+        settings: Settings,
+        *,
+        transport: httpx2.AsyncBaseTransport | None = None,
+        max_hits: int | None = None,
+        forms: Sequence[str] | None = None,
     ) -> Self | None:
         """The client for the configured SEC User-Agent, with the lead-ranking config's
-        product and layer terms; None when the channel is off."""
+        product and layer terms; None when the channel is off. `max_hits` and `forms` replace
+        the settings' hit limit and the default forms (`filing_search` asks for its own)."""
         if not settings.edgar_fts_enabled() or not settings.sec_user_agent:
             return None
         return cls(
             settings.sec_user_agent,
             base_url=settings.sec_efts_url,
-            max_hits=settings.discovery_edgar_max_hits,
+            forms=forms or FORMS,
+            max_hits=max_hits or settings.discovery_edgar_max_hits,
             terms=load_ranking_config(settings.lead_ranking_config).terms,
             transport=transport,
         )

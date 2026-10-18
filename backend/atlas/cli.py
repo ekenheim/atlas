@@ -916,6 +916,71 @@ def run_sources_import(
     )
 
 
+def run_sources_fetch(
+    settings: Settings,
+    company: str,
+    url: str,
+    published_at: str | None,
+    session_id: str | None = None,
+) -> int:
+    """`atlas sources fetch`: one web page through the fetch gate into the ledger. Prints the
+    recorded page as JSON (exit 0); a blocked fetch prints the gate's decision (exit 1); a
+    refused one (exit 2) or a failed one (exit 1) says why on stderr."""
+    import json
+    import uuid
+    from datetime import datetime
+
+    from atlas.companies import UniverseConfigError
+    from atlas.ledger.web_fetch import (
+        WebFetchBlocked,
+        WebFetchFailed,
+        WebFetchOff,
+        WebFetchRefused,
+        fetch_page,
+    )
+
+    when: datetime | None = None
+    if published_at is not None:
+        try:
+            when = datetime.fromisoformat(published_at)
+        except ValueError:
+            print(
+                f"atlas: --published-at must be an ISO 8601 time with its offset, not"
+                f" {published_at!r}",
+                file=sys.stderr,
+            )
+            return 2
+    try:
+        asking = uuid.UUID(session_id) if session_id else None
+    except ValueError:
+        print(f"atlas: --session-id must be a session's UUID, not {session_id!r}", file=sys.stderr)
+        return 2
+    try:
+        page = fetch_page(settings, company=company, url=url, published_at=when, session_id=asking)
+    except (WebFetchRefused, UniverseConfigError) as error:
+        print(f"atlas: {error}", file=sys.stderr)
+        return 2
+    except WebFetchBlocked as blocked:
+        print(
+            json.dumps(
+                {
+                    "outcome": "blocked",
+                    "url": blocked.decision.url,
+                    "blocked_by": blocked.decision.blocked_by,
+                    "reason": blocked.decision.reason,
+                    "gate_decision_id": str(blocked.decision_id),
+                }
+            )
+        )
+        print(f"atlas: blocked: {blocked.decision.reason}", file=sys.stderr)
+        return 1
+    except (WebFetchFailed, WebFetchOff) as error:
+        print(f"atlas: {error}", file=sys.stderr)
+        return 1
+    print(page.model_dump_json())
+    return 0
+
+
 def run_assign_families(settings: Settings) -> None:
     import dataclasses
     import json
@@ -1406,6 +1471,25 @@ def main(argv: list[str] | None = None) -> None:
     source_import.add_argument("--title", help="the document's title (default: the file name)")
     source_import.add_argument("--publisher", help="default: the origin site's publisher")
     source_import.add_argument("--media-type", help="default: from the file extension")
+    source_fetch = sources_commands.add_parser(
+        "fetch",
+        help="fetch one web page (a company's own IR or press page, a deck) through the fetch"
+        " gate into the archive: the site must be in the site register with terms that allow"
+        " automation, and robots.txt must allow the path; otherwise a blocked gate decision is"
+        " recorded and nothing is fetched",
+    )
+    source_fetch.add_argument("--company", required=True, help="company slug")
+    source_fetch.add_argument("--url", required=True, help="the page's URL (HTML or PDF)")
+    source_fetch.add_argument(
+        "--published-at",
+        help="when the page became public, with its offset (default: the page's own date, if"
+        " within a week before the fetch, else now)",
+    )
+    source_fetch.add_argument(
+        "--session-id",
+        help="the research session asking: it alone reads the page if the page was fetched"
+        " after its as-of time",
+    )
     companies = commands.add_parser("companies", help="the configured company universe")
     companies_commands = companies.add_subparsers(dest="companies_command", required=True)
     companies_commands.add_parser("seed", help="create or update companies from the config")
@@ -1660,6 +1744,10 @@ def main(argv: list[str] | None = None) -> None:
         enqueue_settle_calls(settings, args.key, backfill=args.backfill)
     elif args.command == "companies" and args.companies_command == "resolve":
         raise SystemExit(resolve_companies(settings, args.slugs))
+    elif args.command == "sources" and args.sources_command == "fetch":
+        raise SystemExit(
+            run_sources_fetch(settings, args.company, args.url, args.published_at, args.session_id)
+        )
     elif args.command == "sources":
         run_sources_import(
             settings,

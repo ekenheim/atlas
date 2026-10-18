@@ -7,8 +7,8 @@
 # - `layer`: its primary layer in its theme's supply chain. Photonics' (no `layers` list on
 #   the theme): substrate, epi, chip-laser, dsp, module, contract-manufacturing or system.
 #   A theme with a supply chain of its own lists its `layers` (name and what it covers,
-#   upstream to downstream), and its companies' layers must be among them (refused at load
-#   otherwise). Vertically integrated companies span several; Relationships carry the layer
+#   upstream to downstream; each name is a free slug, `^[a-z][a-z0-9-]{1,40}$`), and its
+#   companies' layers must be among them (refused at load otherwise). Vertically integrated companies span several; Relationships carry the layer
 #   of each link (photonics' taxonomy only: the Claim layer taxonomy stays photonics').
 # - `source_path`: where its primary disclosures come from. `sec` (SEC EDGAR: 10-K/10-Q/8-K
 #   by default, or the `sec_forms` listed) or `exchange:<hkex|fca-nsm|amf>`. Only `sec`
@@ -29,7 +29,7 @@
 # Listings (securities) need a primary-source start date, so they are added with ticket 03.
 #
 # Bump `version` on any change, so a run can record which universe it used.
-version: 9
+version: 10
 name: ai-infrastructure
 
 companies:
@@ -515,6 +515,37 @@ themes:
       - napco
       - aerovironment
       - brady
+
+
+  # Robotics manufacturing (atlas Chokepoint Watch W6, the owner's choice, 2026-10-18): the Watch's
+  # first greenfield theme. It starts with NO companies: the Watch's architect run decomposes the
+  # industry and admits holders as they become chokepoint candidates. Its layers are a map, not
+  # evidence (W6a: a theme declares its own layers).
+  robotics:
+    title: Robotics manufacturing
+    description: >-
+      Industrial, collaborative and humanoid robots and the supply chain beneath them: actuators,
+      precision reducers, motors and drives, sensors, controllers, the magnet and material inputs,
+      and the equipment that gates their production. Asks where demand will outrun qualified
+      supply, who holds the scarce input and whether they capture the economics.
+    layers:
+      - name: system
+        covers: finished robots and robot arms, integrators and OEMs
+      - name: actuator
+        covers: joint actuator assemblies and linear actuators
+      - name: reducer
+        covers: precision gearing (strain-wave, cycloidal, planetary) and screws (planetary roller, ball)
+      - name: motor
+        covers: frameless torque motors, servo motors and their drives
+      - name: sensor
+        covers: encoders, torque and force sensors, tactile sensors, vision modules
+      - name: controller
+        covers: motion controllers, robot compute and embedded processors
+      - name: magnet-material
+        covers: rare-earth magnets (NdFeB), magnet alloys and their feedstock
+      - name: equipment
+        covers: machine tools, grinding and gear-cutting equipment, test that gates capacity
+    companies: []
 
   # The early-call scorecard's theme (atlas-beliefs ticket 29a; docs/decisions.md, "Isolated
   # sessions for the scorecard"). Never a scheduled agent's theme: the runs are the lead's, each

@@ -1,0 +1,152 @@
+{
+  "note": "Hand-written for the tests of `atlas sources fetch` (W3), not recorded: synthetic pages on the reserved .test TLD, on the site register's two example sites. The deck is the repository's synthetic PDF fixture.",
+  "responses": [
+    {
+      "url": "https://ir.example-issuer.test/robots.txt",
+      "file": "ir/robots.txt",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/plain"
+      }
+    },
+    {
+      "url": "https://news.example-trade.test/robots.txt",
+      "file": "press/robots-404.html",
+      "status": 404,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/news/q4-results.html",
+      "file": "ir/news/q4-results.html",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/news/json-ld.html",
+      "file": "ir/news/json-ld.html",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/news/time-element.html",
+      "file": "ir/news/time-element.html",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/news/no-date.html",
+      "file": "ir/news/no-date.html",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/news/future-date.html",
+      "file": "ir/news/future-date.html",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/news/explicit.html",
+      "file": "ir/news/explicit.html",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/news/etag.html",
+      "file": "ir/news/etag.html",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8",
+        "ETag": "\"events-v1\""
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/news/revised.html",
+      "file": "ir/news/revised.html",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/news/old-path.html",
+      "file": "ir/news/moved.html",
+      "status": 301,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8",
+        "Location": "/news/q4-results.html"
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/news/offsite.html",
+      "file": "ir/news/offsite.html",
+      "status": 302,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8",
+        "Location": "https://elsewhere.example-offsite.test/page.html"
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/private/roadmap.html",
+      "file": "ir/private/roadmap.html",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/media/chart.png",
+      "file": "ir/media/chart.png",
+      "status": 200,
+      "headers": {
+        "Content-Type": "image/png"
+      }
+    },
+    {
+      "url": "https://ir.example-issuer.test/decks/investor-deck.pdf",
+      "file": "../../pdf/annual-report-en.pdf",
+      "status": 200,
+      "headers": {
+        "Content-Type": "application/pdf"
+      }
+    },
+    {
+      "url": "https://news.example-trade.test/2026/lumentum-capacity.html",
+      "file": "press/lumentum-capacity.html",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8"
+      }
+    },
+    {
+      "url": "https://licensed.example-trade.test/robots.txt",
+      "file": "press/robots-404.html",
+      "status": 404,
+      "headers": {
+        "Content-Type": "text/html"
+      }
+    },
+    {
+      "url": "https://licensed.example-trade.test/2026/note.html",
+      "file": "press/licensed-note.html",
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8"
+      }
+    }
+  ]
+}

@@ -197,3 +197,50 @@ def test_the_scout_reads_the_ranked_signal_leads_before_the_newest_documents():
         "3. `newest_documents` for the theme"
     )
     assert "never a Fact" in scout
+
+
+# --- The Chokepoint Watch's wrapper (ticket W2) -----------------------------------------------
+
+
+def test_the_watch_wrapper_names_only_tools_the_server_has():
+    listed = wrapper_tools("watch")
+    assert len(listed) >= 15
+    assert len(listed) == len(set(listed)), "a tool listed twice"
+    assert set(listed) <= registry(), sorted(set(listed) - registry())
+    # The board's own tools (W1), the sources (W3), the bear checks (W4) and the ones the Watch
+    # reads with.
+    assert {
+        "board",
+        "get_chokepoint",
+        "add_chokepoint",
+        "update_chokepoint",
+        "write_memo",
+        "filing_search",
+        "web_search",
+        "fetch_page",
+        "bear_checks",
+        "list_issues",
+        "upcoming_reports",
+        "newest_documents",
+        "signal_leads",
+        "recall",
+    } <= registry()
+
+
+def test_the_watch_wrapper_names_its_actor_and_every_placeholder_run_sh_fills():
+    text = (PROMPTS_DIR / "watch.md").read_text(encoding="utf-8")
+    assert "Pass it to `open_session` unchanged, with `actor: atlas-watch`" in text
+    for placeholder in (
+        "{{THEME}}",
+        "{{AS_OF}}",
+        "{{MODE}}",
+        "{{SINCE}}",
+        "{{DEMAND_DRIVER}}",
+        "{{CALL_BOUND}}",
+        "{{OUT_DIR}}",
+    ):
+        assert placeholder in text, placeholder
+    # It publishes nothing and gives no trade view; the Tools line is the last line.
+    assert "You publish nothing" in text
+    assert "no buy or sell language" in text
+    assert text.rstrip().splitlines()[-1].startswith("Tools: ")

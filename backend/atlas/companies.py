@@ -20,10 +20,18 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Literal, Self, get_args
+from typing import Annotated, Any, Literal, Self, get_args
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from sqlalchemy import Connection, text
 
 from atlas.audit import Actor, content_hash, record
@@ -59,26 +67,12 @@ class SecurityConfig(_Config):
 type Layer = Literal[
     "substrate", "epi", "chip-laser", "dsp", "module", "contract-manufacturing", "system"
 ]
-# A company's layer is its theme's: photonics' seven, then the second theme's nine (memory and
-# advanced packaging; `package-substrate` is not photonics' `substrate`).
-type CompanyLayer = Literal[
-    "substrate",
-    "epi",
-    "chip-laser",
-    "dsp",
-    "module",
-    "contract-manufacturing",
-    "system",
-    "memory-dram",
-    "memory-nand",
-    "controller",
-    "bond-equipment",
-    "process-control",
-    "test",
-    "osat",
-    "package-substrate",
-    "package-materials",
-]
+# A company's layer is its theme's, and a theme names its own layers in its config: a free slug
+# each (W6a of the Chokepoint Watch; docs/decisions.md, "A theme's layers are its config's").
+# The database checks only this format (migration 0119); which slugs a company may take is the
+# theme config's rule, checked at load.
+LAYER_SLUG = r"^[a-z][a-z0-9-]{1,40}$"
+type CompanyLayer = Annotated[str, StringConstraints(pattern=LAYER_SLUG)]
 # Where a company's primary disclosures come from: SEC EDGAR, or its exchange's feed.
 type SourcePath = Literal["sec", "exchange:hkex", "exchange:fca-nsm", "exchange:amf"]
 # Whether Atlas researches the company or only knows it as the other end of an edge.
@@ -111,6 +105,7 @@ class CompanyConfig(_Config):
     lei: str | None = None
     country: str = Field(pattern=r"^[A-Z]{2}$")
     website: str | None = None
+    # One of its theme's (or themes') declared layers; checked in `Universe`.
     layer: CompanyLayer | None = None
     source_path: SourcePath
     # The SEC forms to ingest (amendments included); None means the adapter's default
@@ -142,7 +137,8 @@ class CompanyConfig(_Config):
 
 
 class ThemeLayerConfig(_Config):
-    """One layer of a theme's supply chain, as the Theme explorer lists it."""
+    """One layer of a theme's supply chain, as the Theme explorer lists it: a slug of the
+    theme's choosing and what it covers."""
 
     name: CompanyLayer
     covers: str = Field(min_length=1)  # what the layer holds
@@ -152,8 +148,9 @@ class ThemeConfig(_Config):
     title: str = Field(min_length=1)
     description: str = ""
     companies: tuple[str, ...]
-    # The theme's layers, upstream to downstream. None: photonics' (`Layer`). A theme with a
-    # supply chain of its own lists them, and its companies' layers must be among them.
+    # The theme's layers, upstream to downstream. None: photonics' seven (the Claim taxonomy's).
+    # A theme with a supply chain of its own lists them (free slugs), and its companies' layers
+    # must be among them.
     layers: tuple[ThemeLayerConfig, ...] | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")

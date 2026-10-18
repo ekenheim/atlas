@@ -200,7 +200,7 @@ def test_the_memory_packaging_theme_seeds_the_seven_sec_path_companies(
     one = universe.get(f"/api/v1/companies/{companies['micron']['id']}")
     assert (one["layer"], one["legal_name"]) == ("memory-dram", "Micron Technology, Inc.")
     themes = {theme["id"]: theme for theme in universe.get("/api/v1/themes")}
-    assert sorted(themes) == ["memory-packaging", "photonics", "scorecard"]
+    assert sorted(themes) == ["memory-packaging", "photonics", "robotics", "scorecard"]
     assert themes["memory-packaging"]["company_count"] == 12
     assert universe.get("/api/v1/themes/memory-packaging/map")["theme"]["id"] == "memory-packaging"
 
