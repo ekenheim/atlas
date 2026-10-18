@@ -144,6 +144,14 @@ No outcome alone changes direction: a direction review needs covered misses on b
 
 **Rule note to Amendment 2's Controls (2026-10-18, the lead, before any code reading; from the first pass of the draw, which saw SEC data only, no signal or price):** (1) a candidate is eligible only if its latest periodic report on or before D was filed within the 365 days before D, the window the code reading reads (the rule as written let in filers that stopped years earlier, such as Red Hat); its float is still from the latest 10-K/20-F/40-F on or before D. (2) The case's share count is its first periodic report after D as amended (SanDisk's 10-Q/A corrects 114,863,251 to 144,863,251). (3) The case's close on D comes from Atlas's own price history (TradingView, the owner's override for replays), never another web source. (4) eToro has no SEC float or share count: it gets no controls, reported. Draw: `.scratch/atlas-beliefs/scorecard/controls.md` (Snap: Pinterest, AppLovin; SanDisk, IREN and POET pending their closes; scripts in `scorecard/draw/`, `python phase2.py && python phase3.py` once `closes.json` is filled).
 
+**Rule note to Amendment 2's frozen configuration (2026-10-18, the lead, before any code reading or run):**
+- **Why.** Atlas keeps releasing while the runs wait for ingest (the owner's pages, 0.6.15 onwards), and production cannot stay on one tag for weeks. So the freeze is on what a session sees and how its statements are judged, not on the tag.
+- **The frozen surface:**
+  - `agent/` and `.claude/skills/atlas-research/`;
+  - `backend/atlas/mcp/`, `backend/atlas/research/` (search, read, recall and provenance), `backend/atlas/facts/`, `backend/atlas/judging.py` and `backend/atlas/roles/prompts/`;
+  - the route modules those tools call: `backend/atlas/api/{facts,beliefs,sessions,statements,research}.py`, `backend/atlas/beliefs/` and `backend/atlas/sessions/`.
+- **The rule.** A run may be on a release later than 0.6.14 (the release carrying 29b) only if `git diff v0.6.14 <its tag>` over that surface is empty, or the lead lists each change in the coverage table and shows it cannot change what a session reads, records or is told by the judge (a new read-only field on an owner page's route, for example). Otherwise the run is off-configuration, flagged and not scored. Each run records its release.
+
 ## 29b: the hotfix before any run (2026-10-18)
 
 The second review (`fc23a8c`) found every review-1 item closed, plus one blocker and three lesser findings.
