@@ -1,0 +1,3456 @@
+{
+ "drawn_on": "2026-10-18",
+ "seed": 20261018,
+ "request_counts": {
+  "sec": 3159,
+  "stooq_scripted": 2,
+  "stooq_browser_page_loads": 2,
+  "stooq_rows_obtained": 0
+ },
+ "stooq_note": "Stooq was not obtained (its CSV endpoint refused scripted and browser requests); by the lead's decision the closes come from Atlas's own price history after a deploy.",
+ "rule_note_2026_10_18": "freshness 365 days; shares as amended; closes from Atlas price history; eToro undrawn; zero and non-USD floats excluded and listed",
+ "cases": {
+  "sandisk": {
+   "slug": "sandisk",
+   "cik": "0002023554",
+   "D": "2025-02-28",
+   "sic": "3572",
+   "sic_description": "Computer Storage Devices",
+   "browse_total": 78,
+   "excluded_case": [
+    "0002023554"
+   ],
+   "excluded_universe": [],
+   "candidates_after_exclusions": 77,
+   "ineligible_no_periodic": 24,
+   "periodic_on_or_before_D": 53,
+   "stale_latest_periodic_before_cutoff": 48,
+   "fresh_cutoff": "2024-02-29",
+   "eligible": 5,
+   "eligible_with_float": 5,
+   "no_public_float": [],
+   "case_value": {
+    "measure": "EntityCommonStockSharesOutstanding x close",
+    "float_absent_reason": "no float in an annual report filed on or before D",
+    "facts_taxonomies": [
+     "dei",
+     "ecd",
+     "srt",
+     "us-gaap"
+    ],
+    "shares_candidates": [
+     {
+      "end": "2025-02-27",
+      "val": 114863251,
+      "accn": "0002023554-25-000004",
+      "fy": 2025,
+      "fp": "Q2",
+      "form": "10-Q",
+      "filed": "2025-03-07"
+     },
+     {
+      "end": "2025-02-27",
+      "val": 144863251,
+      "accn": "0002023554-25-000016",
+      "fy": 2025,
+      "fp": "Q2",
+      "form": "10-Q/A",
+      "filed": "2025-03-17",
+      "frame": "CY2025Q1I"
+     },
+     {
+      "end": "2025-05-05",
+      "val": 145299218,
+      "accn": "0002023554-25-000027",
+      "fy": 2025,
+      "fp": "Q3",
+      "form": "10-Q",
+      "filed": "2025-05-12"
+     },
+     {
+      "end": "2025-08-13",
+      "val": 145805548,
+      "accn": "0002023554-25-000034",
+      "fy": 2025,
+      "fp": "FY",
+      "form": "10-K",
+      "filed": "2025-08-21",
+      "frame": "CY2025Q2I"
+     },
+     {
+      "end": "2025-10-31",
+      "val": 146553179,
+      "accn": "0001628280-25-050698",
+      "fy": 2026,
+      "fp": "Q1",
+      "form": "10-Q",
+      "filed": "2025-11-07",
+      "frame": "CY2025Q3I"
+     },
+     {
+      "end": "2026-01-23",
+      "val": 147567249,
+      "accn": "0001628280-26-004407",
+      "fy": 2026,
+      "fp": "Q2",
+      "form": "10-Q",
+      "filed": "2026-01-30",
+      "frame": "CY2025Q4I"
+     }
+    ],
+    "shares_rows": [
+     {
+      "end": "2025-02-27",
+      "val": 114863251,
+      "accn": "0002023554-25-000004",
+      "fy": 2025,
+      "fp": "Q2",
+      "form": "10-Q",
+      "filed": "2025-03-07"
+     }
+    ],
+    "shares_original": {
+     "val": 114863251,
+     "form": "10-Q",
+     "filed": "2025-03-07",
+     "end": "2025-02-27",
+     "accn": "0002023554-25-000004"
+    },
+    "shares_amended": {
+     "val": 144863251,
+     "form": "10-Q/A",
+     "filed": "2025-03-17",
+     "end": "2025-02-27",
+     "accn": "0002023554-25-000016"
+    },
+    "shares_used": 144863251,
+    "undrawn_reason": "pending: close from Atlas price history",
+    "pending": true
+   },
+   "float_reported_as_zero": [],
+   "eligible_floats": [
+    {
+     "cik": "0000106040",
+     "name": "WESTERN DIGITAL CORP",
+     "float": 12900000000,
+     "end": "2023-12-29",
+     "filed": "2024-08-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000709283",
+     "name": "QUANTUM CORP /DE/",
+     "float": 40670637,
+     "end": "2023-09-30",
+     "filed": "2024-06-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001002047",
+     "name": "NetApp, Inc.",
+     "float": 10897270906,
+     "end": "2023-10-27",
+     "filed": "2024-06-10",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001137789",
+     "name": "Seagate Technology Holdings plc",
+     "float": 17800000000,
+     "end": "2022-12-31",
+     "filed": "2024-08-02",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001474432",
+     "name": "Everpure, Inc.",
+     "float": 11000000000,
+     "end": "2023-08-04",
+     "filed": "2024-04-01",
+     "form": "10-K"
+    }
+   ],
+   "shuffle_order_ciks": null,
+   "drawn": false,
+   "pending": true,
+   "not_drawn_reason": "pending: close from Atlas price history"
+  },
+  "iren": {
+   "slug": "iren",
+   "cik": "0001878848",
+   "D": "2025-03-31",
+   "sic": "6199",
+   "sic_description": "Finance Services",
+   "browse_total": 605,
+   "excluded_case": [
+    "0001878848"
+   ],
+   "excluded_universe": [],
+   "candidates_after_exclusions": 604,
+   "ineligible_no_periodic": 280,
+   "periodic_on_or_before_D": 324,
+   "stale_latest_periodic_before_cutoff": 173,
+   "fresh_cutoff": "2024-03-31",
+   "eligible": 151,
+   "eligible_with_float": 107,
+   "no_public_float": [
+    {
+     "name": "Alpha Compute Corp",
+     "cik": "0001095435",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "The9 LTD",
+     "cik": "0001296774",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Yueda Digital Holding",
+     "cik": "0001413745",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Eason Technology Ltd",
+     "cik": "0001499494",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "SPROTT INC.",
+     "cik": "0001512920",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "SOLAI Ltd",
+     "cik": "0001517496",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Chaince Digital Holdings Inc.",
+     "cik": "0001527762",
+     "reason": "no float in an annual report filed on or before D"
+    },
+    {
+     "name": "Prosper Funding LLC",
+     "cik": "0001542574",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Orion Digital Corp.",
+     "cik": "0001602842",
+     "reason": "non-USD units: CAD"
+    },
+    {
+     "name": "9F Inc.",
+     "cik": "0001619544",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Yiren Digital Ltd.",
+     "cik": "0001631761",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Wins Finance Holdings Inc.",
+     "cik": "0001640251",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Metalpha Technology Holding Ltd",
+     "cik": "0001682241",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Nu Holdings Ltd.",
+     "cik": "0001691493",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "High Templar Tech Ltd",
+     "cik": "0001692705",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Amber International Holding Ltd",
+     "cik": "0001697818",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "LexinFintech Holdings Ltd.",
+     "cik": "0001708259",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "HIVE Digital Technologies Ltd.",
+     "cik": "0001720424",
+     "reason": "no float in an annual report filed on or before D"
+    },
+    {
+     "name": "X Financial",
+     "cik": "0001725033",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Cango Inc.",
+     "cik": "0001725123",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "INX Ltd",
+     "cik": "0001725882",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "CNFinance Holdings Ltd.",
+     "cik": "0001733868",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "SANGRIX INC.",
+     "cik": "0001735556",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Qfin Holdings, Inc.",
+     "cik": "0001741530",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Jiayin Group Inc.",
+     "cik": "0001743102",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Aurelion Inc.",
+     "cik": "0001765850",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "AMTD IDEA GROUP",
+     "cik": "0001769731",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Canaan Inc.",
+     "cik": "0001780652",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "AMTD Digital Inc.",
+     "cik": "0001809691",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Sentage Holdings Inc.",
+     "cik": "0001810467",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Keel Infrastructure Corp.",
+     "cik": "0001812477",
+     "reason": "no float in an annual report filed on or before D"
+    },
+    {
+     "name": "Lufax Holding Ltd",
+     "cik": "0001816007",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Sono Group N.V.",
+     "cik": "0001840416",
+     "reason": "no float in an annual report filed on or before D"
+    },
+    {
+     "name": "Argo Blockchain Plc",
+     "cik": "0001841675",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Digi Power X Inc.",
+     "cik": "0001854368",
+     "reason": "no float in an annual report filed on or before D"
+    },
+    {
+     "name": "Abits Group Inc",
+     "cik": "0001864055",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Magic Empire Global Ltd",
+     "cik": "0001881472",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Coincheck Group N.V.",
+     "cik": "0001913847",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Universal Token",
+     "cik": "0001919182",
+     "reason": "no float in an annual report filed on or before D"
+    },
+    {
+     "name": "Bitfufu Inc.",
+     "cik": "0001921158",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Blue Chip Capital Group Inc.",
+     "cik": "0001932213",
+     "reason": "no float in an annual report filed on or before D"
+    },
+    {
+     "name": "Brera Holdings PLC",
+     "cik": "0001939965",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Global-Smart.Tech Inc.",
+     "cik": "0001940243",
+     "reason": "no float in an annual report filed on or before D"
+    },
+    {
+     "name": "NFT Ltd",
+     "cik": "0001958713",
+     "reason": "no EntityPublicFloat"
+    }
+   ],
+   "case_value": {
+    "measure": "EntityCommonStockSharesOutstanding x close",
+    "float_absent_reason": "no float in an annual report filed on or before D",
+    "facts_taxonomies": [
+     "dei",
+     "ecd",
+     "ffd",
+     "ifrs-full",
+     "srt",
+     "us-gaap"
+    ],
+    "shares_candidates": [
+     {
+      "end": "2025-10-31",
+      "val": 283465490,
+      "accn": "0001878848-25-000081",
+      "fy": 2026,
+      "fp": "Q1",
+      "form": "10-Q",
+      "filed": "2025-11-06",
+      "frame": "CY2025Q3I"
+     },
+     {
+      "end": "2026-01-30",
+      "val": 332280383,
+      "accn": "0001878848-26-000015",
+      "fy": 2026,
+      "fp": "Q2",
+      "form": "10-Q",
+      "filed": "2026-02-05",
+      "frame": "CY2025Q4I"
+     },
+     {
+      "end": "2026-04-30",
+      "val": 357378674,
+      "accn": "0001878848-26-000026",
+      "fy": 2026,
+      "fp": "Q3",
+      "form": "10-Q",
+      "filed": "2026-05-08",
+      "frame": "CY2026Q1I"
+     }
+    ],
+    "shares_rows": [
+     {
+      "end": "2025-10-31",
+      "val": 283465490,
+      "accn": "0001878848-25-000081",
+      "fy": 2026,
+      "fp": "Q1",
+      "form": "10-Q",
+      "filed": "2025-11-06",
+      "frame": "CY2025Q3I"
+     }
+    ],
+    "shares_original": {
+     "val": 283465490,
+     "form": "10-Q",
+     "filed": "2025-11-06",
+     "end": "2025-10-31",
+     "accn": "0001878848-25-000081"
+    },
+    "shares_amended": null,
+    "shares_used": 283465490,
+    "undrawn_reason": "pending: close from Atlas price history",
+    "pending": true
+   },
+   "float_reported_as_zero": [
+    {
+     "name": "General Motors Financial Company, Inc.",
+     "cik": "0000804269",
+     "filed": "2025-01-28"
+    },
+    {
+     "name": "PROSPER MARKETPLACE, INC",
+     "cik": "0001416265",
+     "filed": "2025-03-26"
+    },
+    {
+     "name": "TriLinc Global Impact Fund LLC",
+     "cik": "0001550453",
+     "filed": "2025-03-28"
+    },
+    {
+     "name": "Creations Inc",
+     "cik": "0001795938",
+     "filed": "2024-04-15"
+    },
+    {
+     "name": "SAIHEAT Ltd",
+     "cik": "0001847075",
+     "filed": "2022-02-18"
+    },
+    {
+     "name": "KKR Private Equity Conglomerate LLC",
+     "cik": "0001957845",
+     "filed": "2025-03-13"
+    },
+    {
+     "name": "Bloom HoldCo LLC",
+     "cik": "0001975931",
+     "filed": "2023-12-21"
+    },
+    {
+     "name": "Fidelity Ethereum Fund",
+     "cik": "0002000046",
+     "filed": "2025-03-14"
+    },
+    {
+     "name": "Apollo Asset Backed Credit Co LLC",
+     "cik": "0002000597",
+     "filed": "2025-03-31"
+    },
+    {
+     "name": "Bitwise Ethereum ETF",
+     "cik": "0002013744",
+     "filed": "2025-03-17"
+    },
+    {
+     "name": "Resolute Holdings Management, Inc.",
+     "cik": "0002039497",
+     "filed": "2025-03-31"
+    }
+   ],
+   "eligible_floats": [
+    {
+     "cik": "0000004962",
+     "name": "AMERICAN EXPRESS CO",
+     "float": 164700000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-07",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000038264",
+     "name": "Forward Industries, Inc.",
+     "float": 4800000,
+     "end": "2024-03-31",
+     "filed": "2025-01-17",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0000064463",
+     "name": "Soluna Holdings, Inc",
+     "float": 24360071,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000318673",
+     "name": "SECURITY NATIONAL FINANCIAL CORP",
+     "float": 68000000,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000744452",
+     "name": "BNB PLUS CORP.",
+     "float": 5700000,
+     "end": "2024-03-31",
+     "filed": "2024-12-17",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000827876",
+     "name": "CLEANSPARK, INC.",
+     "float": 4883000000000,
+     "end": "2024-03-28",
+     "filed": "2024-12-03",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000847942",
+     "name": "STRATEGIC ACQUISITIONS INC /NV/",
+     "float": 312072,
+     "end": "2024-06-30",
+     "filed": "2025-02-05",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000889609",
+     "name": "CONSUMER PORTFOLIO SERVICES, INC.",
+     "float": 70579669,
+     "end": "2024-06-30",
+     "filed": "2025-03-12",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000924396",
+     "name": "Crisp Momentum Inc.",
+     "float": 884014,
+     "end": "2024-01-31",
+     "filed": "2024-11-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000933136",
+     "name": "Maverick Merger Sub 2, LLC",
+     "float": 5157929056,
+     "end": "2024-06-28",
+     "filed": "2025-02-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000944130",
+     "name": "MINISTRY PARTNERS INVESTMENT COMPANY, LLC",
+     "float": 7904250,
+     "end": "2018-06-29",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001000209",
+     "name": "MEDALLION FINANCIAL CORP",
+     "float": 139872752640,
+     "end": "2024-12-31",
+     "filed": "2025-03-13",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001001601",
+     "name": "MGT CAPITAL INVESTMENTS, INC.",
+     "float": 3456493,
+     "end": "2023-06-30",
+     "filed": "2024-04-16",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001005101",
+     "name": "Marygold Companies, Inc.",
+     "float": 8651275,
+     "end": "2023-12-29",
+     "filed": "2024-09-18",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001050446",
+     "name": "Strategy Inc",
+     "float": 23499000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-18",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001059142",
+     "name": "Greystone Housing Impact Investors LP",
+     "float": 344931446,
+     "end": "2024-06-30",
+     "filed": "2025-02-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001074828",
+     "name": "USBC, Inc.",
+     "float": 49096582,
+     "end": "2024-03-29",
+     "filed": "2024-12-10",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001083301",
+     "name": "TERAWULF INC.",
+     "float": 1300536223,
+     "end": "2024-06-30",
+     "filed": "2025-03-03",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001104038",
+     "name": "OpenWorld, Inc.",
+     "float": 12017073,
+     "end": "2024-06-30",
+     "filed": "2025-03-12",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001167419",
+     "name": "Riot Platforms, Inc.",
+     "float": 2100000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001218683",
+     "name": "Big Digital Energy, Inc.",
+     "float": 23500000,
+     "end": "2024-06-28",
+     "filed": "2025-03-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001386278",
+     "name": "GREEN DOT CORP",
+     "float": 445400000,
+     "end": "2024-06-30",
+     "filed": "2025-03-04",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001389545",
+     "name": "Stablecoin Development Corp",
+     "float": 3050485,
+     "end": "2023-06-30",
+     "filed": "2024-03-29",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001414767",
+     "name": "Netcapital Inc.",
+     "float": 3055133,
+     "end": "2023-10-31",
+     "filed": "2024-07-29",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001425355",
+     "name": "SUI Group Holdings Ltd.",
+     "float": 3499000,
+     "end": "2024-12-31",
+     "filed": "2025-03-10",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001436229",
+     "name": "BTCS Inc.",
+     "float": 14739000,
+     "end": "2024-06-28",
+     "filed": "2025-03-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001437750",
+     "name": "T-REX Acquisition Corp.",
+     "float": 1822,
+     "end": "2023-12-31",
+     "filed": "2024-12-30",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001439264",
+     "name": "Marvion Inc.",
+     "float": 50945350,
+     "end": "2023-06-30",
+     "filed": "2024-04-16",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001446159",
+     "name": "Axe Compute Inc.",
+     "float": 5819537,
+     "end": "2024-06-28",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001460702",
+     "name": "FF EAI Robotics Ecosystem Inc.",
+     "float": 4570535,
+     "end": "2023-06-30",
+     "filed": "2024-04-08",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001468492",
+     "name": "HeartSciences Inc.",
+     "float": 21100000,
+     "end": "2023-10-31",
+     "filed": "2024-07-29",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001483646",
+     "name": "BLACKSTAR ENTERPRISE GROUP, INC.",
+     "float": 690611,
+     "end": "2023-06-30",
+     "filed": "2024-04-15",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001497770",
+     "name": "Walker & Dunlop, Inc.",
+     "float": 2300000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001507605",
+     "name": "MARA Holdings, Inc.",
+     "float": 5700000000,
+     "end": "2024-06-28",
+     "filed": "2025-03-03",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001520118",
+     "name": "MedWellAI, Inc.",
+     "float": 9369310,
+     "end": "2023-12-31",
+     "filed": "2024-09-30",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001538716",
+     "name": "Oportun Financial Corp",
+     "float": 72100000,
+     "end": "2024-06-28",
+     "filed": "2025-02-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001566610",
+     "name": "TON Strategy Co",
+     "float": 15357000,
+     "end": "2024-06-30",
+     "filed": "2025-03-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001571934",
+     "name": "TAO Synergies Inc.",
+     "float": 6623571,
+     "end": "2024-06-28",
+     "filed": "2025-03-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001580490",
+     "name": "I-ON Digital Corp.",
+     "float": 8100000,
+     "end": "2023-06-30",
+     "filed": "2024-06-06",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001591890",
+     "name": "FG Communities Holdings Inc.",
+     "float": 17500000,
+     "end": "2024-06-28",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001591956",
+     "name": "DarkHorse Technologies Inc.",
+     "float": 21300000,
+     "end": "2024-06-30",
+     "filed": "2025-03-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001601712",
+     "name": "Synchrony Financial",
+     "float": 18645501294,
+     "end": "2024-06-30",
+     "filed": "2025-02-07",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001605057",
+     "name": "Vemanti Group, Inc.",
+     "float": 8538000,
+     "end": "2023-06-30",
+     "filed": "2024-03-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001610853",
+     "name": "Solana Co",
+     "float": 3094103,
+     "end": "2024-06-30",
+     "filed": "2025-03-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001640384",
+     "name": "POWERCOMPUTE, INC.",
+     "float": 10096500,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001647639",
+     "name": "Upstart Holdings, Inc.",
+     "float": 1827095157,
+     "end": "2024-06-28",
+     "filed": "2025-02-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001661779",
+     "name": "StartEngine Inc.",
+     "float": 673709150,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001679788",
+     "name": "Coinbase Global, Inc.",
+     "float": 44600000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-13",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001682639",
+     "name": "HYPERION DEFI, INC.",
+     "float": 88000000,
+     "end": "2023-06-30",
+     "filed": "2024-04-26",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001690080",
+     "name": "FORUM MARKETS Inc",
+     "float": 1548662,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001692376",
+     "name": "Velocity Financial, Inc.",
+     "float": 161400000,
+     "end": "2024-06-30",
+     "filed": "2025-03-12",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001706509",
+     "name": "Cosmos Group Holdings Inc.",
+     "float": 740548650,
+     "end": "2022-06-30",
+     "filed": "2024-04-16",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001710350",
+     "name": "Bit Digital, Inc",
+     "float": 429048949,
+     "end": "2024-06-28",
+     "filed": "2025-03-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001714174",
+     "name": "Burford Capital Ltd",
+     "float": 2601352143,
+     "end": "2024-06-30",
+     "filed": "2025-03-03",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001725911",
+     "name": "NetBrands Corp.",
+     "float": 185468,
+     "end": "2023-06-30",
+     "filed": "2024-04-15",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001737995",
+     "name": "SkyAI, Inc.",
+     "float": 6541788,
+     "end": "2024-06-30",
+     "filed": "2025-03-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001755953",
+     "name": "American Bitcoin Corp.",
+     "float": 37600000,
+     "end": "2024-06-28",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001759186",
+     "name": "Z Squared Inc.",
+     "float": 8455735,
+     "end": "2024-06-30",
+     "filed": "2025-03-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001775194",
+     "name": "UPEXI, INC.",
+     "float": 17409735,
+     "end": "2023-12-31",
+     "filed": "2024-12-16",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001775734",
+     "name": "Beneficient",
+     "float": 78937585,
+     "end": "2023-09-29",
+     "filed": "2024-07-09",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001777835",
+     "name": "Perella Weinberg Partners",
+     "float": 831423369,
+     "end": "2024-06-30",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001790169",
+     "name": "ZeroStack Corp.",
+     "float": 9600000,
+     "end": "2024-06-30",
+     "filed": "2025-03-24",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001796514",
+     "name": "BTC Digital Ltd.",
+     "float": 90915000,
+     "end": "2023-06-30",
+     "filed": "2024-04-15",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001805526",
+     "name": "DeFi Development Corp.",
+     "float": 4000000,
+     "end": "2024-06-30",
+     "filed": "2025-03-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001807846",
+     "name": "MONEYLION INC.",
+     "float": 665922000,
+     "end": "2024-06-30",
+     "filed": "2025-02-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001818502",
+     "name": "OppFi Inc.",
+     "float": 59054410,
+     "end": "2024-06-30",
+     "filed": "2025-03-11",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001818874",
+     "name": "SoFi Technologies, Inc.",
+     "float": 6700000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-24",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001819989",
+     "name": "Cipher Digital Inc.",
+     "float": 874700000,
+     "end": "2024-06-28",
+     "filed": "2025-02-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001820302",
+     "name": "Bakkt, Inc.",
+     "float": 107500000,
+     "end": "2024-06-30",
+     "filed": "2025-03-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001821534",
+     "name": "Exodus Movement, Inc.",
+     "float": 38239800,
+     "end": "2024-06-28",
+     "filed": "2025-03-06",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001823144",
+     "name": "GPGI, Inc.",
+     "float": 190000000,
+     "end": "2024-06-28",
+     "filed": "2025-03-05",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001826397",
+     "name": "AVAX ONE TECHNOLOGY LTD.",
+     "float": 5129428,
+     "end": "2023-06-30",
+     "filed": "2024-04-01",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001829311",
+     "name": "BITMINE IMMERSION TECHNOLOGIES, INC.",
+     "float": 16621967,
+     "end": "2024-02-29",
+     "filed": "2024-12-09",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001829794",
+     "name": "Empery Digital Inc.",
+     "float": 7030705,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001830029",
+     "name": "GRIID Infrastructure Inc.",
+     "float": 26055976,
+     "end": "2023-06-30",
+     "filed": "2024-04-26",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001831631",
+     "name": "loanDepot, Inc.",
+     "float": 109750423,
+     "end": "2024-06-30",
+     "filed": "2025-03-13",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001839341",
+     "name": "Core Scientific, Inc./tx",
+     "float": 1750000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001841408",
+     "name": "Dave Inc./DE",
+     "float": 306500000,
+     "end": "2024-06-30",
+     "filed": "2025-03-04",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001844971",
+     "name": "Vulcan Infrastructure & Power Inc.",
+     "float": 20648389,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001854963",
+     "name": "SHF Holdings, Inc.",
+     "float": 24520000,
+     "end": "2023-06-30",
+     "filed": "2024-04-01",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001856028",
+     "name": "Stronghold Digital Mining, Inc.",
+     "float": 23000000,
+     "end": "2023-06-30",
+     "filed": "2024-03-08",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001861657",
+     "name": "Canton Strategic Holdings, Inc.",
+     "float": 1700000,
+     "end": "2024-06-30",
+     "filed": "2025-03-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001882781",
+     "name": "C2 Blockchain, Inc.",
+     "float": 1021435,
+     "end": "2023-12-31",
+     "filed": "2024-08-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001883085",
+     "name": "Pagaya Technologies Ltd.",
+     "float": 494915421,
+     "end": "2024-06-30",
+     "filed": "2025-03-12",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001889123",
+     "name": "Fold Holdings, Inc.",
+     "float": 51300000,
+     "end": "2024-06-28",
+     "filed": "2025-03-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001892492",
+     "name": "Eightco Holdings Inc.",
+     "float": 4093446,
+     "end": "2023-06-30",
+     "filed": "2024-06-06",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001901799",
+     "name": "Bitcoin Depot Inc.",
+     "float": 111000000,
+     "end": "2024-06-30",
+     "filed": "2025-03-24",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001920406",
+     "name": "Strive, Inc.",
+     "float": 2288866.66,
+     "end": "2024-06-28",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001934642",
+     "name": "MDB Capital Holdings, LLC",
+     "float": 32131327,
+     "end": "2024-06-28",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001938109",
+     "name": "Pineapple Financial Inc.",
+     "float": 4313000,
+     "end": "2024-08-31",
+     "filed": "2024-12-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001946573",
+     "name": "Nakamoto Inc.",
+     "float": 8100000,
+     "end": "2024-06-30",
+     "filed": "2025-03-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001953984",
+     "name": "Binah Capital Group, Inc.",
+     "float": 45000000,
+     "end": "2024-06-28",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001956744",
+     "name": "Tron Inc.",
+     "float": 6651621,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001963088",
+     "name": "AtlasClear Holdings, Inc.",
+     "float": 56700000,
+     "end": "2023-06-30",
+     "filed": "2024-04-16",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001964789",
+     "name": "Hut 8 Corp.",
+     "float": 1210746000,
+     "end": "2024-12-31",
+     "filed": "2025-03-03",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001981535",
+     "name": "Sharplink, Inc.",
+     "float": 1986000,
+     "end": "2024-06-30",
+     "filed": "2025-03-17",
+     "form": "10-K/A"
+    }
+   ],
+   "shuffle_order_ciks": null,
+   "drawn": false,
+   "pending": true,
+   "not_drawn_reason": "pending: close from Atlas price history"
+  },
+  "etoro": {
+   "slug": "etoro",
+   "cik": "0001493318",
+   "D": "2025-09-30",
+   "sic": "6211",
+   "sic_description": "Security Brokers, Dealers & Flotation Companies",
+   "browse_total": 254,
+   "excluded_case": [
+    "0001493318"
+   ],
+   "excluded_universe": [],
+   "candidates_after_exclusions": 253,
+   "ineligible_no_periodic": 100,
+   "periodic_on_or_before_D": 153,
+   "stale_latest_periodic_before_cutoff": 121,
+   "fresh_cutoff": "2024-09-30",
+   "eligible": 32,
+   "eligible_with_float": 24,
+   "no_public_float": [
+    {
+     "name": "NOMURA HOLDINGS INC",
+     "cik": "0001163653",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Futu Holdings Ltd",
+     "cik": "0001754581",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "UP Fintech Holding Ltd",
+     "cik": "0001756699",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "XP Inc.",
+     "cik": "0001787425",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Lion Group Holding Ltd",
+     "cik": "0001806524",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Galaxy Digital Inc.",
+     "cik": "0001859392",
+     "reason": "no float in an annual report filed on or before D"
+    },
+    {
+     "name": "Webull Corp",
+     "cik": "0001866364",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Solowin Holdings, Ltd.",
+     "cik": "0001959224",
+     "reason": "no EntityPublicFloat"
+    }
+   ],
+   "case_value": {
+    "measure": null,
+    "float_absent_reason": "no EntityPublicFloat",
+    "facts_taxonomies": [
+     "ifrs-full"
+    ],
+    "shares_candidates": [],
+    "undrawn_reason": "undrawn: no SEC share count or float"
+   },
+   "float_reported_as_zero": [
+    {
+     "name": "JONES FINANCIAL COMPANIES LLLP",
+     "cik": "0000815917",
+     "filed": "2024-03-12"
+    },
+    {
+     "name": "MMTEC, INC.",
+     "cik": "0001742518",
+     "filed": "2019-04-22"
+    }
+   ],
+   "eligible_floats": [
+    {
+     "cik": "0000012239",
+     "name": "Dominari Holdings Inc.",
+     "float": 7746180,
+     "end": "2024-06-28",
+     "filed": "2025-04-15",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000065596",
+     "name": "SIEBERT FINANCIAL CORP",
+     "float": 23291000,
+     "end": "2024-06-30",
+     "filed": "2025-04-01",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0000096223",
+     "name": "Jefferies Financial Group Inc.",
+     "float": 8458821477,
+     "end": "2024-05-31",
+     "filed": "2025-01-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000316709",
+     "name": "SCHWAB CHARLES CORP",
+     "float": 122800000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000350894",
+     "name": "SEI INVESTMENTS CO",
+     "float": 7000000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000720005",
+     "name": "RAYMOND JAMES FINANCIAL INC",
+     "float": 26561575664,
+     "end": "2024-03-31",
+     "filed": "2024-11-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000720672",
+     "name": "STIFEL FINANCIAL CORP",
+     "float": 8900000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000791963",
+     "name": "OPPENHEIMER HOLDINGS INC",
+     "float": 437300000,
+     "end": "2024-06-28",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000880631",
+     "name": "WisdomTree, Inc.",
+     "float": 1374040458,
+     "end": "2024-06-30",
+     "filed": "2025-02-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000886982",
+     "name": "GOLDMAN SACHS GROUP INC",
+     "float": 142300000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000895421",
+     "name": "MORGAN STANLEY",
+     "float": 151625027283,
+     "end": "2024-06-30",
+     "filed": "2025-02-21",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000924805",
+     "name": "Freedom Holding Corp.",
+     "float": 5738457223,
+     "end": "2024-09-30",
+     "filed": "2025-06-13",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001230245",
+     "name": "PIPER SANDLER COMPANIES",
+     "float": 3960000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001270436",
+     "name": "Cohen & Co Inc.",
+     "float": 11900000,
+     "end": "2024-06-28",
+     "filed": "2025-03-12",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001278021",
+     "name": "MARKETAXESS HOLDINGS INC",
+     "float": 6500000000,
+     "end": "2024-12-31",
+     "filed": "2025-02-24",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001381197",
+     "name": "Interactive Brokers Group, Inc.",
+     "float": 12885708490,
+     "end": "2024-06-28",
+     "filed": "2025-03-05",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001592386",
+     "name": "Virtu Financial, Inc.",
+     "float": 1833000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-21",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001593538",
+     "name": "NAVIENT CORP",
+     "float": 1100000000,
+     "end": "2024-06-30",
+     "filed": "2025-03-04",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001642122",
+     "name": "Associated Capital Group, Inc.",
+     "float": 88300000,
+     "end": "2024-06-30",
+     "filed": "2025-03-19",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001783879",
+     "name": "Robinhood Markets, Inc.",
+     "float": 16300000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-18",
+     "form": "10-K"
+    },
+    {
+     "cik": "0002012383",
+     "name": "BlackRock, Inc.",
+     "float": 118000000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0002025396",
+     "name": "Odysseus (Cayman) Ltd",
+     "float": 221980000,
+     "end": "2024-12-31",
+     "filed": "2025-03-26",
+     "form": "10-K"
+    }
+   ],
+   "shuffle_order_ciks": null,
+   "drawn": false,
+   "pending": false,
+   "not_drawn_reason": "undrawn: no SEC share count or float"
+  },
+  "snap": {
+   "slug": "snap",
+   "cik": "0001564408",
+   "D": "2025-08-31",
+   "sic": "7370",
+   "sic_description": "Services-Computer Programming, Data Processing, Etc.",
+   "browse_total": 405,
+   "excluded_case": [
+    "0001564408"
+   ],
+   "excluded_universe": [],
+   "candidates_after_exclusions": 404,
+   "ineligible_no_periodic": 120,
+   "periodic_on_or_before_D": 284,
+   "stale_latest_periodic_before_cutoff": 186,
+   "fresh_cutoff": "2024-08-31",
+   "eligible": 98,
+   "eligible_with_float": 64,
+   "no_public_float": [
+    {
+     "name": "SIFY TECHNOLOGIES LTD",
+     "cik": "0001094324",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "GIGAMEDIA Ltd",
+     "cik": "0001105101",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Baidu, Inc.",
+     "cik": "0001329099",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "VNET Group, Inc.",
+     "cik": "0001508475",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Nebius Group N.V.",
+     "cik": "0001513845",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "GDS Holdings Ltd",
+     "cik": "0001526125",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Wix.com Ltd.",
+     "cik": "0001576789",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "WEIBO Corp",
+     "cik": "0001595761",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Jianpu Technology Inc.",
+     "cik": "0001713923",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "J & Friends Holdings Ltd",
+     "cik": "0001716338",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "HUYA Inc.",
+     "cik": "0001728190",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Qutoutiao Inc.",
+     "cik": "0001733298",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Alithya Group inc",
+     "cik": "0001734520",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Aurora Mobile Ltd",
+     "cik": "0001737339",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Sangoma Technologies Corp",
+     "cik": "0001753368",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "DouYu International Holdings Ltd",
+     "cik": "0001762417",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "ONECONNECT FINANCIAL TECHNOLOGY CO., LTD.",
+     "cik": "0001780531",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Sound Group Inc.",
+     "cik": "0001783407",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Dada Nexus Ltd",
+     "cik": "0001793862",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Yalla Group Ltd",
+     "cik": "0001794350",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Sportradar Group AG",
+     "cik": "0001836470",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "SIMILARWEB LTD.",
+     "cik": "0001842731",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Kanzhun Ltd",
+     "cik": "0001842827",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Nexxen International Ltd.",
+     "cik": "0001849396",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Locafy Ltd",
+     "cik": "0001875547",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "MindForge Inc.",
+     "cik": "0001888525",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Global Mofy AI Ltd",
+     "cik": "0001913749",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "REZOLVE AI PLC",
+     "cik": "0001920294",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Lucas GC Ltd",
+     "cik": "0001954694",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Real Messenger Corp",
+     "cik": "0001983324",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "IGTA Merger Sub Ltd",
+     "cik": "0001997698",
+     "reason": "no float in an annual report filed on or before D"
+    },
+    {
+     "name": "Robot Consulting Co., Ltd.",
+     "cik": "0002007599",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Wintergreen Acquisition Corp.",
+     "cik": "0002053927",
+     "reason": "no float in an annual report filed on or before D"
+    },
+    {
+     "name": "NIQ Global Intelligence plc",
+     "cik": "0002054696",
+     "reason": "no EntityPublicFloat"
+    }
+   ],
+   "case_value": {
+    "measure": "EntityPublicFloat",
+    "value": 21500000000,
+    "end": "2024-06-28",
+    "filed": "2025-02-05",
+    "form": "10-K",
+    "accn": "0001564408-25-000019",
+    "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001564408.json"
+   },
+   "float_reported_as_zero": [
+    {
+     "name": "CLOUDASTRUCTURE, INC.",
+     "cik": "0001709628",
+     "filed": "2025-03-31"
+    },
+    {
+     "name": "Go Go Buyers, Inc.",
+     "cik": "0001842563",
+     "filed": "2025-03-31"
+    },
+    {
+     "name": "WidFit Inc.",
+     "cik": "0001912954",
+     "filed": "2025-07-22"
+    },
+    {
+     "name": "MARKY CORP.",
+     "cik": "0001973047",
+     "filed": "2025-04-30"
+    }
+   ],
+   "eligible_floats": [
+    {
+     "cik": "0000746210",
+     "name": "TaoWeave, Inc.",
+     "float": 5079626,
+     "end": "2024-06-30",
+     "filed": "2025-03-18",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000802257",
+     "name": "Mitesco, Inc.",
+     "float": 696130,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000891103",
+     "name": "Match Group, Inc.",
+     "float": 7861445877,
+     "end": "2024-06-30",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001013237",
+     "name": "FACTSET RESEARCH SYSTEMS INC",
+     "float": 17602720964,
+     "end": "2024-02-29",
+     "filed": "2024-10-29",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001095565",
+     "name": "HEALTHSTREAM INC",
+     "float": 673600000,
+     "end": "2024-06-30",
+     "filed": "2025-02-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001173489",
+     "name": "CEVA INC",
+     "float": 287663109,
+     "end": "2024-06-30",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001182731",
+     "name": "ConneXionONE Corp.",
+     "float": 19924373,
+     "end": "2023-06-30",
+     "filed": "2024-03-01",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001326801",
+     "name": "Meta Platforms, Inc.",
+     "float": 1103000000000,
+     "end": "2024-06-30",
+     "filed": "2025-01-30",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001327318",
+     "name": "TrueCar, Inc.",
+     "float": 282455081,
+     "end": "2024-06-30",
+     "filed": "2025-02-21",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001355839",
+     "name": "INTELLIGENT PROTECTION MANAGEMENT CORP.",
+     "float": 31564517,
+     "end": "2024-06-30",
+     "filed": "2025-03-24",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001376321",
+     "name": "ZW Data Action Technologies Inc.",
+     "float": 4927959,
+     "end": "2024-06-30",
+     "filed": "2025-04-15",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001422930",
+     "name": "PubMatic, Inc.",
+     "float": 830900000,
+     "end": "2024-06-28",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001454938",
+     "name": "Teads Holding Co.",
+     "float": 191200000,
+     "end": "2024-06-30",
+     "filed": "2025-03-07",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001475115",
+     "name": "Eventbrite, Inc.",
+     "float": 380500000,
+     "end": "2024-06-30",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001477960",
+     "name": "LataMed AI Corp.",
+     "float": 98462,
+     "end": "2024-06-30",
+     "filed": "2025-04-23",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001506293",
+     "name": "PINTEREST, INC.",
+     "float": 23100000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-06",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001526520",
+     "name": "TripAdvisor, Inc.",
+     "float": 1903322909,
+     "end": "2024-06-30",
+     "filed": "2025-02-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001546296",
+     "name": "Professional Diversity Network, Inc.",
+     "float": 5867917,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001582961",
+     "name": "DigitalOcean Holdings, Inc.",
+     "float": 3120000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001585521",
+     "name": "Zoom Communications, Inc.",
+     "float": 15800000000,
+     "end": "2024-07-31",
+     "filed": "2025-02-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001593184",
+     "name": "BIOREGENX, INC.",
+     "float": 5587115,
+     "end": "2024-06-30",
+     "filed": "2025-04-16",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001595974",
+     "name": "MAGNITE, INC.",
+     "float": 1332741135,
+     "end": "2024-06-30",
+     "filed": "2025-02-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001597033",
+     "name": "Sabre Corp",
+     "float": 682381656,
+     "end": "2024-06-30",
+     "filed": "2025-02-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001616156",
+     "name": "WEWARDS, INC.",
+     "float": 12382600,
+     "end": "2024-11-30",
+     "filed": "2025-08-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001617553",
+     "name": "ZIPRECRUITER, INC.",
+     "float": 652900000,
+     "end": "2024-06-30",
+     "filed": "2025-02-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001619227",
+     "name": "Cloudweb, Inc.",
+     "float": 55414,
+     "end": "2024-06-30",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001635327",
+     "name": "Flutter Entertainment plc",
+     "float": 32380000000,
+     "end": "2024-06-30",
+     "filed": "2025-03-04",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001636422",
+     "name": "Health Catalyst, Inc.",
+     "float": 369000000,
+     "end": "2024-06-30",
+     "filed": "2025-04-30",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001640428",
+     "name": "EverQuote, Inc.",
+     "float": 543500000,
+     "end": "2024-06-28",
+     "filed": "2025-02-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001652044",
+     "name": "Alphabet Inc.",
+     "float": 2000000000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-05",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001666071",
+     "name": "Cardlytics, Inc.",
+     "float": 400000000,
+     "end": "2024-06-28",
+     "filed": "2025-03-12",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001671933",
+     "name": "Trade Desk, Inc.",
+     "float": 43514637327,
+     "end": "2024-06-28",
+     "filed": "2025-02-21",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001674440",
+     "name": "AIRWA INC.",
+     "float": 22438339.44,
+     "end": "2024-10-31",
+     "filed": "2025-08-13",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001717115",
+     "name": "Tempus AI, Inc.",
+     "float": 5400000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-24",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001751008",
+     "name": "AppLovin Corp",
+     "float": 23700000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001753391",
+     "name": "TANCHENG GROUP CO., LTD.",
+     "float": 913670,
+     "end": "2024-06-28",
+     "filed": "2025-03-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001758699",
+     "name": "TRANSUITE.ORG INC.",
+     "float": 5495490,
+     "end": "2024-05-31",
+     "filed": "2025-03-17",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001765048",
+     "name": "GUOCHUN INTERNATIONAL INC.",
+     "float": 3871,
+     "end": "2025-07-22",
+     "filed": "2025-07-22",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001799332",
+     "name": "GAN Ltd",
+     "float": 72100000,
+     "end": "2024-06-30",
+     "filed": "2025-03-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001800227",
+     "name": "People Inc",
+     "float": 3558323640,
+     "end": "2024-06-30",
+     "filed": "2025-04-29",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001805833",
+     "name": "System1, Inc.",
+     "float": 39900000,
+     "end": "2024-06-30",
+     "filed": "2025-04-25",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001810019",
+     "name": "Rackspace Technology, Inc.",
+     "float": 201000000,
+     "end": "2024-06-30",
+     "filed": "2025-03-21",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001811999",
+     "name": "FARMHOUSE, INC. /NV",
+     "float": 1979,
+     "end": "2024-06-30",
+     "filed": "2025-06-23",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001819928",
+     "name": "DoubleVerify Holdings, Inc.",
+     "float": 2808491095,
+     "end": "2024-06-30",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001820144",
+     "name": "Grindr Inc.",
+     "float": 565000000,
+     "end": "2024-06-30",
+     "filed": "2025-04-30",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001828791",
+     "name": "Viant Technology Inc.",
+     "float": 155500000,
+     "end": "2024-06-30",
+     "filed": "2025-03-03",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001830043",
+     "name": "Bumble Inc.",
+     "float": 1002420886,
+     "end": "2024-06-30",
+     "filed": "2025-02-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001830081",
+     "name": "RUM Group Inc.",
+     "float": 468500000,
+     "end": "2024-06-30",
+     "filed": "2025-03-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001837686",
+     "name": "Vimeo, Inc.",
+     "float": 566000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-19",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001840502",
+     "name": "Taboola.com Ltd.",
+     "float": 684500000,
+     "end": "2024-06-30",
+     "filed": "2025-02-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001841209",
+     "name": "MicroCloud Hologram Inc.",
+     "float": 58100000,
+     "end": "2022-06-30",
+     "filed": "2023-03-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001842718",
+     "name": "INTEGRAL AD SCIENCE HOLDING CORP.",
+     "float": 928000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001846069",
+     "name": "Nextdoor Holdings, Inc.",
+     "float": 637500000,
+     "end": "2024-06-28",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001849635",
+     "name": "Trump Media & Technology Group Corp.",
+     "float": 2490000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001855747",
+     "name": "Blend Labs, Inc.",
+     "float": 495000000,
+     "end": "2024-06-28",
+     "filed": "2025-03-13",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001873722",
+     "name": "Bubblr Inc.",
+     "float": 3483073,
+     "end": "2024-06-28",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001879001",
+     "name": "Verses AI Inc.",
+     "float": 5300000,
+     "end": "2024-09-30",
+     "filed": "2025-07-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001911545",
+     "name": "Global Interactive Technologies, Inc.",
+     "float": 10587362,
+     "end": "2024-12-31",
+     "filed": "2025-04-30",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001940177",
+     "name": "PodcastOne, Inc.",
+     "float": 8600000,
+     "end": "2024-09-30",
+     "filed": "2025-07-02",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001983736",
+     "name": "Eva Live Inc",
+     "float": 531546485,
+     "end": "2024-12-31",
+     "filed": "2025-05-15",
+     "form": "10-K/A"
+    }
+   ],
+   "shuffle_order_ciks": [
+    "0001810019",
+    "0001182731",
+    "0001585521",
+    "0001819928",
+    "0001717115",
+    "0001635327",
+    "0001593184",
+    "0001619227",
+    "0001617553",
+    "0001355839",
+    "0001911545",
+    "0001671933",
+    "0001820144",
+    "0001811999",
+    "0001765048",
+    "0001376321",
+    "0001597033",
+    "0000802257",
+    "0001582961",
+    "0001849635",
+    "0001173489",
+    "0001666071",
+    "0001828791",
+    "0000891103",
+    "0000746210",
+    "0001799332",
+    "0001636422",
+    "0001879001",
+    "0001830043",
+    "0001616156",
+    "0001640428",
+    "0001753391",
+    "0001805833",
+    "0001475115",
+    "0001837686",
+    "0001983736",
+    "0001873722",
+    "0001327318",
+    "0001506293",
+    "0001830081",
+    "0001846069",
+    "0001842718",
+    "0001422930",
+    "0001758699",
+    "0001526520",
+    "0001546296",
+    "0001800227",
+    "0001013237",
+    "0001477960",
+    "0001326801",
+    "0001940177",
+    "0001751008",
+    "0001674440",
+    "0001652044",
+    "0001095565",
+    "0001840502",
+    "0001595974",
+    "0001454938",
+    "0001841209",
+    "0001855747"
+   ],
+   "eligible_with_positive_float": 60,
+   "ranking_top10": [
+    {
+     "name": "PINTEREST, INC.",
+     "cik": "0001506293",
+     "float": 23100000000,
+     "float_end": "2024-06-28",
+     "float_filed": "2025-02-06",
+     "distance": 0.07177968239413074
+    },
+    {
+     "name": "AppLovin Corp",
+     "cik": "0001751008",
+     "float": 23700000000,
+     "float_end": "2024-06-28",
+     "float_filed": "2025-02-27",
+     "distance": 0.09742211300746831
+    },
+    {
+     "name": "FACTSET RESEARCH SYSTEMS INC",
+     "cik": "0001013237",
+     "float": 17602720964,
+     "float_end": "2024-02-29",
+     "float_filed": "2024-10-29",
+     "distance": 0.19999944481162188
+    },
+    {
+     "name": "Zoom Communications, Inc.",
+     "cik": "0001585521",
+     "float": 15800000000,
+     "float_end": "2024-07-31",
+     "float_filed": "2025-02-28",
+     "distance": 0.308042995100696
+    },
+    {
+     "name": "Flutter Entertainment plc",
+     "cik": "0001635327",
+     "float": 32380000000,
+     "float_end": "2024-06-30",
+     "float_filed": "2025-03-04",
+     "distance": 0.4094880131158719
+    },
+    {
+     "name": "Trade Desk, Inc.",
+     "cik": "0001671933",
+     "float": 43514637327,
+     "float_end": "2024-06-28",
+     "float_filed": "2025-02-21",
+     "distance": 0.7050444366367271
+    },
+    {
+     "name": "Match Group, Inc.",
+     "cik": "0000891103",
+     "float": 7861445877,
+     "float_end": "2024-06-30",
+     "float_filed": "2025-02-27",
+     "distance": 1.0060823917931367
+    },
+    {
+     "name": "Tempus AI, Inc.",
+     "cik": "0001717115",
+     "float": 5400000000,
+     "float_end": "2024-06-28",
+     "float_filed": "2025-02-24",
+     "distance": 1.3816539815633884
+    },
+    {
+     "name": "People Inc",
+     "cik": "0001800227",
+     "float": 3558323640,
+     "float_end": "2024-06-30",
+     "float_filed": "2025-04-29",
+     "distance": 1.7987633888125287
+    },
+    {
+     "name": "DigitalOcean Holdings, Inc.",
+     "cik": "0001582961",
+     "float": 3120000000,
+     "float_end": "2024-06-30",
+     "float_filed": "2025-02-25",
+     "distance": 1.9302199333122263
+    }
+   ],
+   "controls": [
+    {
+     "name": "PINTEREST, INC.",
+     "cik": "0001506293",
+     "sec_name": "PINTEREST, INC.",
+     "ticker_today": "PINS",
+     "exchange_today": "NYSE",
+     "submissions_tickers": [
+      "PINS"
+     ],
+     "submissions_exchanges": [
+      "NYSE"
+     ],
+     "forms_filed_2024_2025": [
+      "10-K",
+      "10-Q",
+      "144",
+      "3",
+      "3/A",
+      "4",
+      "8-K",
+      "ARS",
+      "DEF 14A",
+      "DEFA14A",
+      "PRE 14A",
+      "S-8",
+      "SC 13G/A",
+      "SCHEDULE 13G",
+      "SCHEDULE 13G/A"
+     ],
+     "filed_in_2026": true,
+     "forms_filed_2026": [
+      "10-K",
+      "10-Q",
+      "144",
+      "144/A",
+      "3",
+      "4",
+      "8-K",
+      "ARS",
+      "DEF 14A",
+      "DEFA14A",
+      "S-8",
+      "SCHEDULE 13G",
+      "SCHEDULE 13G/A"
+     ],
+     "periodic_filed_2026": true,
+     "latest_filing_date": "2026-10-15",
+     "float": {
+      "value": 23100000000,
+      "end": "2024-06-28",
+      "filed": "2025-02-06",
+      "form": "10-K",
+      "accn": "0001506293-25-000022"
+     },
+     "distance": 0.07177968239413074,
+     "market_value": 23100000000
+    },
+    {
+     "name": "AppLovin Corp",
+     "cik": "0001751008",
+     "sec_name": "AppLovin Corp",
+     "ticker_today": "APP",
+     "exchange_today": "Nasdaq",
+     "submissions_tickers": [
+      "APP"
+     ],
+     "submissions_exchanges": [
+      "Nasdaq"
+     ],
+     "forms_filed_2024_2025": [
+      "10-K",
+      "10-Q",
+      "144",
+      "3",
+      "4",
+      "4/A",
+      "424B3",
+      "424B5",
+      "424B7",
+      "8-K",
+      "ARS",
+      "DEF 14A",
+      "DEFA14A",
+      "FWP",
+      "S-8",
+      "SC 13G",
+      "SC 13G/A",
+      "SCHEDULE 13G",
+      "SCHEDULE 13G/A"
+     ],
+     "filed_in_2026": true,
+     "forms_filed_2026": [
+      "10-K",
+      "10-Q",
+      "144",
+      "3",
+      "4",
+      "8-K",
+      "ARS",
+      "DEF 14A",
+      "DEFA14A",
+      "PRE 14A",
+      "S-3ASR",
+      "SCHEDULE 13G",
+      "SCHEDULE 13G/A"
+     ],
+     "periodic_filed_2026": true,
+     "latest_filing_date": "2026-10-16",
+     "float": {
+      "value": 23700000000,
+      "end": "2024-06-28",
+      "filed": "2025-02-27",
+      "form": "10-K",
+      "accn": "0001751008-25-000018"
+     },
+     "distance": 0.09742211300746831,
+     "market_value": 23700000000
+    }
+   ],
+   "reading_check_top6": [
+    {
+     "cik": "0001506293",
+     "name": "PINTEREST, INC.",
+     "latest_annual_per_submissions": [
+      "10-K",
+      "2025-02-06",
+      "0001506293-25-000022"
+     ],
+     "float_accn": "0001506293-25-000022",
+     "same_filing": true
+    },
+    {
+     "cik": "0001751008",
+     "name": "AppLovin Corp",
+     "latest_annual_per_submissions": [
+      "10-K",
+      "2025-02-27",
+      "0001751008-25-000018"
+     ],
+     "float_accn": "0001751008-25-000018",
+     "same_filing": true
+    },
+    {
+     "cik": "0001013237",
+     "name": "FACTSET RESEARCH SYSTEMS INC",
+     "latest_annual_per_submissions": [
+      "10-K",
+      "2024-10-29",
+      "0001013237-24-000141"
+     ],
+     "float_accn": "0001013237-24-000141",
+     "same_filing": true
+    },
+    {
+     "cik": "0001585521",
+     "name": "Zoom Communications, Inc.",
+     "latest_annual_per_submissions": [
+      "10-K",
+      "2025-02-28",
+      "0001585521-25-000042"
+     ],
+     "float_accn": "0001585521-25-000042",
+     "same_filing": true
+    },
+    {
+     "cik": "0001635327",
+     "name": "Flutter Entertainment plc",
+     "latest_annual_per_submissions": [
+      "10-K",
+      "2025-03-04",
+      "0001628280-25-009852"
+     ],
+     "float_accn": "0001628280-25-009852",
+     "same_filing": true
+    },
+    {
+     "cik": "0001671933",
+     "name": "Trade Desk, Inc.",
+     "latest_annual_per_submissions": [
+      "10-K",
+      "2025-02-21",
+      "0001671933-25-000029"
+     ],
+     "float_accn": "0001671933-25-000029",
+     "same_filing": true
+    }
+   ],
+   "drawn": true
+  },
+  "poet-technologies": {
+   "slug": "poet-technologies",
+   "cik": "0001437424",
+   "D": "2025-11-30",
+   "sic": "3674",
+   "sic_description": "Semiconductors & Related Devices",
+   "browse_total": 506,
+   "excluded_case": [
+    "0001437424"
+   ],
+   "excluded_universe": [
+    {
+     "cik": "0001047127",
+     "name": "AMKOR TECHNOLOGY, INC."
+    },
+    {
+     "cik": "0001158114",
+     "name": "APPLIED OPTOELECTRONICS, INC."
+    },
+    {
+     "cik": "0001122411",
+     "name": "ASE Technology Holding Co., Ltd."
+    },
+    {
+     "cik": "0001051627",
+     "name": "AXT INC"
+    },
+    {
+     "cik": "0001039399",
+     "name": "FORMFACTOR INC"
+    },
+    {
+     "cik": "0001493594",
+     "name": "MACOM Technology Solutions Holdings, Inc."
+    },
+    {
+     "cik": "0001835632",
+     "name": "Marvell Technology, Inc."
+    },
+    {
+     "cik": "0000723125",
+     "name": "MICRON TECHNOLOGY INC"
+    },
+    {
+     "cik": "0002120882",
+     "name": "SK hynix Inc."
+    },
+    {
+     "cik": "0000932787",
+     "name": "STMicroelectronics N.V."
+    }
+   ],
+   "candidates_after_exclusions": 495,
+   "ineligible_no_periodic": 129,
+   "periodic_on_or_before_D": 366,
+   "stale_latest_periodic_before_cutoff": 267,
+   "fresh_cutoff": "2024-11-30",
+   "eligible": 99,
+   "eligible_with_float": 77,
+   "no_public_float": [
+    {
+     "name": "TOWER SEMICONDUCTOR LTD",
+     "cik": "0000928876",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "UNITED MICROELECTRONICS CORP",
+     "cik": "0001033767",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD",
+     "cik": "0001046179",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "METALINK LTD",
+     "cik": "0001098462",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "CHIPMOS TECHNOLOGIES INC",
+     "cik": "0001123134",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "SuperCom Ltd",
+     "cik": "0001291855",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Silicon Motion Technology CORP",
+     "cik": "0001329394",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Himax Technologies, Inc.",
+     "cik": "0001342338",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "SEQUANS COMMUNICATIONS",
+     "cik": "0001383395",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "DAQO NEW ENERGY CORP.",
+     "cik": "0001477641",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "JinkoSolar Holding Co., Ltd.",
+     "cik": "0001481513",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Ambiq Micro, Inc.",
+     "cik": "0001500412",
+     "reason": "no float in an annual report filed on or before D"
+    },
+    {
+     "name": "GLOBALFOUNDRIES Inc.",
+     "cik": "0001709048",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Maxeon Solar Technologies, Ltd.",
+     "cik": "0001796898",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Valens Semiconductor Ltd.",
+     "cik": "0001863006",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Nano Labs Ltd",
+     "cik": "0001872302",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Intchains Group Ltd",
+     "cik": "0001895597",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "SEALSQ Corp",
+     "cik": "0001951222",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "ARM HOLDINGS PLC /UK",
+     "cik": "0001973239",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "TOYO Co., Ltd",
+     "cik": "0001985273",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Semilux International Ltd.",
+     "cik": "0001990950",
+     "reason": "no EntityPublicFloat"
+    },
+    {
+     "name": "Qnity Electronics, Inc.",
+     "cik": "0002058873",
+     "reason": "no float in an annual report filed on or before D"
+    }
+   ],
+   "case_value": {
+    "measure": "EntityCommonStockSharesOutstanding x close",
+    "float_absent_reason": "no EntityPublicFloat",
+    "facts_taxonomies": [
+     "dei",
+     "ffd",
+     "ifrs-full",
+     "invest",
+     "us-gaap"
+    ],
+    "shares_candidates": [
+     {
+      "end": "2025-12-31",
+      "val": 132290739,
+      "accn": "0001493152-26-014253",
+      "fy": 2025,
+      "fp": "FY",
+      "form": "20-F",
+      "filed": "2026-03-31",
+      "frame": "CY2025Q4I"
+     }
+    ],
+    "shares_rows": [
+     {
+      "end": "2025-12-31",
+      "val": 132290739,
+      "accn": "0001493152-26-014253",
+      "fy": 2025,
+      "fp": "FY",
+      "form": "20-F",
+      "filed": "2026-03-31",
+      "frame": "CY2025Q4I"
+     }
+    ],
+    "shares_original": {
+     "val": 132290739,
+     "form": "20-F",
+     "filed": "2026-03-31",
+     "end": "2025-12-31",
+     "accn": "0001493152-26-014253"
+    },
+    "shares_amended": null,
+    "shares_used": 132290739,
+    "undrawn_reason": "pending: close from Atlas price history",
+    "pending": true
+   },
+   "float_reported_as_zero": [
+    {
+     "name": "Canadian Solar Inc.",
+     "cik": "0001375877",
+     "filed": "2014-04-28"
+    },
+    {
+     "name": "Palomino Laboratories Inc.",
+     "cik": "0001938569",
+     "filed": "2025-03-28"
+    }
+   ],
+   "eligible_floats": [
+    {
+     "cik": "0000002488",
+     "name": "ADVANCED MICRO DEVICES INC",
+     "float": 261400000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-05",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000004127",
+     "name": "SKYWORKS SOLUTIONS, INC.",
+     "float": 9800000000,
+     "end": "2025-03-28",
+     "filed": "2025-11-07",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000006281",
+     "name": "ANALOG DEVICES INC",
+     "float": 81121000000,
+     "end": "2025-05-03",
+     "filed": "2025-11-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000006951",
+     "name": "APPLIED MATERIALS INC /DE",
+     "float": 167928935720,
+     "end": "2024-04-28",
+     "filed": "2024-12-13",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000022701",
+     "name": "SUNation Energy, Inc.",
+     "float": 9666000,
+     "end": "2024-06-30",
+     "filed": "2025-04-30",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0000029002",
+     "name": "DIODES INC /DEL/",
+     "float": 3200000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000050863",
+     "name": "INTEL CORP",
+     "float": 132400000000,
+     "end": "2024-06-28",
+     "filed": "2025-01-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000056978",
+     "name": "KULICKE & SOFFA INDUSTRIES INC",
+     "float": 1753200000,
+     "end": "2025-03-29",
+     "filed": "2025-11-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000088941",
+     "name": "SEMTECH CORP",
+     "float": 1700000000,
+     "end": "2024-07-28",
+     "filed": "2025-03-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000091668",
+     "name": "SOLITRON DEVICES INC",
+     "float": 28223758,
+     "end": "2024-08-31",
+     "filed": "2025-05-23",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000097476",
+     "name": "TEXAS INSTRUMENTS INC",
+     "float": 177352918130,
+     "end": "2024-06-30",
+     "filed": "2025-02-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000724910",
+     "name": "NVE CORP /NEW/",
+     "float": 265000000,
+     "end": "2024-09-30",
+     "filed": "2025-05-07",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000771266",
+     "name": "KOPIN CORP",
+     "float": 99230825,
+     "end": "2024-06-29",
+     "filed": "2025-05-20",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0000772406",
+     "name": "CIRRUS LOGIC, INC.",
+     "float": 4316767046,
+     "end": "2024-09-28",
+     "filed": "2025-05-23",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000808326",
+     "name": "EMCORE CORP",
+     "float": 28400000,
+     "end": "2024-03-28",
+     "filed": "2025-01-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000810136",
+     "name": "PHOTRONICS INC",
+     "float": 1729553783,
+     "end": "2024-04-28",
+     "filed": "2024-12-19",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000817720",
+     "name": "SYNAPTICS Inc",
+     "float": 1829646353,
+     "end": "2024-12-28",
+     "filed": "2025-08-21",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000827054",
+     "name": "MICROCHIP TECHNOLOGY INC",
+     "float": 42200000000,
+     "end": "2024-09-30",
+     "filed": "2025-05-23",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000833640",
+     "name": "POWER INTEGRATIONS INC",
+     "float": 3000000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-07",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000855658",
+     "name": "LATTICE SEMICONDUCTOR CORP",
+     "float": 5313276456,
+     "end": "2024-06-28",
+     "filed": "2025-02-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000866291",
+     "name": "ALLEGRO MICROSYSTEMS, INC.",
+     "float": 2996240853,
+     "end": "2024-09-27",
+     "filed": "2025-05-22",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000882508",
+     "name": "QUICKLOGIC Corp",
+     "float": 124844817,
+     "end": "2024-06-30",
+     "filed": "2025-03-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000889971",
+     "name": "LIGHTPATH TECHNOLOGIES INC",
+     "float": 137428323,
+     "end": "2024-12-31",
+     "filed": "2025-09-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000890394",
+     "name": "Peraso Inc.",
+     "float": 3671905,
+     "end": "2024-06-28",
+     "filed": "2025-03-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000895419",
+     "name": "WOLFSPEED, INC.",
+     "float": 1006783030,
+     "end": "2024-12-27",
+     "filed": "2025-08-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000912093",
+     "name": "VIAVI SOLUTIONS INC.",
+     "float": 2200000000,
+     "end": "2024-12-28",
+     "filed": "2025-08-11",
+     "form": "10-K"
+    },
+    {
+     "cik": "0000917273",
+     "name": "RAMBUS INC",
+     "float": 4700000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-24",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001038074",
+     "name": "SILICON LABORATORIES INC.",
+     "float": 3500000000,
+     "end": "2024-06-29",
+     "filed": "2025-02-04",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001039065",
+     "name": "OSI SYSTEMS INC",
+     "float": 2668702265,
+     "end": "2024-12-31",
+     "filed": "2025-08-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001045810",
+     "name": "NVIDIA CORP",
+     "float": 2700000000000,
+     "end": "2024-07-26",
+     "filed": "2025-02-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001097864",
+     "name": "ON SEMICONDUCTOR CORP",
+     "float": 29264164935,
+     "end": "2024-06-28",
+     "filed": "2025-02-10",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001111928",
+     "name": "IPG PHOTONICS CORP",
+     "float": 2300000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001124796",
+     "name": "NLIGHT, INC.",
+     "float": 507700000,
+     "end": "2024-06-30",
+     "filed": "2025-02-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001126741",
+     "name": "GSI TECHNOLOGY INC",
+     "float": 62500000,
+     "end": "2024-09-30",
+     "filed": "2025-06-18",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001274494",
+     "name": "FIRST SOLAR, INC.",
+     "float": 24000000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001275014",
+     "name": "Ultra Clean Holdings, Inc.",
+     "float": 2169400000,
+     "end": "2024-06-28",
+     "filed": "2025-02-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001280263",
+     "name": "AMBARELLA INC",
+     "float": 1600000000,
+     "end": "2024-07-31",
+     "filed": "2025-03-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001280452",
+     "name": "MONOLITHIC POWER SYSTEMS, INC.",
+     "float": 26600000000,
+     "end": "2024-06-30",
+     "filed": "2025-03-03",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001282631",
+     "name": "NETLIST INC",
+     "float": 338600000,
+     "end": "2024-06-28",
+     "filed": "2025-03-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001288469",
+     "name": "MAXLINEAR, INC",
+     "float": 1500000000,
+     "end": "2024-06-30",
+     "filed": "2025-01-29",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001325702",
+     "name": "MAGNACHIP SEMICONDUCTOR Corp",
+     "float": 178954261,
+     "end": "2024-06-30",
+     "filed": "2025-03-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001333822",
+     "name": "SemiLEDs Corp",
+     "float": 5700000,
+     "end": "2025-02-28",
+     "filed": "2025-11-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001350102",
+     "name": "Ascent Solar Technologies, Inc.",
+     "float": 9506400,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001387467",
+     "name": "ALPHA & OMEGA SEMICONDUCTOR Ltd",
+     "float": 904000000,
+     "end": "2024-12-31",
+     "filed": "2025-08-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001413447",
+     "name": "NXP Semiconductors N.V.",
+     "float": 67700000000,
+     "end": "2023-06-30",
+     "filed": "2025-02-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001419612",
+     "name": "SOLAREDGE TECHNOLOGIES, INC.",
+     "float": 1250000000,
+     "end": "2023-06-30",
+     "filed": "2025-02-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001420520",
+     "name": "Atomera Inc",
+     "float": 100088746,
+     "end": "2024-06-30",
+     "filed": "2025-03-04",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001438423",
+     "name": "EVERSPIN TECHNOLOGIES INC.",
+     "float": 128200000,
+     "end": "2024-06-30",
+     "filed": "2025-02-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001451809",
+     "name": "SITIME Corp",
+     "float": 2326598175,
+     "end": "2024-06-30",
+     "filed": "2025-02-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001463101",
+     "name": "Enphase Energy, Inc.",
+     "float": 9900000000,
+     "end": "2024-06-30",
+     "filed": "2025-02-10",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001481028",
+     "name": "SUNHYDROGEN, INC.",
+     "float": 122800000,
+     "end": "2024-12-31",
+     "filed": "2025-09-15",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001507957",
+     "name": "Ideal Power Inc.",
+     "float": 53500000,
+     "end": "2024-06-30",
+     "filed": "2025-03-28",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001556898",
+     "name": "Techpoint, Inc.",
+     "float": 80100000,
+     "end": "2024-06-30",
+     "filed": "2025-03-05",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001604778",
+     "name": "Qorvo, Inc.",
+     "float": 9777465384,
+     "end": "2024-09-28",
+     "filed": "2025-05-19",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001616533",
+     "name": "Penguin Solutions, Inc.",
+     "float": 1050000000,
+     "end": "2025-02-28",
+     "filed": "2025-10-21",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001652535",
+     "name": "ICHOR HOLDINGS, LTD.",
+     "float": 1280861000,
+     "end": "2024-06-28",
+     "filed": "2025-02-21",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001667011",
+     "name": "Arteris, Inc.",
+     "float": 202100000,
+     "end": "2024-06-30",
+     "filed": "2025-02-18",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001730168",
+     "name": "Broadcom Inc.",
+     "float": 583100000000,
+     "end": "2024-05-03",
+     "filed": "2024-12-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001736297",
+     "name": "Astera Labs, Inc.",
+     "float": 6600000000,
+     "end": "2024-06-28",
+     "filed": "2025-02-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001807794",
+     "name": "Credo Technology Group Holding Ltd",
+     "float": 5800000000,
+     "end": "2024-11-02",
+     "filed": "2025-07-02",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001817760",
+     "name": "SmartKem, Inc.",
+     "float": 9705409,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001819974",
+     "name": "SkyWater Technology, LLC",
+     "float": 207500000,
+     "end": "2024-06-28",
+     "filed": "2025-03-14",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001820721",
+     "name": "Array Technologies, Inc.",
+     "float": 1373224440,
+     "end": "2024-06-30",
+     "filed": "2025-03-03",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001821769",
+     "name": "Navitas Semiconductor Corp",
+     "float": 494000000,
+     "end": "2024-06-28",
+     "filed": "2025-05-01",
+     "form": "10-K/A"
+    },
+    {
+     "cik": "0001828161",
+     "name": "FTC Solar, Inc.",
+     "float": 29824987,
+     "end": "2024-06-30",
+     "filed": "2025-03-31",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001828805",
+     "name": "Aeluma, Inc.",
+     "float": 77800000,
+     "end": "2024-12-31",
+     "filed": "2025-09-09",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001831651",
+     "name": "Shoals Technologies Group, Inc.",
+     "float": 877900000,
+     "end": "2024-06-28",
+     "filed": "2025-02-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001832487",
+     "name": "Guerrilla RF, Inc.",
+     "float": 13446324,
+     "end": "2024-06-30",
+     "filed": "2025-03-27",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001841925",
+     "name": "indie Semiconductor, Inc.",
+     "float": 955600000,
+     "end": "2024-06-28",
+     "filed": "2025-03-03",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001851961",
+     "name": "GCT Semiconductor Holding, Inc.",
+     "float": 198700000,
+     "end": "2024-06-30",
+     "filed": "2025-03-25",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001852131",
+     "name": "Nextpower Inc.",
+     "float": 5600000000,
+     "end": "2024-09-27",
+     "filed": "2025-05-22",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001855447",
+     "name": "TIGO ENERGY, INC.",
+     "float": 38500000,
+     "end": "2024-06-28",
+     "filed": "2025-03-20",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001855467",
+     "name": "MOBIX LABS, INC",
+     "float": 37600000,
+     "end": "2024-03-31",
+     "filed": "2024-12-26",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001871638",
+     "name": "Blaize Holdings, Inc.",
+     "float": 52900000,
+     "end": "2024-06-28",
+     "filed": "2025-04-15",
+     "form": "10-K"
+    },
+    {
+     "cik": "0001992243",
+     "name": "T1 Energy Inc.",
+     "float": 196000000,
+     "end": "2024-06-30",
+     "filed": "2025-04-30",
+     "form": "10-K/A"
+    }
+   ],
+   "shuffle_order_ciks": null,
+   "drawn": false,
+   "pending": true,
+   "not_drawn_reason": "pending: close from Atlas price history"
+  }
+ }
+}

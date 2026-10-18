@@ -1,0 +1,21 @@
+{
+ "_note": "Fill each close from Atlas's own price history (tradingview_price_bar; the last trading day on or before the date). A null close stops phase2.py. eToro is undrawn and needs none.",
+ "sandisk": {
+  "date": "2025-02-28",
+  "close": null,
+  "close_date": null,
+  "source": "Atlas price history"
+ },
+ "iren": {
+  "date": "2025-03-31",
+  "close": null,
+  "close_date": null,
+  "source": "Atlas price history"
+ },
+ "poet-technologies": {
+  "date": "2025-11-30",
+  "close": null,
+  "close_date": null,
+  "source": "Atlas price history"
+ }
+}

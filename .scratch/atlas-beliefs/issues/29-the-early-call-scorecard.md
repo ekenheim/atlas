@@ -142,6 +142,8 @@ No outcome alone changes direction: a direction review needs covered misses on b
 
 **Lead time** is reported as the earliest as-of date that hit. (changes protocol step 5: days counted from fixed dates add nothing.)
 
+**Rule note to Amendment 2's Controls (2026-10-18, the lead, before any code reading; from the first pass of the draw, which saw SEC data only, no signal or price):** (1) a candidate is eligible only if its latest periodic report on or before D was filed within the 365 days before D, the window the code reading reads (the rule as written let in filers that stopped years earlier, such as Red Hat); its float is still from the latest 10-K/20-F/40-F on or before D. (2) The case's share count is its first periodic report after D as amended (SanDisk's 10-Q/A corrects 114,863,251 to 144,863,251). (3) The case's close on D comes from Atlas's own price history (TradingView, the owner's override for replays), never another web source. (4) eToro has no SEC float or share count: it gets no controls, reported. Draw: `.scratch/atlas-beliefs/scorecard/controls.md` (Snap: Pinterest, AppLovin; SanDisk, IREN and POET pending their closes; scripts in `scorecard/draw/`, `python phase2.py && python phase3.py` once `closes.json` is filled).
+
 ## 29b: the hotfix before any run (2026-10-18)
 
 The second review (`fc23a8c`) found every review-1 item closed, plus one blocker and three lesser findings.
