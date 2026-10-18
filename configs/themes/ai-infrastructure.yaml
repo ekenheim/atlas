@@ -7,8 +7,8 @@
 # - `layer`: its primary layer in its theme's supply chain. Photonics' (no `layers` list on
 #   the theme): substrate, epi, chip-laser, dsp, module, contract-manufacturing or system.
 #   A theme with a supply chain of its own lists its `layers` (name and what it covers,
-#   upstream to downstream), and its companies' layers must be among them (refused at load
-#   otherwise). Vertically integrated companies span several; Relationships carry the layer
+#   upstream to downstream; each name is a free slug, `^[a-z][a-z0-9-]{1,40}$`), and its
+#   companies' layers must be among them (refused at load otherwise). Vertically integrated companies span several; Relationships carry the layer
 #   of each link (photonics' taxonomy only: the Claim layer taxonomy stays photonics').
 # - `source_path`: where its primary disclosures come from. `sec` (SEC EDGAR: 10-K/10-Q/8-K
 #   by default, or the `sec_forms` listed) or `exchange:<hkex|fca-nsm|amf>`. Only `sec`

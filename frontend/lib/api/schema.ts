@@ -4680,8 +4680,7 @@ export interface components {
             /** One Entity */
             one_entity: boolean;
         };
-        /** @enum {string} */
-        CompanyLayer: "substrate" | "epi" | "chip-laser" | "dsp" | "module" | "contract-manufacturing" | "system" | "memory-dram" | "memory-nand" | "controller" | "bond-equipment" | "process-control" | "test" | "osat" | "package-substrate" | "package-materials";
+        CompanyLayer: string;
         /** CompanyRef */
         CompanyRef: {
             /**
