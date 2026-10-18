@@ -33,14 +33,16 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
   await expect(card).toContainText("12 companies · 1 with documents · 0 layers empty");
   await card.getByRole("link", { name: THEME }).click();
 
-  // The assessment first: what Atlas believes, by step, then what changed and what is due, above
-  // the companies. There is no Hypothesis yet; the raw records are folded away.
+  // The assessment first: what Atlas believes, by step, then what changed and what is due, then
+  // the Watch's board (`scripts/e2e_board.py`), above the companies. There is no Hypothesis yet;
+  // the raw records are folded away.
   await expect(page.getByRole("heading", { level: 1, name: THEME })).toBeVisible();
   await expect(page.getByRole("region", { name: "Thesis", exact: true })).toContainText("No thesis yet · 1 proven Belief");
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
     "What Atlas believes",
     "Changed",
     "Due",
+    "Chokepoints",
     "Companies",
   ]);
   const believed = page.getByRole("region", { name: "What Atlas believes" });
@@ -65,8 +67,9 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
   ).toHaveCount(0);
   await openRecords(page);
 
-  // The map: companies by layer, upstream to downstream.
-  await expect(page.getByRole("heading", { level: 3 })).toHaveText([
+  // The map: companies by layer, upstream to downstream (the board's group headings are not in
+  // the Records).
+  await expect(page.locator("details.reader-records").getByRole("heading", { level: 3 })).toHaveText([
     "Substrate",
     "Epi",
     "Chip / laser",

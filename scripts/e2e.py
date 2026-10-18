@@ -27,7 +27,8 @@ static export (`npm --prefix frontend run build`). In order, it:
    investigations would change what the other pages' tests count.
 5. starts an API with uvicorn on a free localhost port for each database, serving
    `frontend/out` on the same origin (`ATLAS_FRONTEND_DIR`; the workbench's with the fakes
-   configured), and runs `playwright test` against them (`ATLAS_E2E_BASE_URL`,
+   configured), seeds the Watch's board through the first API's public routes
+   (`scripts/e2e_board.py`), and runs `playwright test` against them (`ATLAS_E2E_BASE_URL`,
    `ATLAS_E2E_WORKBENCH_URL` and `ATLAS_E2E_HYPOTHESIS_BASE_URL`).
 6. stops the APIs and the fakes and drops the databases.
 """
@@ -55,6 +56,7 @@ from typing import Any
 import httpx2
 import uvicorn
 import yaml
+from e2e_board import seed_board
 from e2e_hypothesis import seed_hypothesis
 from pydantic import JsonValue
 from sqlalchemy import Engine, create_engine, text
@@ -163,6 +165,7 @@ def main() -> int:
             running_api(hypothesis_settings) as dossier_url,
         ):
             print(f"e2e: API and static export at {base_url}", flush=True)
+            seed_board(base_url)
             print(f"e2e: the research workbench's API at {bench_url}", flush=True)
             print(f"e2e: the Hypothesis dossier's API at {dossier_url}", flush=True)
             env = {

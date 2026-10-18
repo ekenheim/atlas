@@ -13,7 +13,8 @@ const WIDTHS = [
   { name: "390", viewport: { width: 390, height: 844 } },
 ] as const;
 
-/** Every Records fold on the page is closed and has rendered nothing. */
+/** Every Records fold on the page is closed and has rendered nothing; so is the board's Ruled
+ * out fold. */
 async function expectFoldsClosed(page: Page): Promise<void> {
   const folds = page.locator("details.reader-records");
   for (let index = 0; index < (await folds.count()); index += 1) {
@@ -21,6 +22,22 @@ async function expectFoldsClosed(page: Page): Promise<void> {
     expect(await fold.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(false);
     expect(await fold.locator(".records-body").count()).toBe(0);
   }
+  const killed = page.locator("details.board-killed");
+  for (let index = 0; index < (await killed.count()); index += 1) {
+    const fold = killed.nth(index);
+    expect(await fold.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(false);
+    expect(await fold.locator("li").count()).toBe(0);
+  }
+}
+
+/** A chokepoint of the photonics board, by its constraint (the seed's, `scripts/e2e_board.py`). */
+async function openChokepoint(page: Page, name: string): Promise<void> {
+  await page.goto("/theme/?id=photonics");
+  const board = page.getByRole("region", { name: "Chokepoints" });
+  if (name === "Pump laser capacity") await board.locator("details.board-killed summary").click();
+  await board.getByRole("link", { name, exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Constraint" })).toBeVisible();
 }
 
 async function checkSurface(page: Page): Promise<void> {
@@ -44,6 +61,41 @@ for (const width of WIDTHS) {
       await page.goto("/theme/?id=photonics");
       await expect(page.getByRole("region", { name: "What Atlas believes" })).toBeVisible();
       await expect(page.getByRole("list", { name: "Changes, newest first" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Chokepoints" })).toBeVisible();
+      await checkSurface(page);
+      await expect(page.locator("details.reader-records")).toHaveCount(1);
+    });
+
+    test("Today's Watch", async ({ page }) => {
+      await page.goto("/");
+      await expect(page.getByRole("region", { name: "Watch" }).getByRole("listitem").first()).toBeVisible();
+      await checkSurface(page);
+    });
+
+    test("Theme robotics", async ({ page }) => {
+      await page.goto("/theme/?id=robotics");
+      await expect(page.getByRole("region", { name: "Chokepoints" })).toBeVisible();
+      await checkSurface(page);
+      await expect(page.locator("details.reader-records")).toHaveCount(1);
+    });
+
+    for (const name of [
+      "Indium phosphide laser capacity",
+      "EML supply for 800G transceivers",
+      "Pump laser capacity",
+      "Indium phosphide substrate export permits",
+    ]) {
+      test(`Chokepoint ${name}`, async ({ page }) => {
+        await openChokepoint(page, name);
+        await checkSurface(page);
+        await expect(page.locator("details.reader-records")).toHaveCount(1);
+      });
+    }
+
+    test("Memo", async ({ page }) => {
+      await page.goto("/theme/?id=photonics");
+      await page.getByRole("region", { name: "Chokepoints" }).getByRole("link", { name: /^Memo/ }).click();
+      await expect(page.getByText("The Watch's memo · not evidence")).toBeVisible();
       await checkSurface(page);
       await expect(page.locator("details.reader-records")).toHaveCount(1);
     });

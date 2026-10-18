@@ -336,8 +336,21 @@ test("a real board answer: groups, counts and quiet read from it", () => {
   expect(groups.ready.length + groups.candidates.length + groups.spotted.length + groups.killed.length).toBe(
     board.items.length,
   );
+  const photonics = boardGroups(board.items.filter((each) => each.theme === "photonics"));
+  // The e2e seed's board (`scripts/e2e_board.py`): the lapsed thesis-ready ones lead their group.
+  expect(photonics.ready.map((each) => barLine(each)?.text)).toEqual([
+    "Needs a new open question",
+    "Below the bar: no falsifier",
+    "Waiting for proof",
+  ]);
+  expect(photonics.candidates).toHaveLength(1);
+  expect(photonics.spotted).toHaveLength(1);
+  expect(photonics.killed[0]?.status_reason).toBe("Supply added faster than demand.");
   const counts = boardCounts(board.items);
   expect(counts.active).toBe(board.items.filter((each) => each.status !== "killed").length);
+  expect(boardLine(boardCounts(board.items.filter((each) => each.theme === "photonics")))).toBe(
+    "5 chokepoints · 3 thesis-ready · 1 below the bar",
+  );
   // Quiet is clock-derived: the API's `stale` against a fixed now.
   for (const each of board.items) {
     const quiet = badges(each, NOW).some((badge) => badge.kind === "quiet");

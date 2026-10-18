@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { activity, due, dueState, evidenceDay, exactTime, groupDigits, period } from "../lib/format";
+import { activity, datedTitle, due, dueState, evidenceDay, exactTime, groupDigits, period } from "../lib/format";
 
 test("digits are grouped without going through a float", () => {
   expect(groupDigits("3014000000")).toBe("3,014,000,000");
@@ -47,4 +47,11 @@ test("a due date says when and how far, and flags an overdue one", () => {
 test("exact time is the ISO time to the minute, for the Records only", () => {
   expect(exactTime("2026-10-18T10:44:08.968347Z")).toBe("2026-10-18 10:44");
   expect(exactTime(null)).toBe("");
+});
+
+test("a title's ISO day reads as an evidence day", () => {
+  expect(datedTitle("Lumentum Holdings Inc. 8-K filed 2026-08-11, EX-99.1")).toBe(
+    "Lumentum Holdings Inc. 8-K filed 11 Aug 2026, EX-99.1",
+  );
+  expect(datedTitle("Q1 2025")).toBe("Q1 2025");
 });

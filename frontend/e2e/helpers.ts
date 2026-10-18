@@ -38,8 +38,19 @@ export async function expectNoOverflow(page: Page): Promise<void> {
 
 /** What the surface must never say: system names, config, times of day, offsets, valences. The
  * quotes (verbatim document text) and the Records are taken out first. */
-export const LEAKS =
-  /atlas-[a-z]+|source path|universe config|Hindsight|mental model|\d{2}:\d{2}(:\d{2})?|characters \d+|valence|-0\.\d+/i;
+export const LEAKS = new RegExp(
+  [
+    /atlas-[a-z]+|source path|universe config|Hindsight|mental model|\d{2}:\d{2}(:\d{2})?|characters \d+|valence|-0\.\d+/
+      .source,
+    // Round 3 (spec §10.5): exact codes, step letters, commands, system words, ISO dates, UUIDs.
+    /\bstep [a-f]\b|\bstep_[a-f](_primary)?\b|\bthesis_ready\b|\bdemand_vs_supply\b|\bkill_criteria\b/.source,
+    /\bopen_issue\b|\bunexamined\b|\bneeds_review\b|\bshelf_or_atm\b|\bgaap_gross_margin\b/.source,
+    /\bcustomer_concentration\b|\bgoing_concern\b|\bnet_cash\b|\buv run\b|\bXBRL\b/.source,
+    /\bin the ledger\b|\bas-of time\b|\b\d{4}-\d{2}-\d{2}\b/.source,
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/.source,
+  ].join("|"),
+  "i",
+);
 
 export async function expectNoLeaks(page: Page): Promise<void> {
   const text = await page.evaluate(() => {

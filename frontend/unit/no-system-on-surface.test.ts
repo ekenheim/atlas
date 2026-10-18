@@ -22,6 +22,14 @@ const SURFACE = [
   "components/stat-strip.tsx",
   "components/status.tsx",
   "components/confidence.tsx",
+  "app/chokepoint/page.tsx",
+  "app/watch-run/page.tsx",
+  "components/board.tsx",
+  "components/chokepoint-row.tsx",
+  "components/step-pips.tsx",
+  "components/chokepoint-steps.tsx",
+  "components/watch-section.tsx",
+  "components/memo.tsx",
 ];
 
 const FORBIDDEN: [string, RegExp][] = [
@@ -29,7 +37,16 @@ const FORBIDDEN: [string, RegExp][] = [
   ["universe_version", /universe_version/],
   ["char_start", /char_start|span_start|span_end/],
   ["a rendered actor", /\{[^}]*\.(actor|created_by|judged_by)\b[^}]*\}/],
-  ["an exact time", /mode="exact"/],
+  ["an exact time", /mode="exact"|exactTime\(/],
+  ["a CIK", /\.cik\b/],
+  ["tool calls", /\.tool_calls\b/],
+  ["a cost", /\.cost_usd\b/],
+  ["tokens", /\.tokens\b/],
+  // A bear check's basis (H3); a chokepoint's relief basis is the band's paragraph (§10.3.4).
+  ["a basis", /(?<!relief_horizon)\.basis\b/],
+  ["a concept", /\.concept\b/],
+  // A step's letter rendered bare; a lookup by it (`STEP_LABELS[step.step]`) renders a word.
+  ["a step letter", /\{\s*step\.step\s*\}/],
 ];
 
 /** The source with every `<RecordsFold>` block removed. */

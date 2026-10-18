@@ -93,3 +93,9 @@ export function exactTime(iso: string | null | undefined): string {
 export function isoDay(iso: string | null | undefined): string {
   return iso ? iso.slice(0, 10) : "";
 }
+
+/** A title as the surface shows it: an ISO day it carries ("8-K filed 2026-08-11") reads as an
+ * evidence day ("8-K filed 11 Aug 2026"). The Records keep the title as stored. */
+export function datedTitle(title: string): string {
+  return title.replace(/\b(\d{4}-\d{2}-\d{2})\b/g, (day) => evidenceDay(day));
+}

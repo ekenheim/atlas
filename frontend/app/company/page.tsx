@@ -21,7 +21,7 @@ import { companyFindings, firstQuote, type Finding as FindingRow } from "../../l
 import type { Exposure } from "../../lib/beliefs";
 import { argumentOf } from "../../lib/argument";
 import { SOURCE_ROWS, filterByType, typeChips, typeName } from "../../lib/company-sources";
-import { evidenceDay, groupDigits, period } from "../../lib/format";
+import { datedTitle, evidenceDay, groupDigits, period } from "../../lib/format";
 import { companyRows, formatCount, plural } from "../../lib/memory";
 import { COMPANY_LAYERS } from "../../lib/relationships";
 import { companyQuestions, hypothesisByInvestigation } from "../../lib/research-index";
@@ -373,8 +373,8 @@ function LatestDocuments({ sources }: { sources: SourceDocument[]; total?: numbe
           <li className="reader-row" key={document.id}>
             <div>
               <div className="row-title one-line">
-                <Link href={routes.source(document.id)} title={document.title}>
-                  {document.title}
+                <Link href={routes.source(document.id)} title={datedTitle(document.title)}>
+                  {datedTitle(document.title)}
                 </Link>
               </div>
               <div className="reader-row-sub">
