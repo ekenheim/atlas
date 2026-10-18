@@ -441,3 +441,75 @@ def test_a_session_moves_a_chokepoint_to_thesis_ready_through_the_tools(mcp: Mcp
     assert (line["status"], line["status_reason"]) == ("thesis_ready", "a, b and d are primary")
     assert line["needs_review"] is False and line["steps"]["a"] == "primary"
     assert mcp.ok("board", session_id=session, status="needs_review")["total"] == 0
+
+
+def test_the_tools_answers_keep_their_shapes_after_the_pages_reads_grew(mcp: Mcp) -> None:
+    """W8 added `facts`, `leads`, `issues`, `status_set_at` and a holder's `company_id` to the
+    routes' answers, for the owner's pages. The agents' tools answer as they always did."""
+    session = mcp.open()
+    fact = mcp.fact()
+    added = mcp.ok(
+        "add_chokepoint",
+        session_id=session,
+        constraint="Indium phosphide substrates",
+        layer="materials",
+        holders=[{"name": "Lumentum", "slug": "lumentum"}],
+    )
+    updated = mcp.ok(
+        "update_chokepoint",
+        session_id=session,
+        id=added["id"],
+        kind="step_set",
+        payload={"step": "a", "status": "primary", "evidence": {"fact_ids": [fact]}},
+    )
+    line_keys = {
+        "id",
+        "constraint",
+        "layer",
+        "holders",
+        "status",
+        "status_reason",
+        "stale",
+        "needs_review",
+        "thesis_gate",
+        "steps",
+        "kill_criteria",
+        "relief_horizon",
+        "crowding",
+        "issue_ids",
+        "last_event_at",
+    }
+
+    on_board = mcp.ok("board", session_id=session)["chokepoints"][0]
+    full = mcp.ok("get_chokepoint", session_id=session, id=added["id"])
+
+    assert set(on_board) == line_keys
+    assert set(added) == line_keys | {"created", "note"}
+    assert set(updated) == line_keys | {"updated", "events"}
+    for holders in (on_board["holders"], added["holders"], updated["holders"], full["holders"]):
+        assert holders == [{"name": "Lumentum", "slug": "lumentum", "cik": None}]
+    assert set(full) == {
+        "id",
+        "theme",
+        "created_at",
+        "created_by_session",
+        "created_by_run",
+        "constraint",
+        "layer",
+        "holders",
+        "status",
+        "status_reason",
+        "thesis_gate",
+        "needs_review",
+        "stale",
+        "steps",
+        "kill_criteria",
+        "relief_horizon",
+        "crowding",
+        "issue_ids",
+        "last_event_at",
+        "last_evidence_at",
+        "event_count",
+        "history",
+        "note",
+    }

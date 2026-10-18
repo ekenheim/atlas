@@ -198,6 +198,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
             hindsight,
             settings.hindsight_template_path,
             lambda: load_universe(settings.themes_config),
+            clock,
         )
     )
     app.include_router(

@@ -6030,6 +6030,55 @@
         }
       }
     },
+    "/api/v1/chokepoints/counts": {
+      "get": {
+        "tags": [
+          "chokepoints"
+        ],
+        "summary": "Counts",
+        "operationId": "counts_api_v1_chokepoints_counts_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardCounts"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/chokepoints/{chokepoint_id}": {
       "get": {
         "tags": [
@@ -10571,6 +10620,16 @@
         "title": "AlsoIn",
         "description": "Another document that repeats the hit's statement, word for word or nearly."
       },
+      "Amount": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number"
+          }
+        ]
+      },
       "AnswerLeakage": {
         "properties": {
           "recall_memories": {
@@ -11602,51 +11661,6 @@
         ],
         "title": "BackfillWindowStatus"
       },
-      "BearCheck": {
-        "properties": {
-          "key": {
-            "$ref": "#/components/schemas/CheckKey"
-          },
-          "status": {
-            "$ref": "#/components/schemas/CheckStatus",
-            "description": "`flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`)"
-          },
-          "value": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Value",
-            "description": "the numbers or matches behind the status; null when unknown"
-          },
-          "basis": {
-            "type": "string",
-            "title": "Basis",
-            "description": "in words: what was compared or read, and the rule applied"
-          },
-          "sources": {
-            "items": {
-              "$ref": "#/components/schemas/BearCheckSource"
-            },
-            "type": "array",
-            "title": "Sources"
-          }
-        },
-        "type": "object",
-        "required": [
-          "key",
-          "status",
-          "value",
-          "basis",
-          "sources"
-        ],
-        "title": "BearCheck"
-      },
       "BearCheckSource": {
         "properties": {
           "kind": {
@@ -11803,17 +11817,66 @@
           },
           "checks": {
             "items": {
-              "$ref": "#/components/schemas/BearCheck"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DilutionCheck"
+                },
+                {
+                  "$ref": "#/components/schemas/ShelfOrAtmCheck"
+                },
+                {
+                  "$ref": "#/components/schemas/GaapGrossMarginCheck"
+                },
+                {
+                  "$ref": "#/components/schemas/CustomerConcentrationCheck"
+                },
+                {
+                  "$ref": "#/components/schemas/GoingConcernCheck"
+                },
+                {
+                  "$ref": "#/components/schemas/NetCashCheck"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "key",
+                "mapping": {
+                  "customer_concentration": "#/components/schemas/CustomerConcentrationCheck",
+                  "dilution": "#/components/schemas/DilutionCheck",
+                  "gaap_gross_margin": "#/components/schemas/GaapGrossMarginCheck",
+                  "going_concern": "#/components/schemas/GoingConcernCheck",
+                  "net_cash": "#/components/schemas/NetCashCheck",
+                  "shelf_or_atm": "#/components/schemas/ShelfOrAtmCheck"
+                }
+              }
             },
             "type": "array",
-            "title": "Checks"
+            "title": "Checks",
+            "description": "the six checks, in the order of `CheckKey`"
+          },
+          "flagged": {
+            "items": {
+              "$ref": "#/components/schemas/CheckKey"
+            },
+            "type": "array",
+            "title": "Flagged",
+            "description": "the keys of the checks that are `flag`"
+          },
+          "unknown": {
+            "items": {
+              "$ref": "#/components/schemas/CheckKey"
+            },
+            "type": "array",
+            "title": "Unknown",
+            "description": "the keys of the checks that are `unknown`"
           }
         },
         "type": "object",
         "required": [
           "company_id",
           "as_of",
-          "checks"
+          "checks",
+          "flagged",
+          "unknown"
         ],
         "title": "BearChecks"
       },
@@ -12489,6 +12552,45 @@
         ],
         "title": "BeliefsHealth",
         "description": "The judged Beliefs Memory holds, per theme (beliefs tickets 06 and 12): what the\nconclusions bank holds of what Atlas found, apart from the archive's sections in the\nresearch bank."
+      },
+      "BoardCounts": {
+        "properties": {
+          "lead": {
+            "type": "integer",
+            "title": "Lead"
+          },
+          "candidate": {
+            "type": "integer",
+            "title": "Candidate"
+          },
+          "thesis_ready": {
+            "type": "integer",
+            "title": "Thesis Ready"
+          },
+          "killed": {
+            "type": "integer",
+            "title": "Killed"
+          },
+          "stale": {
+            "type": "integer",
+            "title": "Stale"
+          },
+          "needs_review": {
+            "type": "integer",
+            "title": "Needs Review"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lead",
+          "candidate",
+          "thesis_ready",
+          "killed",
+          "stale",
+          "needs_review"
+        ],
+        "title": "BoardCounts",
+        "description": "How many chokepoints a theme (or the whole board) has in each state. The first four are\nthe stored status; `stale` and `needs_review` are the derived flags, which overlap them. Each\nequals the `total` of `GET /chokepoints?status=` for that value."
       },
       "BoardFilter": {
         "type": "string",
@@ -15414,7 +15516,7 @@
           },
           "holders": {
             "items": {
-              "$ref": "#/components/schemas/Holder"
+              "$ref": "#/components/schemas/HolderState"
             },
             "type": "array",
             "title": "Holders"
@@ -15434,6 +15536,12 @@
             ],
             "title": "Status Reason",
             "description": "the reason given with that status"
+          },
+          "status_set_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Status Set At",
+            "description": "when the status was last set (the last `status_set` event); the creation time if it never was"
           },
           "thesis_gate": {
             "$ref": "#/components/schemas/ThesisGate",
@@ -15522,6 +15630,7 @@
           "holders",
           "status",
           "status_reason",
+          "status_set_at",
           "thesis_gate",
           "needs_review",
           "stale",
@@ -15655,7 +15764,7 @@
           },
           "holders": {
             "items": {
-              "$ref": "#/components/schemas/Holder"
+              "$ref": "#/components/schemas/HolderState"
             },
             "type": "array",
             "title": "Holders"
@@ -15675,6 +15784,12 @@
             ],
             "title": "Status Reason",
             "description": "the reason given with that status"
+          },
+          "status_set_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Status Set At",
+            "description": "when the status was last set (the last `status_set` event); the creation time if it never was"
           },
           "thesis_gate": {
             "$ref": "#/components/schemas/ThesisGate",
@@ -15750,6 +15865,30 @@
             "type": "integer",
             "title": "Event Count"
           },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceFact"
+            },
+            "type": "array",
+            "title": "Facts",
+            "description": "every Fact the current state cites (the steps' evidence), once each, in the order of the steps"
+          },
+          "leads": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceLead"
+            },
+            "type": "array",
+            "title": "Leads",
+            "description": "every lead the steps cite, once each"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceIssue"
+            },
+            "type": "array",
+            "title": "Issues",
+            "description": "every Issue the steps cite or the chokepoint links, once each"
+          },
           "history": {
             "items": {
               "$ref": "#/components/schemas/ChokepointEvent"
@@ -15771,6 +15910,7 @@
           "holders",
           "status",
           "status_reason",
+          "status_set_at",
           "thesis_gate",
           "needs_review",
           "stale",
@@ -15782,6 +15922,9 @@
           "last_event_at",
           "last_evidence_at",
           "event_count",
+          "facts",
+          "leads",
+          "issues",
           "history"
         ],
         "title": "ChokepointDetail"
@@ -18101,6 +18244,161 @@
           "consensus"
         ]
       },
+      "CustomerConcentrationCheck": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus",
+            "description": "`flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`)"
+          },
+          "unknown_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnknownReason"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why the check is unknown; null for `flag` and `clear`"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "one plain sentence for the owner, e.g. `Shares outstanding rose 14% in a year.` or `Not known: the company's shelf filings are not collected.`"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis",
+            "description": "in words: what was compared or read, and the rule applied"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/BearCheckSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "key": {
+            "type": "string",
+            "const": "customer_concentration",
+            "title": "Key"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CustomerConcentrationValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when no report was read; kept when a partly read report is unknown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "unknown_reason",
+          "summary",
+          "basis",
+          "sources",
+          "key",
+          "value"
+        ],
+        "title": "CustomerConcentrationCheck"
+      },
+      "CustomerConcentrationValue": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/DocumentRef"
+          },
+          "current_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Percent",
+            "description": "the largest customer's current share"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/CustomerMatch"
+            },
+            "type": "array",
+            "title": "Matches"
+          },
+          "top_customers_share": {
+            "items": {
+              "$ref": "#/components/schemas/TopCustomersShare"
+            },
+            "type": "array",
+            "title": "Top Customers Share"
+          },
+          "no_customer_above": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "No Customer Above",
+            "description": "thresholds the report says no customer exceeded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document",
+          "current_percent",
+          "matches",
+          "top_customers_share",
+          "no_customer_above"
+        ],
+        "title": "CustomerConcentrationValue"
+      },
+      "CustomerMatch": {
+        "properties": {
+          "percents": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Percents"
+          },
+          "current_percent": {
+            "type": "number",
+            "title": "Current Percent"
+          },
+          "lower_bound": {
+            "type": "boolean",
+            "title": "Lower Bound",
+            "description": "the sentence says `more than`, not the share itself"
+          },
+          "char_start": {
+            "type": "integer",
+            "title": "Char Start"
+          },
+          "char_end": {
+            "type": "integer",
+            "title": "Char End"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          }
+        },
+        "type": "object",
+        "required": [
+          "percents",
+          "current_percent",
+          "lower_bound",
+          "char_start",
+          "char_end",
+          "quote"
+        ],
+        "title": "CustomerMatch"
+      },
       "DiffClaim": {
         "properties": {
           "change": {
@@ -18178,6 +18476,108 @@
           "removed"
         ],
         "title": "DiffCounts"
+      },
+      "DilutionCheck": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus",
+            "description": "`flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`)"
+          },
+          "unknown_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnknownReason"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why the check is unknown; null for `flag` and `clear`"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "one plain sentence for the owner, e.g. `Shares outstanding rose 14% in a year.` or `Not known: the company's shelf filings are not collected.`"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis",
+            "description": "in words: what was compared or read, and the rule applied"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/BearCheckSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "key": {
+            "type": "string",
+            "const": "dilution",
+            "title": "Key"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DilutionValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when unknown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "unknown_reason",
+          "summary",
+          "basis",
+          "sources",
+          "key",
+          "value"
+        ],
+        "title": "DilutionCheck"
+      },
+      "DilutionValue": {
+        "properties": {
+          "concept": {
+            "type": "string",
+            "title": "Concept",
+            "description": "the share count compared, `taxonomy:concept`"
+          },
+          "shares": {
+            "$ref": "#/components/schemas/Amount"
+          },
+          "shares_as_of": {
+            "type": "string",
+            "title": "Shares As Of",
+            "description": "the date of that count"
+          },
+          "shares_year_earlier": {
+            "$ref": "#/components/schemas/Amount"
+          },
+          "year_earlier_as_of": {
+            "type": "string",
+            "title": "Year Earlier As Of"
+          },
+          "growth_pct": {
+            "type": "number",
+            "title": "Growth Pct",
+            "description": "the change over the year, in percent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "concept",
+          "shares",
+          "shares_as_of",
+          "shares_year_earlier",
+          "year_earlier_as_of",
+          "growth_pct"
+        ],
+        "title": "DilutionValue"
       },
       "Direction": {
         "type": "string",
@@ -18548,6 +18948,26 @@
           "read_by"
         ],
         "title": "DocumentRead"
+      },
+      "DocumentRef": {
+        "properties": {
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "form": {
+            "type": "string",
+            "title": "Form"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_version_id",
+          "form"
+        ],
+        "title": "DocumentRef",
+        "description": "The filing a text check read."
       },
       "EdgarSearch": {
         "properties": {
@@ -19516,6 +19936,76 @@
         "title": "EvidenceAssertion",
         "description": "The supporting Assertion and the span it quotes (open it in the source viewer)."
       },
+      "EvidenceFact": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "assertion_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assertion Id",
+            "description": "the Fact's Assertion (the same id)"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "company_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Name",
+            "description": "the company the Fact is about"
+          },
+          "document_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Title"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At",
+            "description": "when its document became public"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "assertion_id",
+          "statement",
+          "quote",
+          "company_name",
+          "document_title",
+          "available_at",
+          "source_version_id"
+        ],
+        "title": "EvidenceFact",
+        "description": "A Fact a chokepoint cites, with what the owner's page shows beside it."
+      },
       "EvidenceFamily": {
         "properties": {
           "id": {
@@ -19712,6 +20202,29 @@
         "title": "EvidenceFamilyMembership",
         "description": "How a Source Version joined its Evidence Family (atlas.ledger.families)."
       },
+      "EvidenceIssue": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "$ref": "#/components/schemas/IssueStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "status"
+        ],
+        "title": "EvidenceIssue"
+      },
       "EvidenceItem": {
         "properties": {
           "claim_id": {
@@ -19889,6 +20402,50 @@
         ],
         "title": "EvidenceItem",
         "description": "An accepted Claim of the investigation (the Evidence tray): the Assertion it became and\nits source span. `excluded`: read by a task whose premise was disproven, so the Editor\nleaves it out."
+      },
+      "EvidenceLead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "origin": {
+            "type": "string",
+            "title": "Origin"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At",
+            "description": "the day the page was published, if it said"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "url",
+          "origin",
+          "published_at"
+        ],
+        "title": "EvidenceLead",
+        "description": "A lead a chokepoint cites. A lead is where to look, never evidence."
       },
       "ExaminationOutcome": {
         "type": "string",
@@ -21994,6 +22551,69 @@
         "title": "FxBasis",
         "description": "How a value was converted from its reporting currency. Atlas has no FX source yet, so\nevery value is as filed and this is always null."
       },
+      "GaapGrossMarginCheck": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus",
+            "description": "`flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`)"
+          },
+          "unknown_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnknownReason"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why the check is unknown; null for `flag` and `clear`"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "one plain sentence for the owner, e.g. `Shares outstanding rose 14% in a year.` or `Not known: the company's shelf filings are not collected.`"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis",
+            "description": "in words: what was compared or read, and the rule applied"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/BearCheckSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "key": {
+            "type": "string",
+            "const": "gaap_gross_margin",
+            "title": "Key"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrossMarginValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when unknown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "unknown_reason",
+          "summary",
+          "basis",
+          "sources",
+          "key",
+          "value"
+        ],
+        "title": "GaapGrossMarginCheck"
+      },
       "GateFailureView": {
         "properties": {
           "code": {
@@ -22038,6 +22658,153 @@
           "assertion_ids"
         ],
         "title": "GateFailureView"
+      },
+      "GoingConcernCheck": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus",
+            "description": "`flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`)"
+          },
+          "unknown_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnknownReason"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why the check is unknown; null for `flag` and `clear`"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "one plain sentence for the owner, e.g. `Shares outstanding rose 14% in a year.` or `Not known: the company's shelf filings are not collected.`"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis",
+            "description": "in words: what was compared or read, and the rule applied"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/BearCheckSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "key": {
+            "type": "string",
+            "const": "going_concern",
+            "title": "Key"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoingConcernValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when no report was read; kept when a partly read report is unknown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "unknown_reason",
+          "summary",
+          "basis",
+          "sources",
+          "key",
+          "value"
+        ],
+        "title": "GoingConcernCheck"
+      },
+      "GoingConcernValue": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/DocumentRef"
+          },
+          "sentences": {
+            "type": "integer",
+            "title": "Sentences",
+            "description": "sentences naming substantial doubt"
+          },
+          "negated_sentences": {
+            "type": "integer",
+            "title": "Negated Sentences",
+            "description": "sentences saying there is none"
+          },
+          "hedged_only": {
+            "type": "boolean",
+            "title": "Hedged Only",
+            "description": "every such sentence is conditional"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document",
+          "sentences",
+          "negated_sentences",
+          "hedged_only"
+        ],
+        "title": "GoingConcernValue"
+      },
+      "GrossMarginValue": {
+        "properties": {
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "ttm_margin_pct": {
+            "type": "number",
+            "title": "Ttm Margin Pct",
+            "description": "gross margin of the trailing four quarters"
+          },
+          "prior_ttm_margin_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prior Ttm Margin Pct",
+            "description": "the four quarters a year before"
+          },
+          "change_points": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Points",
+            "description": "the first less the second, in points"
+          },
+          "quarters": {
+            "items": {
+              "$ref": "#/components/schemas/MarginQuarter"
+            },
+            "type": "array",
+            "title": "Quarters",
+            "description": "the trailing four, oldest first"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unit",
+          "ttm_margin_pct",
+          "prior_ttm_margin_pct",
+          "change_points",
+          "quarters"
+        ],
+        "title": "GrossMarginValue"
       },
       "HTTPValidationError": {
         "properties": {
@@ -22163,6 +22930,57 @@
         ],
         "title": "Holder",
         "description": "Who holds the scarce input: a name, with the universe's slug and a CIK when known. A\nholder outside the universe is allowed (the board looks beyond the universe)."
+      },
+      "HolderState": {
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/Text"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Text"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the company's slug, if it has one"
+          },
+          "cik": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{1,10}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cik"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id",
+            "description": "the universe company its slug, else its CIK, names; null when neither does (a holder outside the universe, or one the config does not hold yet)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "company_id"
+        ],
+        "title": "HolderState",
+        "description": "A holder as the board reads it: the company it resolves to, if it does."
       },
       "Hypothesis": {
         "properties": {
@@ -25707,6 +26525,39 @@
         ],
         "title": "MappingReviewed"
       },
+      "MarginQuarter": {
+        "properties": {
+          "period_end": {
+            "type": "string",
+            "title": "Period End"
+          },
+          "revenue": {
+            "$ref": "#/components/schemas/Amount"
+          },
+          "gross_profit": {
+            "$ref": "#/components/schemas/Amount"
+          },
+          "margin_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin Pct"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period_end",
+          "revenue",
+          "gross_profit",
+          "margin_pct"
+        ],
+        "title": "MarginQuarter"
+      },
       "Mechanism": {
         "properties": {
           "demand_driver": {
@@ -26919,6 +27770,119 @@
           "kind"
         ],
         "title": "MissingInput"
+      },
+      "NetCashCheck": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus",
+            "description": "`flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`)"
+          },
+          "unknown_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnknownReason"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why the check is unknown; null for `flag` and `clear`"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "one plain sentence for the owner, e.g. `Shares outstanding rose 14% in a year.` or `Not known: the company's shelf filings are not collected.`"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis",
+            "description": "in words: what was compared or read, and the rule applied"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/BearCheckSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "key": {
+            "type": "string",
+            "const": "net_cash",
+            "title": "Key"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NetCashValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when unknown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "unknown_reason",
+          "summary",
+          "basis",
+          "sources",
+          "key",
+          "value"
+        ],
+        "title": "NetCashCheck"
+      },
+      "NetCashValue": {
+        "properties": {
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "as_of_balance_sheet": {
+            "type": "string",
+            "title": "As Of Balance Sheet"
+          },
+          "net_cash": {
+            "$ref": "#/components/schemas/Amount",
+            "description": "negative: net debt"
+          },
+          "cash": {
+            "$ref": "#/components/schemas/Amount"
+          },
+          "short_term_investments": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Amount"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "debt": {
+            "$ref": "#/components/schemas/Amount"
+          },
+          "debt_concepts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Debt Concepts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unit",
+          "as_of_balance_sheet",
+          "net_cash",
+          "cash",
+          "short_term_investments",
+          "debt",
+          "debt_concepts"
+        ],
+        "title": "NetCashValue"
       },
       "NextDue": {
         "properties": {
@@ -34985,6 +35949,116 @@
         ],
         "title": "Settlement"
       },
+      "ShelfFiling": {
+        "properties": {
+          "form": {
+            "type": "string",
+            "title": "Form"
+          },
+          "available_at": {
+            "type": "string",
+            "title": "Available At",
+            "description": "when it became public, ISO 8601"
+          },
+          "source_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Version Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "form",
+          "available_at",
+          "source_version_id",
+          "title"
+        ],
+        "title": "ShelfFiling"
+      },
+      "ShelfOrAtmCheck": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus",
+            "description": "`flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`)"
+          },
+          "unknown_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnknownReason"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why the check is unknown; null for `flag` and `clear`"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "one plain sentence for the owner, e.g. `Shares outstanding rose 14% in a year.` or `Not known: the company's shelf filings are not collected.`"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis",
+            "description": "in words: what was compared or read, and the rule applied"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/BearCheckSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "key": {
+            "type": "string",
+            "const": "shelf_or_atm",
+            "title": "Key"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShelfOrAtmValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when unknown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "unknown_reason",
+          "summary",
+          "basis",
+          "sources",
+          "key",
+          "value"
+        ],
+        "title": "ShelfOrAtmCheck"
+      },
+      "ShelfOrAtmValue": {
+        "properties": {
+          "filings": {
+            "items": {
+              "$ref": "#/components/schemas/ShelfFiling"
+            },
+            "type": "array",
+            "title": "Filings",
+            "description": "newest first"
+          }
+        },
+        "type": "object",
+        "required": [
+          "filings"
+        ],
+        "title": "ShelfOrAtmValue"
+      },
       "Signal": {
         "properties": {
           "source_version_id": {
@@ -37181,6 +38255,10 @@
             "type": "integer",
             "title": "Open Candidate Count",
             "description": "Candidates still `lead`, awaiting a decision"
+          },
+          "board": {
+            "$ref": "#/components/schemas/BoardCounts",
+            "description": "the theme's chokepoints on the Watch's board by state, as `GET /chokepoints/counts?theme=` gives them"
           }
         },
         "type": "object",
@@ -37193,7 +38271,8 @@
           "companies_without_sources",
           "empty_layers",
           "relationship_count",
-          "open_candidate_count"
+          "open_candidate_count",
+          "board"
         ],
         "title": "ThemeSummary"
       },
@@ -37369,6 +38448,43 @@
         ],
         "title": "ToolCall",
         "description": "One call a session made through the Atlas MCP server, as Atlas recorded it."
+      },
+      "TopCustomersShare": {
+        "properties": {
+          "percents": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Percents"
+          },
+          "current_percent": {
+            "type": "number",
+            "title": "Current Percent"
+          },
+          "char_start": {
+            "type": "integer",
+            "title": "Char Start"
+          },
+          "char_end": {
+            "type": "integer",
+            "title": "Char End"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          }
+        },
+        "type": "object",
+        "required": [
+          "percents",
+          "current_percent",
+          "char_start",
+          "char_end",
+          "quote"
+        ],
+        "title": "TopCustomersShare",
+        "description": "The share of the largest customers together, apart from any one customer's."
       },
       "TransitionRequest": {
         "properties": {
@@ -38053,6 +39169,23 @@
         ],
         "title": "TriageDecision",
         "description": "One decision about one section of a Source Version."
+      },
+      "UnknownReason": {
+        "type": "string",
+        "enum": [
+          "form_not_collected",
+          "no_xbrl",
+          "not_comparable",
+          "no_statement",
+          "partial_parse",
+          "stale_figure",
+          "split_suspected",
+          "several_share_classes",
+          "ambiguous_debt_tags",
+          "debt_not_tagged",
+          "no_parsed_text",
+          "not_english"
+        ]
       },
       "UnpricedReason": {
         "type": "string",

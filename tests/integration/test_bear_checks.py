@@ -8,6 +8,7 @@ own, worked out by hand from the companyfacts (the comments say how), never read
 """
 
 import json
+import re
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -37,6 +38,20 @@ KEYS = [
     "going_concern",
     "net_cash",
 ]
+UNKNOWN_REASONS = {
+    "form_not_collected",
+    "no_xbrl",
+    "not_comparable",
+    "no_statement",
+    "partial_parse",
+    "stale_figure",
+    "split_suspected",
+    "several_share_classes",
+    "ambiguous_debt_tags",
+    "debt_not_tagged",
+    "no_parsed_text",
+    "not_english",
+}
 FILLER = "The company designs and sells optical components to customers in several markets."
 
 
@@ -61,6 +76,16 @@ class BearAtlas(Atlas):
         answer = self.get(f"/api/v1/companies/{company_id}/bear-checks", **params)
         assert answer["company_id"] == company_id
         assert [each["key"] for each in answer["checks"]] == KEYS
+        assert answer["flagged"] == [c["key"] for c in answer["checks"] if c["status"] == "flag"]
+        assert answer["unknown"] == [c["key"] for c in answer["checks"] if c["status"] == "unknown"]
+        for each in answer["checks"]:
+            # W8: a reason exactly when the check is unknown, and a sentence for the owner that
+            # is plain words: no snake_case code, no braces.
+            assert (each["unknown_reason"] is not None) == (each["status"] == "unknown"), each
+            assert each["unknown_reason"] is None or each["unknown_reason"] in UNKNOWN_REASONS
+            assert each["summary"].endswith("."), each
+            assert not re.search(r"[a-z]+_[a-z]+|[{}]", each["summary"]), each["summary"]
+            assert each["summary"].startswith("Not known: ") == (each["status"] == "unknown")
         return {each["key"]: each for each in answer["checks"]}
 
     def record(
@@ -151,6 +176,8 @@ def test_dilution_and_net_cash_from_the_recorded_lumentum_companyfacts(atlas: Be
     assert dilution["value"]["shares_year_earlier"] == 69_900_000
     assert dilution["value"]["growth_pct"] == 28.33
     assert "flag above +10%" in dilution["basis"]
+    assert dilution["summary"] == "Shares outstanding rose 28% in a year."
+    assert dilution["unknown_reason"] is None
     shares = {
         (o["period_end"], o["concept"], o["value"])
         for o in (observation(atlas, s["observation_id"]) for s in dilution["sources"])
@@ -164,6 +191,7 @@ def test_dilution_and_net_cash_from_the_recorded_lumentum_companyfacts(atlas: Be
     # (the filer's own total), no short-term investments tagged: 406.1 million net cash.
     net_cash = checks["net_cash"]
     assert net_cash["status"] == "clear"
+    assert net_cash["summary"] == "Cash exceeds debt by 406.1 million (USD)."
     assert net_cash["value"] == {
         "unit": "USD",
         "as_of_balance_sheet": "2026-06-27",
@@ -191,6 +219,7 @@ def test_customer_concentration_reads_the_customer_table_of_the_recorded_lumentu
     # represented 10% or more of our total net revenue". The 79.2% of revenue outside the United
     # States of the next paragraph is geography, not a customer.
     assert answer["status"] == "flag"
+    assert answer["summary"] == "One customer is 26.6% of revenue."
     assert answer["value"]["current_percent"] == 26.6
     (source,) = answer["sources"]  # only the row at or above 25%
     assert source["quote"] == "Customer A	26.6	%	15.4	%	18.9	%"
@@ -210,10 +239,16 @@ def test_a_check_without_its_data_is_unknown_never_clear(atlas: BearAtlas) -> No
     margin = checks["gaap_gross_margin"]
     assert (margin["status"], margin["value"], margin["sources"]) == ("unknown", None, [])
     assert "four consecutive quarters" in margin["basis"]
+    assert margin["unknown_reason"] == "not_comparable"
+    assert margin["summary"] == (
+        "Not known: there are not four comparable quarters, this year and a year earlier."
+    )
     # Atlas ingests 10-K, 10-Q and 8-K only: no shelf form in the ledger proves nothing.
     shelf = checks["shelf_or_atm"]
     assert (shelf["status"], shelf["value"], shelf["sources"]) == ("unknown", None, [])
     assert shelf["basis"].startswith("form not ingested")
+    assert shelf["unknown_reason"] == "form_not_collected"
+    assert shelf["summary"] == "Not known: the company's shelf filings are not collected."
 
 
 def test_gross_margin_over_four_quarters_flags_a_fall_of_more_than_five_points(
@@ -296,6 +331,15 @@ def test_no_data_at_all_is_six_unknowns(atlas: BearAtlas) -> None:
     for answer in (*early.values(), *none.values()):
         assert (answer["status"], answer["value"], answer["sources"]) == ("unknown", None, [])
         assert answer["basis"]
+    # Each unknown path names its own reason (the XBRL ones no_xbrl; the filings not collected).
+    assert {key: answer["unknown_reason"] for key, answer in none.items()} == {
+        "dilution": "no_xbrl",
+        "shelf_or_atm": "form_not_collected",
+        "gaap_gross_margin": "no_xbrl",
+        "customer_concentration": "form_not_collected",
+        "going_concern": "form_not_collected",
+        "net_cash": "no_xbrl",
+    }
 
 
 def test_coherent_has_no_debt_or_margin_tags_so_those_checks_are_unknown(atlas: BearAtlas) -> None:
@@ -306,11 +350,16 @@ def test_coherent_has_no_debt_or_margin_tags_so_those_checks_are_unknown(atlas: 
     assert checks["dilution"]["status"] == "flag"  # 195.8 million against 155.8 million shares
     assert checks["net_cash"]["status"] == "unknown"  # cash is tagged, debt is not: not zero
     assert "debt" in checks["net_cash"]["basis"]
+    assert checks["net_cash"]["unknown_reason"] == "debt_not_tagged"
+    assert checks["net_cash"]["summary"] == (
+        "Not known: the company's debt is not tagged in its financial data."
+    )
     assert checks["gaap_gross_margin"]["status"] == "unknown"
     # "We had two customers who each contributed more than 10% of revenue during fiscal 2026."
     concentration = checks["customer_concentration"]
     # "More than 10%" is a lower bound, not a value: no evidence either way, so unknown.
     assert concentration["status"] == "unknown"
+    assert concentration["unknown_reason"] == "no_statement"
     assert concentration["value"]["matches"][0]["lower_bound"] is True
 
 
@@ -325,6 +374,11 @@ def test_a_figure_older_than_fifteen_months_is_unknown_not_the_old_number(
     assert checks["net_cash"]["status"] == "unknown"
     assert checks["dilution"]["status"] == "unknown"
     assert "2026-08-14" in checks["dilution"]["basis"]
+    assert checks["net_cash"]["unknown_reason"] == "stale_figure"
+    assert checks["dilution"]["unknown_reason"] == "stale_figure"
+    assert checks["dilution"]["summary"] == (
+        "Not known: the latest share count is more than 15 months old."
+    )
 
 
 def test_as_of_defaults_to_now_and_a_bad_request_is_refused(atlas: BearAtlas) -> None:
@@ -420,6 +474,8 @@ def test_going_concern_language_in_the_latest_periodic_report(atlas: BearAtlas) 
     assert older["sources"][0]["quote"] == NOT_GOING_CONCERN
     # The 10-Q, public later, is the latest periodic report and names the doubt.
     assert newer["status"] == "flag"
+    assert newer["summary"].endswith("continue as a going concern.")
+    assert older["summary"] == "The latest report does not raise going-concern doubt."
     (source,) = newer["sources"]
     assert source["source_version_id"] == tenq
     assert atlas.parsed(tenq)[source["char_start"] : source["char_end"]] == GOING_CONCERN
@@ -437,6 +493,9 @@ def test_shelf_or_offering_filings_in_the_ledger_in_the_twelve_months_flag(
     not_yet = atlas.checks("schema-drift", "2026-02-01T00:00:00Z")["shelf_or_atm"]
 
     assert in_window["status"] == "flag"
+    assert (
+        in_window["summary"] == "The company filed one shelf or offering document in the last year."
+    )
     assert [f["form"] for f in in_window["value"]["filings"]] == ["424B5"]
     assert [s["source_version_id"] for s in in_window["sources"]] == [recent]
     assert in_window["sources"][0]["char_start"] is None
@@ -575,6 +634,7 @@ def test_a_report_with_no_customer_share_is_unknown_and_a_whole_one_without_the_
     checks = atlas.checks("schema-drift", "2026-04-01T00:00:00Z")
 
     assert checks["customer_concentration"]["status"] == "unknown"
+    assert checks["customer_concentration"]["unknown_reason"] == "no_statement"
     assert checks["customer_concentration"]["sources"] == []
     # Going concern: the whole 10-K was read and the phrase is not in it.
     assert checks["going_concern"]["status"] == "clear"
@@ -625,6 +685,12 @@ def test_a_partly_parsed_report_that_flags_nothing_is_unknown_and_one_that_flags
     assert "partly parsed" in partial["customer_concentration"]["basis"]
     assert partial["going_concern"]["status"] == "unknown"
     assert "partly parsed" in partial["going_concern"]["basis"]
+    assert partial["customer_concentration"]["unknown_reason"] == "partial_parse"
+    assert partial["going_concern"]["unknown_reason"] == "partial_parse"
+    assert partial["going_concern"]["summary"] == (
+        "Not known: the latest report could only be partly read, and the part read has no"
+        " going-concern doubt."
+    )
     # A flag in the part read stands.
     assert flagged["customer_concentration"]["status"] == "flag"
     assert flagged["going_concern"]["status"] == "flag"
@@ -674,3 +740,81 @@ def test_the_current_period_share_decides_and_a_group_is_reported_apart(
     assert answer["value"]["current_percent"] == 12.0
     (group,) = answer["value"]["top_customers_share"]
     assert group["current_percent"] == 62.0
+
+
+# --- the typed shapes (W8) -----------------------------------------------------------------------
+
+
+def test_each_key_has_its_own_value_shape(atlas: BearAtlas) -> None:
+    atlas.ingest("lumentum")
+    atlas.record("lumentum", "424B5", "2026-09-01T15:00:00+00:00", FILLER, name="p")
+
+    checks = atlas.checks("lumentum")
+
+    assert set(checks["dilution"]["value"]) == {
+        "concept",
+        "shares",
+        "shares_as_of",
+        "shares_year_earlier",
+        "year_earlier_as_of",
+        "growth_pct",
+    }
+    assert set(checks["shelf_or_atm"]["value"]["filings"][0]) == {
+        "form",
+        "available_at",
+        "source_version_id",
+        "title",
+    }
+    assert set(checks["customer_concentration"]["value"]) == {
+        "document",
+        "current_percent",
+        "matches",
+        "top_customers_share",
+        "no_customer_above",
+    }
+    assert set(checks["customer_concentration"]["value"]["document"]) == {
+        "source_version_id",
+        "form",
+    }
+    assert set(checks["going_concern"]["value"]) == {
+        "document",
+        "sentences",
+        "negated_sentences",
+        "hedged_only",
+    }
+    assert set(checks["net_cash"]["value"]) == {
+        "unit",
+        "as_of_balance_sheet",
+        "net_cash",
+        "cash",
+        "short_term_investments",
+        "debt",
+        "debt_concepts",
+    }
+    assert checks["shelf_or_atm"]["summary"] == (
+        "The company filed one shelf or offering document in the last year."
+    )
+
+
+def test_the_openapi_names_the_enums_and_types_each_checks_value(atlas: BearAtlas) -> None:
+    schemas = atlas.get("/openapi.json")["components"]["schemas"]
+
+    assert schemas["CheckKey"]["enum"] == KEYS
+    assert schemas["CheckStatus"]["enum"] == ["flag", "clear", "unknown"]
+    assert set(schemas["UnknownReason"]["enum"]) == UNKNOWN_REASONS
+    checks = schemas["BearChecks"]["properties"]["checks"]["items"]
+    assert checks["discriminator"]["propertyName"] == "key"
+    assert set(checks["discriminator"]["mapping"]) == set(KEYS)
+    for key, name in {
+        "dilution": "DilutionCheck",
+        "shelf_or_atm": "ShelfOrAtmCheck",
+        "gaap_gross_margin": "GaapGrossMarginCheck",
+        "customer_concentration": "CustomerConcentrationCheck",
+        "going_concern": "GoingConcernCheck",
+        "net_cash": "NetCashCheck",
+    }.items():
+        assert checks["discriminator"]["mapping"][key].endswith(f"/{name}")
+        assert schemas[name]["properties"]["key"]["const"] == key
+        assert {"unknown_reason", "summary", "value", "status"} <= set(schemas[name]["required"])
+        assert "free-form" not in json.dumps(schemas[name]["properties"]["value"])
+        assert "additionalProperties" not in json.dumps(schemas[name]["properties"]["value"])

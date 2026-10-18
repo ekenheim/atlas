@@ -16,6 +16,7 @@ from atlas.chokepoints.model import (
     PAYLOADS,
     PROSPECTIVE_WINDOW,
     THESIS_STEPS,
+    BoardCounts,
     Chokepoint,
     ChokepointCreate,
     ChokepointDetail,
@@ -24,7 +25,11 @@ from atlas.chokepoints.model import (
     CreatedPayload,
     EventCreate,
     EventKind,
+    EvidenceFact,
+    EvidenceIssue,
+    EvidenceLead,
     FieldSetPayload,
+    HolderState,
     StatusSetPayload,
     StepEvidence,
     StepSetPayload,
@@ -99,15 +104,164 @@ def _load(
     return [fold(dict(head), by_id[head["id"]], now, active) for head in heads]
 
 
+def _universe_company_ids(
+    connection: Connection, holders: Sequence[HolderState]
+) -> tuple[dict[str, uuid.UUID], dict[str, uuid.UUID]]:
+    """The researched companies' ids by slug and by (ten-digit) CIK, for the holders named."""
+    slugs = sorted({each.slug for each in holders if each.slug})
+    ciks = sorted({each.cik.zfill(10) for each in holders if each.cik})
+    if not slugs and not ciks:
+        return {}, {}
+    rows = connection.execute(
+        text(
+            "SELECT id, slug, cik FROM company WHERE role = 'researched'"
+            " AND (slug = ANY(:slugs) OR cik = ANY(:ciks))"
+        ),
+        {"slugs": slugs, "ciks": ciks},
+    )
+    by_slug: dict[str, uuid.UUID] = {}
+    by_cik: dict[str, uuid.UUID] = {}
+    for row in rows:
+        by_slug[row.slug] = row.id
+        if row.cik:
+            by_cik[row.cik] = row.id
+    return by_slug, by_cik
+
+
+def _with_companies[C: Chokepoint](connection: Connection, found: list[C]) -> list[C]:
+    """Each holder with the universe company its slug, else its CIK, resolves to: one query for
+    every holder of every chokepoint given."""
+    by_slug, by_cik = _universe_company_ids(
+        connection, [holder for each in found for holder in each.holders]
+    )
+
+    def company(holder: HolderState) -> uuid.UUID | None:
+        if holder.slug and holder.slug in by_slug:
+            return by_slug[holder.slug]
+        return by_cik.get(holder.cik.zfill(10)) if holder.cik else None
+
+    return [
+        each.model_copy(
+            update={
+                "holders": [
+                    holder.model_copy(update={"company_id": company(holder)})
+                    for holder in each.holders
+                ]
+            }
+        )
+        for each in found
+    ]
+
+
+def _cited(detail: ChokepointDetail) -> tuple[list[uuid.UUID], list[uuid.UUID], list[uuid.UUID]]:
+    """The Facts, leads and Issues the current state cites, once each, in the steps' order (the
+    Issues the chokepoint links last)."""
+    facts: dict[uuid.UUID, None] = {}
+    leads: dict[uuid.UUID, None] = {}
+    issues: dict[uuid.UUID, None] = {}
+    for step in detail.steps:
+        facts.update(dict.fromkeys(step.evidence.fact_ids))
+        leads.update(dict.fromkeys(step.evidence.lead_ids))
+        issues.update(dict.fromkeys(step.evidence.issue_ids))
+    issues.update(dict.fromkeys(detail.issue_ids))
+    return list(facts), list(leads), list(issues)
+
+
+def _with_evidence(connection: Connection, detail: ChokepointDetail) -> ChokepointDetail:
+    """The cited Facts, leads and Issues read out: at most one query for each kind, whatever
+    the number cited."""
+    fact_ids, lead_ids, issue_ids = _cited(detail)
+    facts: dict[uuid.UUID, EvidenceFact] = {}
+    if fact_ids:
+        for row in connection.execute(
+            text(
+                "SELECT a.id, a.value_json ->> 'statement' AS statement, a.quote,"
+                " c.display_name AS company_name, d.title AS document_title,"
+                " v.available_at, a.source_version_id"
+                " FROM assertion a JOIN fact f ON f.assertion_id = a.id"
+                " JOIN source_version_availability v ON v.source_version_id = a.source_version_id"
+                " JOIN source_version sv ON sv.id = a.source_version_id"
+                " JOIN source_document d ON d.id = sv.source_document_id"
+                " LEFT JOIN company c ON c.id = a.subject_company_id"
+                " WHERE a.id = ANY(:ids)"
+            ),
+            {"ids": fact_ids},
+        ):
+            facts[row.id] = EvidenceFact(
+                id=row.id,
+                assertion_id=row.id,
+                statement=row.statement,
+                quote=row.quote,
+                company_name=row.company_name,
+                document_title=row.document_title,
+                available_at=row.available_at,
+                source_version_id=row.source_version_id,
+            )
+    leads: dict[uuid.UUID, EvidenceLead] = {}
+    if lead_ids:
+        for row in connection.execute(
+            text("SELECT id, title, url, origin, published_date FROM lead WHERE id = ANY(:ids)"),
+            {"ids": lead_ids},
+        ):
+            leads[row.id] = EvidenceLead(
+                id=row.id,
+                title=row.title,
+                url=row.url,
+                origin=row.origin,
+                published_at=row.published_date,
+            )
+    issues: dict[uuid.UUID, EvidenceIssue] = {}
+    if issue_ids:
+        for row in connection.execute(
+            text("SELECT id, title, status FROM issue WHERE id = ANY(:ids)"), {"ids": issue_ids}
+        ):
+            issues[row.id] = EvidenceIssue(id=row.id, title=row.title, status=row.status)
+    return detail.model_copy(
+        update={
+            "facts": [facts[each] for each in fact_ids if each in facts],
+            "leads": [leads[each] for each in lead_ids if each in leads],
+            "issues": [issues[each] for each in issue_ids if each in issues],
+        }
+    )
+
+
 def get_chokepoint(
     connection: Connection, chokepoint_id: uuid.UUID, now: datetime
 ) -> ChokepointDetail | None:
     found = _load(connection, "id = :id", {"id": chokepoint_id}, now)
-    return found[0] if found else None
+    if not found:
+        return None
+    return _with_evidence(connection, _with_companies(connection, found)[0])
 
 
 def summary(detail: ChokepointDetail) -> Chokepoint:
-    return Chokepoint.model_validate(detail.model_dump(exclude={"history"}))
+    return Chokepoint.model_validate(
+        detail.model_dump(exclude={"history", "facts", "leads", "issues"})
+    )
+
+
+def _matches(each: Chokepoint, status: str) -> bool:
+    """Whether the chokepoint is in the state: the stored status, or a derived flag."""
+    if status == "stale":
+        return each.stale
+    if status == "needs_review":
+        return each.needs_review
+    return each.status == status
+
+
+def board_counts(connection: Connection, now: datetime, *, theme: str | None = None) -> BoardCounts:
+    """The chokepoints of the theme (all of them without one) counted by state."""
+    found = _load(
+        connection, "(CAST(:theme AS text) IS NULL OR theme = :theme)", {"theme": theme}, now
+    )
+    return BoardCounts(
+        lead=sum(_matches(each, "lead") for each in found),
+        candidate=sum(_matches(each, "candidate") for each in found),
+        thesis_ready=sum(_matches(each, "thesis_ready") for each in found),
+        killed=sum(_matches(each, "killed") for each in found),
+        stale=sum(_matches(each, "stale") for each in found),
+        needs_review=sum(_matches(each, "needs_review") for each in found),
+    )
 
 
 def list_chokepoints(
@@ -125,19 +279,10 @@ def list_chokepoints(
         connection, "(CAST(:theme AS text) IS NULL OR theme = :theme)", {"theme": theme}, now
     )
     if status is not None:
-        found = [
-            each
-            for each in found
-            if (
-                each.stale
-                if status == "stale"
-                else each.needs_review
-                if status == "needs_review"
-                else each.status == status
-            )
-        ]
+        found = [each for each in found if _matches(each, status)]
     found.sort(key=lambda each: (each.last_event_at, str(each.id)), reverse=True)
-    return [summary(each) for each in found[offset : offset + limit]], len(found)
+    page = _with_companies(connection, found[offset : offset + limit])
+    return [summary(each) for each in page], len(found)
 
 
 # --- checks --------------------------------------------------------------------------------

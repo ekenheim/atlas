@@ -20,6 +20,8 @@ from pydantic import (
     model_validator,
 )
 
+from atlas.issues.service import IssueStatus
+
 type StepKey = Literal["a", "b", "c", "d", "e", "f"]
 type StepStatus = Literal["unexamined", "lead", "primary", "contradicted"]
 type ChokepointStatus = Literal["lead", "candidate", "thesis_ready", "killed"]
@@ -83,6 +85,15 @@ class Holder(BaseModel):
     name: Text
     slug: Text | None = Field(default=None, description="the company's slug, if it has one")
     cik: str | None = Field(default=None, pattern=r"^\d{1,10}$")
+
+
+class HolderState(Holder):
+    """A holder as the board reads it: the company it resolves to, if it does."""
+
+    company_id: uuid.UUID | None = Field(
+        description="the universe company its slug, else its CIK, names; null when neither does"
+        " (a holder outside the universe, or one the config does not hold yet)"
+    )
 
 
 class ReliefHorizon(BaseModel):
@@ -278,6 +289,48 @@ class ThesisGate(BaseModel):
     missing: list[str]
 
 
+class EvidenceFact(BaseModel):
+    """A Fact a chokepoint cites, with what the owner's page shows beside it."""
+
+    id: uuid.UUID
+    assertion_id: uuid.UUID = Field(description="the Fact's Assertion (the same id)")
+    statement: str
+    quote: str
+    company_name: str | None = Field(description="the company the Fact is about")
+    document_title: str | None
+    available_at: datetime = Field(description="when its document became public")
+    source_version_id: uuid.UUID
+
+
+class EvidenceLead(BaseModel):
+    """A lead a chokepoint cites. A lead is where to look, never evidence."""
+
+    id: uuid.UUID
+    title: str
+    url: str
+    origin: str
+    published_at: date | None = Field(description="the day the page was published, if it said")
+
+
+class EvidenceIssue(BaseModel):
+    id: uuid.UUID
+    title: str
+    status: IssueStatus
+
+
+class BoardCounts(BaseModel):
+    """How many chokepoints a theme (or the whole board) has in each state. The first four are
+    the stored status; `stale` and `needs_review` are the derived flags, which overlap them. Each
+    equals the `total` of `GET /chokepoints?status=` for that value."""
+
+    lead: int
+    candidate: int
+    thesis_ready: int
+    killed: int
+    stale: int
+    needs_review: int
+
+
 class Chokepoint(BaseModel):
     """The fold of the chokepoint's events."""
 
@@ -288,9 +341,13 @@ class Chokepoint(BaseModel):
     created_by_run: uuid.UUID | None = Field(description="a row of the `run` table")
     constraint: str
     layer: str
-    holders: list[Holder]
+    holders: list[HolderState]
     status: ChokepointStatus = Field(description="the status last set; `stale` is not stored")
     status_reason: str | None = Field(description="the reason given with that status")
+    status_set_at: datetime = Field(
+        description="when the status was last set (the last `status_set` event); the creation"
+        " time if it never was"
+    )
     thesis_gate: ThesisGate = Field(description="whether `thesis_ready` would be allowed now")
     needs_review: bool = Field(
         description="`thesis_ready` whose gate no longer holds (a step changed under it)"
@@ -312,6 +369,14 @@ class Chokepoint(BaseModel):
 
 
 class ChokepointDetail(Chokepoint):
+    facts: list[EvidenceFact] = Field(
+        description="every Fact the current state cites (the steps' evidence), once each, in"
+        " the order of the steps"
+    )
+    leads: list[EvidenceLead] = Field(description="every lead the steps cite, once each")
+    issues: list[EvidenceIssue] = Field(
+        description="every Issue the steps cite or the chokepoint links, once each"
+    )
     history: list[ChokepointEvent] = Field(description="every event, oldest first")
 
 
@@ -377,6 +442,7 @@ def fold(
     }
     status: ChokepointStatus = "lead"
     status_reason: str | None = None
+    status_set_at: datetime = head["created_at"]
     for event in events:
         if event.kind == "created":
             created = CreatedPayload.model_validate(event.payload)
@@ -399,6 +465,7 @@ def fold(
         elif event.kind == "status_set":
             status = StatusSetPayload.model_validate(event.payload).status
             status_reason = event.reason
+            status_set_at = event.at
     last = events[-1].at
     last_evidence = max(event.at for event in events if event.kind in EVIDENCE_KINDS)
     missing = [
@@ -411,6 +478,9 @@ def fold(
     if not any(each in open_issues for each in fields["issue_ids"]):
         missing.append("open_issue")
     gate = ThesisGate(holds=not missing, missing=missing)
+    fields["holders"] = [
+        HolderState(**each.model_dump(), company_id=None) for each in fields["holders"]
+    ]
     return ChokepointDetail(
         id=head["id"],
         theme=head["theme"],
@@ -419,6 +489,10 @@ def fold(
         created_by_run=head["created_by_run"],
         status=status,
         status_reason=status_reason,
+        status_set_at=status_set_at,
+        facts=[],
+        leads=[],
+        issues=[],
         thesis_gate=gate,
         needs_review=status == "thesis_ready" and not gate.holds,
         stale=status != "killed" and now - last_evidence >= STALE_AFTER,

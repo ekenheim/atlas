@@ -35,7 +35,9 @@ class BearChecksArgs(Bound):
     " outstanding against a year earlier), shelf or ATM filings, GAAP gross margin (trailing four"
     " quarters), customer concentration and going-concern language (the latest filing's"
     " sentences, with their spans), and net cash. Each is `flag`, `clear` or `unknown`, with its"
-    " basis and sources. No model is called; nothing public after the as-of time is read.",
+    " typed `value`, a one-sentence `summary`, its basis and sources; an `unknown` also has an"
+    " `unknown_reason` (for instance `form_not_collected`, `no_xbrl`, `stale_figure`). No model"
+    " is called; nothing public after the as-of time is read.",
     BearChecksArgs,
 )
 async def bear_checks(ctx: Ctx, args: BearChecksArgs) -> dict[str, Any]:

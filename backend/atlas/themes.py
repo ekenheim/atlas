@@ -24,6 +24,7 @@ the layers nor the coverage gaps.
 import time
 import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -31,6 +32,7 @@ from sqlalchemy import Connection, text
 
 from atlas.beliefs.exposure import ThemeBelief, theme_beliefs
 from atlas.candidates import Candidate, list_candidates
+from atlas.chokepoints import BoardCounts, board_counts
 from atlas.claims.predicates import LAYERS
 from atlas.companies import CompanyLayer, SourcePath, Universe, company_id_for
 from atlas.relationships import Relationship, list_relationships
@@ -85,6 +87,10 @@ class ThemeSummary(BaseModel):
     empty_layers: list[CompanyLayer] = Field(description="layers with no company in the theme")
     relationship_count: int
     open_candidate_count: int = Field(description="Candidates still `lead`, awaiting a decision")
+    board: BoardCounts = Field(
+        description="the theme's chokepoints on the Watch's board by state, as"
+        " `GET /chokepoints/counts?theme=` gives them"
+    )
 
 
 class ThemeMap(BaseModel):
@@ -122,9 +128,11 @@ MAP_SECTIONS = (
 MAP_SECTION_ALIASES = {"companies": ("layers", "unlayered")}
 
 
-def list_themes(connection: Connection, universe: Universe) -> list[ThemeSummary]:
+def list_themes(
+    connection: Connection, universe: Universe, now: datetime | None = None
+) -> list[ThemeSummary]:
     return [
-        _build(connection, universe, theme_id, frozenset({"theme"}))["theme"]
+        _build(connection, universe, theme_id, frozenset({"theme"}), now=now)["theme"]
         for theme_id in sorted(universe.themes)
     ]
 
@@ -135,13 +143,14 @@ def theme_sections(
     theme_id: str,
     sections: frozenset[str],
     timings: dict[str, float] | None = None,
+    now: datetime | None = None,
 ) -> dict[str, Any] | None:
     """Only the named sections of the map (`MAP_SECTIONS`), each computed only if named (or
     needed by one that is), or None when the universe has no such theme. `timings` receives
     the seconds each computed section took (the edges' time is `relationships`')."""
     if theme_id not in universe.themes:
         return None
-    return _build(connection, universe, theme_id, sections, timings)
+    return _build(connection, universe, theme_id, sections, timings, now)
 
 
 def _build(
@@ -150,6 +159,7 @@ def _build(
     theme_id: str,
     sections: frozenset[str],
     timings: dict[str, float] | None = None,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     """The named sections, in the map's order. A section nobody named is not computed."""
     clock = timings if timings is not None else {}
@@ -217,6 +227,7 @@ def _build(
             empty_layers=[layer.layer for layer in layers if not layer.companies],
             relationship_count=len(relationships),
             open_candidate_count=sum(1 for c in candidates if c.state == "lead"),
+            board=board_counts(connection, now or datetime.now(UTC), theme=theme_id),
         )
     if "beliefs" in sections:
         stop = timed("beliefs")

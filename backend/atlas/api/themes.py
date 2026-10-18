@@ -33,6 +33,7 @@ from atlas.bank_template import BankTemplate, InvalidTemplate
 from atlas.companies import Universe, extend_universe
 from atlas.discovery.service import GAPS_MENTAL_MODEL
 from atlas.hindsight import HindsightError, HindsightGateway
+from atlas.jobs.pacing import Clock, utc_now
 from atlas.mental_models import MentalModelReader, MentalModelView
 from atlas.theme_changes import ThemeChange, theme_changes
 from atlas.themes import (
@@ -89,6 +90,7 @@ def themes_router(
     gateway: HindsightGateway | None,
     template_path: Path,
     universe: Callable[[], Universe],
+    clock: Clock = utc_now,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/themes", tags=["themes"])
 
@@ -110,7 +112,7 @@ def themes_router(
     @router.get("", response_model=list[ThemeSummary])
     def themes() -> list[ThemeSummary]:  # pyright: ignore[reportUnusedFunction]
         with engine.connect() as connection:
-            return list_themes(connection, extend_universe(connection, universe()))
+            return list_themes(connection, extend_universe(connection, universe()), clock())
 
     @router.get("/{theme_id}/map", response_model=ThemeMapView, responses={**NOT_FOUND, **INVALID})
     def map_of_theme(  # pyright: ignore[reportUnusedFunction]
@@ -145,6 +147,7 @@ def themes_router(
                 theme_id,
                 sections - {"bottlenecks"},
                 timings,
+                clock(),
             )
         if found is None:
             return not_found("theme")

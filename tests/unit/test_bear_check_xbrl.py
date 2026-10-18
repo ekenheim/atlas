@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from atlas.bear_checks.models import BearCheck
+from atlas.bear_checks.models import DilutionCheck, NetCashCheck
 from atlas.bear_checks.xbrl import dilution, net_cash
 from atlas.financials import Observation, select_as_of
 
@@ -50,7 +50,7 @@ def obs(
     )
 
 
-def dilution_of(*observations: Observation) -> BearCheck:
+def dilution_of(*observations: Observation) -> DilutionCheck:
     return dilution(select_as_of(observations, AS_OF), observations, AS_OF)
 
 
@@ -84,7 +84,7 @@ def test_ordinary_growth_is_flagged_above_ten_percent_and_clear_below():
     clear = dilution_of(cover("2026-08-14", 109_000_000), cover("2025-08-12", 100_000_000))
 
     assert (flagged.status, clear.status) == ("flag", "clear")
-    assert flagged.value is not None and flagged.value["growth_pct"] == 11.0
+    assert flagged.value is not None and flagged.value.growth_pct == 11.0
 
 
 def test_a_forward_split_is_unknown_not_a_hundred_percent_dilution():
@@ -92,6 +92,10 @@ def test_a_forward_split_is_unknown_not_a_hundred_percent_dilution():
 
     assert (answer.status, answer.value) == ("unknown", None)
     assert "split" in answer.basis
+    assert answer.unknown_reason == "split_suspected"
+    assert answer.summary == (
+        "Not known: the share count moved by a split's ratio, which is not new shares."
+    )
 
 
 def test_a_reverse_split_is_unknown_not_a_collapse():
@@ -120,7 +124,7 @@ def test_a_split_uses_the_split_adjusted_weighted_diluted_shares_when_the_filing
 
     assert answer.status == "flag"  # 190 / 170 = +11.8%
     assert answer.value is not None
-    assert answer.value["growth_pct"] == 11.76
+    assert answer.value.growth_pct == 11.76
     assert "WeightedAverageNumberOfDilutedSharesOutstanding" in answer.basis
     assert "split" in answer.basis
 
@@ -135,6 +139,7 @@ def test_several_share_classes_on_the_cover_are_unknown():
 
     assert answer.status == "unknown"
     assert "share classes" in answer.basis
+    assert answer.unknown_reason == "several_share_classes"
 
 
 # --- net cash ---------------------------------------------------------------------------------
@@ -142,7 +147,7 @@ def test_several_share_classes_on_the_cover_are_unknown():
 END = "2026-06-27"
 
 
-def net_cash_of(*observations: Observation) -> BearCheck:
+def net_cash_of(*observations: Observation) -> NetCashCheck:
     return net_cash(select_as_of(observations, AS_OF), AS_OF)
 
 
@@ -155,7 +160,7 @@ def test_the_filers_total_is_the_debt_and_is_named():
     )
 
     assert answer.status == "clear"
-    assert answer.value is not None and answer.value["debt"] == 1600
+    assert answer.value is not None and answer.value.debt == 1600
     assert "DebtLongtermAndShorttermCombinedAmount" in answer.basis
 
 
@@ -169,6 +174,7 @@ def test_a_total_that_is_not_its_parts_is_unknown():
 
     assert answer.status == "unknown"
     assert "total" in answer.basis
+    assert answer.unknown_reason == "ambiguous_debt_tags"
 
 
 def test_current_and_noncurrent_debt_are_summed_and_a_duplicate_concept_counts_once():
@@ -180,8 +186,9 @@ def test_current_and_noncurrent_debt_are_summed_and_a_duplicate_concept_counts_o
     )
 
     assert answer.status == "flag"
-    assert answer.value is not None and answer.value["debt"] == 700
-    assert answer.value["net_cash"] == -200
+    assert answer.summary == "Debt exceeds cash by 200 (USD)."
+    assert answer.value is not None and answer.value.debt == 700
+    assert answer.value.net_cash == -200
     assert "LongTermDebtCurrent" in answer.basis and "LongTermDebtNoncurrent" in answer.basis
 
 
@@ -193,7 +200,7 @@ def test_distinct_current_borrowings_are_all_counted():
         obs("LongTermDebtNoncurrent", END, 400),
     )
 
-    assert answer.value is not None and answer.value["debt"] == 550
+    assert answer.value is not None and answer.value.debt == 550
     assert "ShortTermBorrowings" in answer.basis
 
 
@@ -206,6 +213,10 @@ def test_two_different_noncurrent_debt_concepts_cannot_be_told_apart_so_unknown(
     )
 
     assert answer.status == "unknown"
+    assert answer.unknown_reason == "ambiguous_debt_tags"
+    assert answer.summary == (
+        "Not known: the company's debt is tagged in a way that cannot be added up."
+    )
 
 
 def test_a_line_of_credit_that_matches_no_other_concept_is_unknown():
@@ -227,6 +238,7 @@ def test_only_one_side_of_the_debt_is_unknown():
     )
 
     assert answer.status == "unknown"
+    assert answer.unknown_reason == "debt_not_tagged"
 
 
 def test_short_term_investments_are_added_to_cash():
@@ -237,4 +249,4 @@ def test_short_term_investments_are_added_to_cash():
     )
 
     assert answer.status == "clear"
-    assert answer.value is not None and answer.value["net_cash"] == 200
+    assert answer.value is not None and answer.value.net_cash == 200

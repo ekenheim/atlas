@@ -1251,6 +1251,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/chokepoints/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Counts */
+        get: operations["counts_api_v1_chokepoints_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/chokepoints/{chokepoint_id}": {
         parameters: {
             query?: never;
@@ -2242,6 +2259,7 @@ export interface components {
              */
             available_at: string;
         };
+        Amount: number;
         /** AnswerLeakage */
         AnswerLeakage: {
             /** Recall Memories */
@@ -2614,26 +2632,6 @@ export interface components {
             /** Next Open At */
             next_open_at: string | null;
         };
-        /** BearCheck */
-        BearCheck: {
-            key: components["schemas"]["CheckKey"];
-            /** @description `flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`) */
-            status: components["schemas"]["CheckStatus"];
-            /**
-             * Value
-             * @description the numbers or matches behind the status; null when unknown
-             */
-            value: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Basis
-             * @description in words: what was compared or read, and the rule applied
-             */
-            basis: string;
-            /** Sources */
-            sources: components["schemas"]["BearCheckSource"][];
-        };
         /**
          * BearCheckSource
          * @description What a check rests on: XBRL observations (`observation_id`, read at
@@ -2682,8 +2680,21 @@ export interface components {
              * Format: date-time
              */
             as_of: string;
-            /** Checks */
-            checks: components["schemas"]["BearCheck"][];
+            /**
+             * Checks
+             * @description the six checks, in the order of `CheckKey`
+             */
+            checks: (components["schemas"]["DilutionCheck"] | components["schemas"]["ShelfOrAtmCheck"] | components["schemas"]["GaapGrossMarginCheck"] | components["schemas"]["CustomerConcentrationCheck"] | components["schemas"]["GoingConcernCheck"] | components["schemas"]["NetCashCheck"])[];
+            /**
+             * Flagged
+             * @description the keys of the checks that are `flag`
+             */
+            flagged: components["schemas"]["CheckKey"][];
+            /**
+             * Unknown
+             * @description the keys of the checks that are `unknown`
+             */
+            unknown: components["schemas"]["CheckKey"][];
         };
         /** Belief */
         Belief: {
@@ -2961,6 +2972,26 @@ export interface components {
             zero_fact: number;
             /** Themes */
             themes: components["schemas"]["ThemeBeliefs"][];
+        };
+        /**
+         * BoardCounts
+         * @description How many chokepoints a theme (or the whole board) has in each state. The first four are
+         *     the stored status; `stale` and `needs_review` are the derived flags, which overlap them. Each
+         *     equals the `total` of `GET /chokepoints?status=` for that value.
+         */
+        BoardCounts: {
+            /** Lead */
+            lead: number;
+            /** Candidate */
+            candidate: number;
+            /** Thesis Ready */
+            thesis_ready: number;
+            /** Killed */
+            killed: number;
+            /** Stale */
+            stale: number;
+            /** Needs Review */
+            needs_review: number;
         };
         /** @enum {string} */
         BoardFilter: "lead" | "candidate" | "thesis_ready" | "killed" | "stale" | "needs_review";
@@ -4129,7 +4160,7 @@ export interface components {
             /** Layer */
             layer: string;
             /** Holders */
-            holders: components["schemas"]["Holder"][];
+            holders: components["schemas"]["HolderState"][];
             /** @description the status last set; `stale` is not stored */
             status: components["schemas"]["ChokepointStatus"];
             /**
@@ -4137,6 +4168,12 @@ export interface components {
              * @description the reason given with that status
              */
             status_reason: string | null;
+            /**
+             * Status Set At
+             * Format: date-time
+             * @description when the status was last set (the last `status_set` event); the creation time if it never was
+             */
+            status_set_at: string;
             /** @description whether `thesis_ready` would be allowed now */
             thesis_gate: components["schemas"]["ThesisGate"];
             /**
@@ -4226,7 +4263,7 @@ export interface components {
             /** Layer */
             layer: string;
             /** Holders */
-            holders: components["schemas"]["Holder"][];
+            holders: components["schemas"]["HolderState"][];
             /** @description the status last set; `stale` is not stored */
             status: components["schemas"]["ChokepointStatus"];
             /**
@@ -4234,6 +4271,12 @@ export interface components {
              * @description the reason given with that status
              */
             status_reason: string | null;
+            /**
+             * Status Set At
+             * Format: date-time
+             * @description when the status was last set (the last `status_set` event); the creation time if it never was
+             */
+            status_set_at: string;
             /** @description whether `thesis_ready` would be allowed now */
             thesis_gate: components["schemas"]["ThesisGate"];
             /**
@@ -4274,6 +4317,21 @@ export interface components {
             last_evidence_at: string;
             /** Event Count */
             event_count: number;
+            /**
+             * Facts
+             * @description every Fact the current state cites (the steps' evidence), once each, in the order of the steps
+             */
+            facts: components["schemas"]["EvidenceFact"][];
+            /**
+             * Leads
+             * @description every lead the steps cite, once each
+             */
+            leads: components["schemas"]["EvidenceLead"][];
+            /**
+             * Issues
+             * @description every Issue the steps cite or the chokepoint links, once each
+             */
+            issues: components["schemas"]["EvidenceIssue"][];
             /**
              * History
              * @description every event, oldest first
@@ -5119,6 +5177,68 @@ export interface components {
         CoverageGap: "not_seeded" | "no_sources";
         /** @enum {string} */
         Crowding: "early" | "emerging" | "consensus";
+        /** CustomerConcentrationCheck */
+        CustomerConcentrationCheck: {
+            /** @description `flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`) */
+            status: components["schemas"]["CheckStatus"];
+            /** @description why the check is unknown; null for `flag` and `clear` */
+            unknown_reason: components["schemas"]["UnknownReason"] | null;
+            /**
+             * Summary
+             * @description one plain sentence for the owner, e.g. `Shares outstanding rose 14% in a year.` or `Not known: the company's shelf filings are not collected.`
+             */
+            summary: string;
+            /**
+             * Basis
+             * @description in words: what was compared or read, and the rule applied
+             */
+            basis: string;
+            /** Sources */
+            sources: components["schemas"]["BearCheckSource"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            key: "customer_concentration";
+            /** @description null when no report was read; kept when a partly read report is unknown */
+            value: components["schemas"]["CustomerConcentrationValue"] | null;
+        };
+        /** CustomerConcentrationValue */
+        CustomerConcentrationValue: {
+            document: components["schemas"]["DocumentRef"];
+            /**
+             * Current Percent
+             * @description the largest customer's current share
+             */
+            current_percent: number | null;
+            /** Matches */
+            matches: components["schemas"]["CustomerMatch"][];
+            /** Top Customers Share */
+            top_customers_share: components["schemas"]["TopCustomersShare"][];
+            /**
+             * No Customer Above
+             * @description thresholds the report says no customer exceeded
+             */
+            no_customer_above: number[];
+        };
+        /** CustomerMatch */
+        CustomerMatch: {
+            /** Percents */
+            percents: number[];
+            /** Current Percent */
+            current_percent: number;
+            /**
+             * Lower Bound
+             * @description the sentence says `more than`, not the share itself
+             */
+            lower_bound: boolean;
+            /** Char Start */
+            char_start: number;
+            /** Char End */
+            char_end: number;
+            /** Quote */
+            quote: string;
+        };
         /** DiffClaim */
         DiffClaim: {
             /**
@@ -5145,6 +5265,54 @@ export interface components {
             unchanged: number;
             /** Removed */
             removed: number;
+        };
+        /** DilutionCheck */
+        DilutionCheck: {
+            /** @description `flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`) */
+            status: components["schemas"]["CheckStatus"];
+            /** @description why the check is unknown; null for `flag` and `clear` */
+            unknown_reason: components["schemas"]["UnknownReason"] | null;
+            /**
+             * Summary
+             * @description one plain sentence for the owner, e.g. `Shares outstanding rose 14% in a year.` or `Not known: the company's shelf filings are not collected.`
+             */
+            summary: string;
+            /**
+             * Basis
+             * @description in words: what was compared or read, and the rule applied
+             */
+            basis: string;
+            /** Sources */
+            sources: components["schemas"]["BearCheckSource"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            key: "dilution";
+            /** @description null when unknown */
+            value: components["schemas"]["DilutionValue"] | null;
+        };
+        /** DilutionValue */
+        DilutionValue: {
+            /**
+             * Concept
+             * @description the share count compared, `taxonomy:concept`
+             */
+            concept: string;
+            shares: components["schemas"]["Amount"];
+            /**
+             * Shares As Of
+             * @description the date of that count
+             */
+            shares_as_of: string;
+            shares_year_earlier: components["schemas"]["Amount"];
+            /** Year Earlier As Of */
+            year_earlier_as_of: string;
+            /**
+             * Growth Pct
+             * @description the change over the year, in percent
+             */
+            growth_pct: number;
         };
         /** @enum {string} */
         Direction: "tightening" | "easing";
@@ -5260,6 +5428,19 @@ export interface components {
             facts: number;
             /** Read By */
             read_by: components["schemas"]["ReadBy"][];
+        };
+        /**
+         * DocumentRef
+         * @description The filing a text check read.
+         */
+        DocumentRef: {
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Form */
+            form: string;
         };
         /**
          * EdgarSearch
@@ -5632,6 +5813,45 @@ export interface components {
             created_by: string;
         };
         /**
+         * EvidenceFact
+         * @description A Fact a chokepoint cites, with what the owner's page shows beside it.
+         */
+        EvidenceFact: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Assertion Id
+             * Format: uuid
+             * @description the Fact's Assertion (the same id)
+             */
+            assertion_id: string;
+            /** Statement */
+            statement: string;
+            /** Quote */
+            quote: string;
+            /**
+             * Company Name
+             * @description the company the Fact is about
+             */
+            company_name: string | null;
+            /** Document Title */
+            document_title: string | null;
+            /**
+             * Available At
+             * Format: date-time
+             * @description when its document became public
+             */
+            available_at: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+        };
+        /**
          * EvidenceFamily
          * @description Source Versions that are copies of one announcement: one witness.
          */
@@ -5721,6 +5941,17 @@ export interface components {
              */
             assigned_at: string;
         };
+        /** EvidenceIssue */
+        EvidenceIssue: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            status: components["schemas"]["IssueStatus"];
+        };
         /**
          * EvidenceItem
          * @description An accepted Claim of the investigation (the Evidence tray): the Assertion it became and
@@ -5791,6 +6022,28 @@ export interface components {
             passage_selected_by?: string[];
             /** Speaker */
             speaker?: string | null;
+        };
+        /**
+         * EvidenceLead
+         * @description A lead a chokepoint cites. A lead is where to look, never evidence.
+         */
+        EvidenceLead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+            /** Origin */
+            origin: string;
+            /**
+             * Published At
+             * @description the day the page was published, if it said
+             */
+            published_at: string | null;
         };
         /** @enum {string} */
         ExaminationOutcome: "confirmed" | "qualified" | "contradicted" | "nothing_new";
@@ -6588,6 +6841,32 @@ export interface components {
             /** From Currency */
             from_currency: string;
         };
+        /** GaapGrossMarginCheck */
+        GaapGrossMarginCheck: {
+            /** @description `flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`) */
+            status: components["schemas"]["CheckStatus"];
+            /** @description why the check is unknown; null for `flag` and `clear` */
+            unknown_reason: components["schemas"]["UnknownReason"] | null;
+            /**
+             * Summary
+             * @description one plain sentence for the owner, e.g. `Shares outstanding rose 14% in a year.` or `Not known: the company's shelf filings are not collected.`
+             */
+            summary: string;
+            /**
+             * Basis
+             * @description in words: what was compared or read, and the rule applied
+             */
+            basis: string;
+            /** Sources */
+            sources: components["schemas"]["BearCheckSource"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            key: "gaap_gross_margin";
+            /** @description null when unknown */
+            value: components["schemas"]["GrossMarginValue"] | null;
+        };
         /** GateFailureView */
         GateFailureView: {
             /** Code */
@@ -6603,6 +6882,76 @@ export interface components {
              * @description `belief_not_proven`: the load-bearing Beliefs that are not proven; `thesis_misstated`, `thesis_unchecked`: the Beliefs the thesis cites
              */
             belief_ids?: string[];
+        };
+        /** GoingConcernCheck */
+        GoingConcernCheck: {
+            /** @description `flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`) */
+            status: components["schemas"]["CheckStatus"];
+            /** @description why the check is unknown; null for `flag` and `clear` */
+            unknown_reason: components["schemas"]["UnknownReason"] | null;
+            /**
+             * Summary
+             * @description one plain sentence for the owner, e.g. `Shares outstanding rose 14% in a year.` or `Not known: the company's shelf filings are not collected.`
+             */
+            summary: string;
+            /**
+             * Basis
+             * @description in words: what was compared or read, and the rule applied
+             */
+            basis: string;
+            /** Sources */
+            sources: components["schemas"]["BearCheckSource"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            key: "going_concern";
+            /** @description null when no report was read; kept when a partly read report is unknown */
+            value: components["schemas"]["GoingConcernValue"] | null;
+        };
+        /** GoingConcernValue */
+        GoingConcernValue: {
+            document: components["schemas"]["DocumentRef"];
+            /**
+             * Sentences
+             * @description sentences naming substantial doubt
+             */
+            sentences: number;
+            /**
+             * Negated Sentences
+             * @description sentences saying there is none
+             */
+            negated_sentences: number;
+            /**
+             * Hedged Only
+             * @description every such sentence is conditional
+             */
+            hedged_only: boolean;
+        };
+        /** GrossMarginValue */
+        GrossMarginValue: {
+            /** Unit */
+            unit: string;
+            /**
+             * Ttm Margin Pct
+             * @description gross margin of the trailing four quarters
+             */
+            ttm_margin_pct: number;
+            /**
+             * Prior Ttm Margin Pct
+             * @description the four quarters a year before
+             */
+            prior_ttm_margin_pct: number | null;
+            /**
+             * Change Points
+             * @description the first less the second, in points
+             */
+            change_points: number | null;
+            /**
+             * Quarters
+             * @description the trailing four, oldest first
+             */
+            quarters: components["schemas"]["MarginQuarter"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -6645,6 +6994,22 @@ export interface components {
             slug?: components["schemas"]["Text"] | null;
             /** Cik */
             cik?: string | null;
+        };
+        /**
+         * HolderState
+         * @description A holder as the board reads it: the company it resolves to, if it does.
+         */
+        HolderState: {
+            name: components["schemas"]["Text"];
+            /** @description the company's slug, if it has one */
+            slug?: components["schemas"]["Text"] | null;
+            /** Cik */
+            cik?: string | null;
+            /**
+             * Company Id
+             * @description the universe company its slug, else its CIK, names; null when neither does (a holder outside the universe, or one the config does not hold yet)
+             */
+            company_id: string | null;
         };
         /** Hypothesis */
         Hypothesis: {
@@ -7884,6 +8249,15 @@ export interface components {
             /** Audit Event Id */
             audit_event_id: number;
         };
+        /** MarginQuarter */
+        MarginQuarter: {
+            /** Period End */
+            period_end: string;
+            revenue: components["schemas"]["Amount"];
+            gross_profit: components["schemas"]["Amount"];
+            /** Margin Pct */
+            margin_pct: number | null;
+        };
         /**
          * Mechanism
          * @description §8.1's mechanism: what drives demand, what may constrain it, who may capture value.
@@ -8233,6 +8607,46 @@ export interface components {
             kind: "missing";
             /** Reason */
             reason?: string | null;
+        };
+        /** NetCashCheck */
+        NetCashCheck: {
+            /** @description `flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`) */
+            status: components["schemas"]["CheckStatus"];
+            /** @description why the check is unknown; null for `flag` and `clear` */
+            unknown_reason: components["schemas"]["UnknownReason"] | null;
+            /**
+             * Summary
+             * @description one plain sentence for the owner, e.g. `Shares outstanding rose 14% in a year.` or `Not known: the company's shelf filings are not collected.`
+             */
+            summary: string;
+            /**
+             * Basis
+             * @description in words: what was compared or read, and the rule applied
+             */
+            basis: string;
+            /** Sources */
+            sources: components["schemas"]["BearCheckSource"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            key: "net_cash";
+            /** @description null when unknown */
+            value: components["schemas"]["NetCashValue"] | null;
+        };
+        /** NetCashValue */
+        NetCashValue: {
+            /** Unit */
+            unit: string;
+            /** As Of Balance Sheet */
+            as_of_balance_sheet: string;
+            /** @description negative: net debt */
+            net_cash: components["schemas"]["Amount"];
+            cash: components["schemas"]["Amount"];
+            short_term_investments: components["schemas"]["Amount"] | null;
+            debt: components["schemas"]["Amount"];
+            /** Debt Concepts */
+            debt_concepts: string[];
         };
         /** NextDue */
         NextDue: {
@@ -11361,6 +11775,57 @@ export interface components {
              */
             settled_at: string;
         };
+        /** ShelfFiling */
+        ShelfFiling: {
+            /** Form */
+            form: string;
+            /**
+             * Available At
+             * @description when it became public, ISO 8601
+             */
+            available_at: string;
+            /**
+             * Source Version Id
+             * Format: uuid
+             */
+            source_version_id: string;
+            /** Title */
+            title: string;
+        };
+        /** ShelfOrAtmCheck */
+        ShelfOrAtmCheck: {
+            /** @description `flag`: the check found what a bear looks for; `clear`: it looked and found none; `unknown`: Atlas does not hold what the check needs (never `clear`) */
+            status: components["schemas"]["CheckStatus"];
+            /** @description why the check is unknown; null for `flag` and `clear` */
+            unknown_reason: components["schemas"]["UnknownReason"] | null;
+            /**
+             * Summary
+             * @description one plain sentence for the owner, e.g. `Shares outstanding rose 14% in a year.` or `Not known: the company's shelf filings are not collected.`
+             */
+            summary: string;
+            /**
+             * Basis
+             * @description in words: what was compared or read, and the rule applied
+             */
+            basis: string;
+            /** Sources */
+            sources: components["schemas"]["BearCheckSource"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            key: "shelf_or_atm";
+            /** @description null when unknown */
+            value: components["schemas"]["ShelfOrAtmValue"] | null;
+        };
+        /** ShelfOrAtmValue */
+        ShelfOrAtmValue: {
+            /**
+             * Filings
+             * @description newest first
+             */
+            filings: components["schemas"]["ShelfFiling"][];
+        };
         /**
          * Signal
          * @description An `archive_signal` lead's sentence and why it scored.
@@ -12205,6 +12670,8 @@ export interface components {
              * @description Candidates still `lead`, awaiting a decision
              */
             open_candidate_count: number;
+            /** @description the theme's chokepoints on the Watch's board by state, as `GET /chokepoints/counts?theme=` gives them */
+            board: components["schemas"]["BoardCounts"];
         };
         /**
          * ThesisGate
@@ -12290,6 +12757,22 @@ export interface components {
              * Format: date-time
              */
             at: string;
+        };
+        /**
+         * TopCustomersShare
+         * @description The share of the largest customers together, apart from any one customer's.
+         */
+        TopCustomersShare: {
+            /** Percents */
+            percents: number[];
+            /** Current Percent */
+            current_percent: number;
+            /** Char Start */
+            char_start: number;
+            /** Char End */
+            char_end: number;
+            /** Quote */
+            quote: string;
         };
         /** TransitionRequest */
         TransitionRequest: {
@@ -12541,6 +13024,8 @@ export interface components {
             /** Effective */
             effective: boolean;
         };
+        /** @enum {string} */
+        UnknownReason: "form_not_collected" | "no_xbrl" | "not_comparable" | "no_statement" | "partial_parse" | "stale_figure" | "split_suspected" | "several_share_classes" | "ambiguous_debt_tags" | "debt_not_tagged" | "no_parsed_text" | "not_english";
         /** @enum {string} */
         UnpricedReason: "no_symbol" | "tradingview_disabled";
         /** @enum {string} */
@@ -16397,6 +16882,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    counts_api_v1_chokepoints_counts_get: {
+        parameters: {
+            query?: {
+                theme?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardCounts"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

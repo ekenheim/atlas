@@ -14,7 +14,17 @@
   (below).
 - `POST /chokepoints` (201): create one (`theme`, `constraint`, `layer`, `holders`, and the
   `session_id` or `run_id` that made it); answers the chokepoint with its history.
-- `GET /chokepoints/{id}`: the state and the history of every event.
+- `GET /chokepoints/counts?theme=`: how many chokepoints are in each state (`lead`, `candidate`,
+  `thesis_ready`, `killed` by the stored status; `stale` and `needs_review`, the derived flags,
+  overlap them), each equal to the `total` of `GET /chokepoints?status=` (the same object is
+  `board` on each theme of `GET /themes`).
+- `GET /chokepoints/{id}`: the state and the history of every event, and what the state cites
+  read out for the owner's pages (W8): `facts` (id, assertion_id, statement, quote,
+  company_name, document_title, available_at, source_version_id), `leads` (id, title, url,
+  origin, published_at) and `issues` (id, title, status), each once, in a fixed number of
+  queries; the steps' `evidence` stays ids. A holder carries `company_id` when its slug, else
+  its CIK, names a researched company (null otherwise), on the list too; `status_set_at` is the
+  time of the last `status_set` event, else the creation.
 - `POST /chokepoints/{id}/events`: append an event (`kind` `field_set`, `step_set`,
   `status_set` or `note`, its `payload`, a `reason`, the `session_id`). A list given in a payload
   (`holders`, `kill_criteria`, `issue_ids`, a step's `evidence`) **replaces the whole list**;
@@ -57,6 +67,7 @@ from atlas.api.common import (
 )
 from atlas.audit import Actor
 from atlas.chokepoints import (
+    BoardCounts,
     Chokepoint,
     ChokepointCreate,
     ChokepointDetail,
@@ -66,6 +77,7 @@ from atlas.chokepoints import (
     WatchRun,
     WatchRunCreate,
     WatchRuns,
+    board_counts,
     check_read_session,
     get_chokepoint,
     get_watch_run,
@@ -107,6 +119,11 @@ def chokepoints_router(engine: Engine, actor: Actor, clock: Clock = utc_now) -> 
                 offset=page.offset,
             )
         return Page(items=items, total=total, limit=page.limit, offset=page.offset)
+
+    @router.get("/counts", response_model=BoardCounts)
+    def counts(theme: str | None = None) -> BoardCounts:  # pyright: ignore[reportUnusedFunction]
+        with engine.connect() as connection:
+            return board_counts(connection, clock().astimezone(UTC), theme=theme)
 
     @router.get(
         "/{chokepoint_id}", response_model=ChokepointDetail, responses={**NOT_FOUND, **INVALID}
