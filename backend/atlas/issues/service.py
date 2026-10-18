@@ -15,6 +15,7 @@ from atlas.calls.record import signal_call
 type IssueKind = Literal["question", "step", "read"]
 type IssueStatus = Literal["active", "complete", "abandoned", "invalid"]
 type EdgeKind = Literal["narrows", "requires"]
+type EdgeDirection = Literal["parent", "child"]
 type NextReason = Literal["step_without_belief", "flagged_or_disputed", "priority"]
 
 # Step statuses of a card that close their step Issue: the argument holds there, or the
@@ -96,6 +97,8 @@ class IssueProductCreate(BaseModel):
 
 
 class IssueProduct(BaseModel):
+    kind: Literal["belief", "fact"]
+    id: uuid.UUID = Field(description="the Belief's or the Fact's ID, by `kind`")
     belief_id: uuid.UUID | None
     fact_id: uuid.UUID | None
     actor: str
@@ -121,6 +124,26 @@ class Issue(BaseModel):
     blocked: bool = Field(description="a required Issue is still active")
     open_children: int = Field(description="active Issues narrowing it")
     products: list[IssueProduct]
+
+
+class IssueEdge(BaseModel):
+    """An edge of the Issue, from either end: edges are recorded from the child to the parent."""
+
+    kind: EdgeKind
+    direction: EdgeDirection = Field(
+        description="`parent`: the other Issue is this one's parent (this Issue narrows or"
+        " requires it); `child`: the other narrows or requires this one"
+    )
+    issue_id: uuid.UUID = Field(description="the other Issue")
+    title: str = Field(description="the other Issue's title")
+    status: IssueStatus = Field(description="the other Issue's status")
+    created_at: datetime = Field(description="when the edge was recorded")
+
+
+class IssueDetail(Issue):
+    """One Issue read by ID: the Issue and all its edges, both directions."""
+
+    edges: list[IssueEdge]
 
 
 class NextIssue(BaseModel):
@@ -194,6 +217,8 @@ def _load(
                 open_children=int(children.get(row.id, 0)),
                 products=[
                     IssueProduct(
+                        kind="belief" if product.belief_id is not None else "fact",
+                        id=product.belief_id if product.belief_id is not None else product.fact_id,
                         belief_id=product.belief_id,
                         fact_id=product.fact_id,
                         actor=product.actor,
@@ -210,6 +235,37 @@ def _load(
 def get_issue(connection: Connection, issue_id: uuid.UUID) -> Issue | None:
     found = _load(connection, "i.id = :id", {"id": issue_id})
     return found[0] if found else None
+
+
+def get_issue_detail(connection: Connection, issue_id: uuid.UUID) -> IssueDetail | None:
+    """The Issue with its edges from both ends: its parents and prerequisites (it is the
+    child) and the Issues narrowing or requiring it (it is the parent), oldest edge first."""
+    issue = get_issue(connection, issue_id)
+    if issue is None:
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT e.kind, e.created_at, 'parent' AS direction, p.id, p.title, p.status"
+            " FROM issue_edge e JOIN issue p ON p.id = e.parent_id WHERE e.child_id = :id"
+            " UNION ALL"
+            " SELECT e.kind, e.created_at, 'child' AS direction, c.id, c.title, c.status"
+            " FROM issue_edge e JOIN issue c ON c.id = e.child_id WHERE e.parent_id = :id"
+            " ORDER BY created_at, id"
+        ),
+        {"id": issue_id},
+    ).all()
+    edges = [
+        IssueEdge(
+            kind=row.kind,
+            direction=row.direction,
+            issue_id=row.id,
+            title=row.title,
+            status=row.status,
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
+    return IssueDetail(**issue.model_dump(), edges=edges)
 
 
 def list_issues(

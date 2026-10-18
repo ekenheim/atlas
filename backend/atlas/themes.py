@@ -21,8 +21,10 @@ the end of those edges. They are never among the theme's companies, so they coun
 the layers nor the coverage gaps.
 """
 
+import time
 import uuid
-from typing import Literal
+from collections.abc import Callable
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from sqlalchemy import Connection, text
@@ -104,24 +106,141 @@ class ThemeMap(BaseModel):
     candidates: list[Candidate] = Field(description="the theme's Candidates, newest first")
 
 
+# The sections of the theme map, named after the answer's own keys. `theme` (the summary)
+# counts the edges and the Candidates, so asking for it computes both; `counterparties` are the
+# ends of the edges, so asking for them computes the edges.
+MAP_SECTIONS = (
+    "theme",
+    "beliefs",
+    "layers",
+    "unlayered",
+    "relationships",
+    "counterparties",
+    "candidates",
+)
+# `companies` stands for the two sections that list the theme's companies.
+MAP_SECTION_ALIASES = {"companies": ("layers", "unlayered")}
+
+
 def list_themes(connection: Connection, universe: Universe) -> list[ThemeSummary]:
-    return [_build(connection, universe, theme_id).theme for theme_id in sorted(universe.themes)]
-
-
-def theme_map(connection: Connection, universe: Universe, theme_id: str) -> ThemeMap | None:
-    """The theme's map, or None when the universe has no such theme."""
-    return _build(connection, universe, theme_id) if theme_id in universe.themes else None
-
-
-def _build(connection: Connection, universe: Universe, theme_id: str) -> ThemeMap:
-    theme = universe.themes[theme_id]
-    ids = {slug: company_id_for(slug, universe.companies[slug]) for slug in theme.companies}
-    counts = _company_counts(connection, list(ids.values()))
-    companies = [
-        _theme_company(universe, slug, ids[slug], counts.get(ids[slug])) for slug in theme.companies
+    return [
+        _build(connection, universe, theme_id, frozenset({"theme"}))["theme"]
+        for theme_id in sorted(universe.themes)
     ]
 
-    members = set(ids.values())
+
+def theme_sections(
+    connection: Connection,
+    universe: Universe,
+    theme_id: str,
+    sections: frozenset[str],
+    timings: dict[str, float] | None = None,
+) -> dict[str, Any] | None:
+    """Only the named sections of the map (`MAP_SECTIONS`), each computed only if named (or
+    needed by one that is), or None when the universe has no such theme. `timings` receives
+    the seconds each computed section took (the edges' time is `relationships`')."""
+    if theme_id not in universe.themes:
+        return None
+    return _build(connection, universe, theme_id, sections, timings)
+
+
+def _build(
+    connection: Connection,
+    universe: Universe,
+    theme_id: str,
+    sections: frozenset[str],
+    timings: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """The named sections, in the map's order. A section nobody named is not computed."""
+    clock = timings if timings is not None else {}
+
+    def timed(name: str) -> Callable[[], None]:
+        started = time.perf_counter()
+
+        def stop() -> None:
+            clock[name] = clock.get(name, 0.0) + time.perf_counter() - started
+
+        return stop
+
+    theme = universe.themes[theme_id]
+    ids = {slug: company_id_for(slug, universe.companies[slug]) for slug in theme.companies}
+    built: dict[str, Any] = {}
+
+    companies: list[ThemeCompany] = []
+    if sections & {"theme", "layers", "unlayered"}:
+        stop = timed("companies")
+        counts = _company_counts(connection, list(ids.values()))
+        companies = [
+            _theme_company(universe, slug, ids[slug], counts.get(ids[slug]))
+            for slug in theme.companies
+        ]
+        stop()
+
+    relationships: list[Relationship] = []
+    counterparties: list[ThemeCounterparty] = []
+    if sections & {"theme", "relationships", "counterparties"}:
+        stop = timed("relationships")
+        relationships, counterparties = _edges(connection, set(ids.values()))
+        stop()
+
+    candidates: list[Candidate] = []
+    if sections & {"theme", "candidates"}:
+        stop = timed("candidates")
+        candidates = list_candidates(
+            connection, state=None, theme=theme_id, limit=_MAX_ROWS, offset=0
+        )[0]
+        stop()
+
+    # The theme's own layers when its config lists them (a second theme has a supply chain of
+    # its own), else the photonics taxonomy's.
+    theme_layers: list[tuple[CompanyLayer, str]] = [
+        (layer.name, layer.covers)
+        for layer in (theme.layers if theme.layers is not None else LAYERS)
+    ]
+    known = {name for name, _ in theme_layers}
+    layers = [
+        ThemeLayer(
+            layer=name,
+            covers=covers,
+            companies=[c for c in companies if c.layer == name],
+        )
+        for name, covers in theme_layers
+    ]
+    if "theme" in sections:
+        built["theme"] = ThemeSummary(
+            id=theme_id,
+            title=theme.title,
+            description=theme.description,
+            universe_version=universe.version,
+            company_count=len(companies),
+            companies_without_sources=sum(1 for c in companies if c.source_count == 0),
+            empty_layers=[layer.layer for layer in layers if not layer.companies],
+            relationship_count=len(relationships),
+            open_candidate_count=sum(1 for c in candidates if c.state == "lead"),
+        )
+    if "beliefs" in sections:
+        stop = timed("beliefs")
+        built["beliefs"] = theme_beliefs(connection, theme_id)
+        stop()
+    if "layers" in sections:
+        built["layers"] = layers
+    if "unlayered" in sections:
+        # A company whose layer the theme does not list (a committed Candidate's) is never
+        # lost from the map: it is listed where the companies with no layer are.
+        built["unlayered"] = [c for c in companies if c.layer is None or c.layer not in known]
+    if "relationships" in sections:
+        built["relationships"] = relationships
+    if "counterparties" in sections:
+        built["counterparties"] = counterparties
+    if "candidates" in sections:
+        built["candidates"] = candidates
+    return built
+
+
+def _edges(
+    connection: Connection, members: set[uuid.UUID]
+) -> tuple[list[Relationship], list[ThemeCounterparty]]:
+    """The edges on the map and the counterparties at their ends."""
     outside = {
         company_id: counterparty
         for company_id, counterparty in _counterparties(connection).items()
@@ -156,48 +275,7 @@ def _build(connection: Connection, universe: Universe, theme_id: str) -> ThemeMa
         ),
         key=lambda c: (c.display_name, c.slug),
     )
-    candidates = list_candidates(connection, state=None, theme=theme_id, limit=_MAX_ROWS, offset=0)[
-        0
-    ]
-
-    # The theme's own layers when its config lists them (a second theme has a supply chain of
-    # its own), else the photonics taxonomy's.
-    theme_layers: list[tuple[CompanyLayer, str]] = [
-        (layer.name, layer.covers)
-        for layer in (theme.layers if theme.layers is not None else LAYERS)
-    ]
-    known = {name for name, _ in theme_layers}
-    layers = [
-        ThemeLayer(
-            layer=name,
-            covers=covers,
-            companies=[c for c in companies if c.layer == name],
-        )
-        for name, covers in theme_layers
-    ]
-    # A company whose layer the theme does not list (a committed Candidate's) is never lost
-    # from the map: it is listed where the companies with no layer are.
-    unlayered = [c for c in companies if c.layer is None or c.layer not in known]
-    summary = ThemeSummary(
-        id=theme_id,
-        title=theme.title,
-        description=theme.description,
-        universe_version=universe.version,
-        company_count=len(companies),
-        companies_without_sources=sum(1 for c in companies if c.source_count == 0),
-        empty_layers=[layer.layer for layer in layers if not layer.companies],
-        relationship_count=len(relationships),
-        open_candidate_count=sum(1 for c in candidates if c.state == "lead"),
-    )
-    return ThemeMap(
-        theme=summary,
-        beliefs=theme_beliefs(connection, theme_id),
-        layers=layers,
-        unlayered=unlayered,
-        relationships=relationships,
-        counterparties=counterparties,
-        candidates=candidates,
-    )
+    return relationships, counterparties
 
 
 def _counterparties(connection: Connection) -> dict[uuid.UUID, ThemeCounterparty]:

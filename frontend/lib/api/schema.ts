@@ -4853,6 +4853,8 @@ export interface components {
             searched_at: string | null;
         };
         /** @enum {string} */
+        EdgeDirection: "parent" | "child";
+        /** @enum {string} */
         EdgeKind: "narrows" | "requires";
         /** EntitiesHealth */
         EntitiesHealth: {
@@ -6762,6 +6764,94 @@ export interface components {
              */
             lead_id?: string | null;
         };
+        /**
+         * IssueDetail
+         * @description One Issue read by ID: the Issue and all its edges, both directions.
+         */
+        IssueDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /** Theme */
+            theme: string;
+            kind: components["schemas"]["IssueKind"];
+            /** Priority */
+            priority: number;
+            status: components["schemas"]["IssueStatus"];
+            /** Produced By */
+            produced_by: string | null;
+            /** Company Ids */
+            company_ids: string[];
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Closed At */
+            closed_at: string | null;
+            /**
+             * Parent Id
+             * @description the Issue it narrows
+             */
+            parent_id: string | null;
+            /** Parent Title */
+            parent_title: string | null;
+            /**
+             * Requires
+             * @description the Issues it requires
+             */
+            requires: string[];
+            /**
+             * Blocked
+             * @description a required Issue is still active
+             */
+            blocked: boolean;
+            /**
+             * Open Children
+             * @description active Issues narrowing it
+             */
+            open_children: number;
+            /** Products */
+            products: components["schemas"]["IssueProduct"][];
+            /** Edges */
+            edges: components["schemas"]["IssueEdge"][];
+        };
+        /**
+         * IssueEdge
+         * @description An edge of the Issue, from either end: edges are recorded from the child to the parent.
+         */
+        IssueEdge: {
+            kind: components["schemas"]["EdgeKind"];
+            /** @description `parent`: the other Issue is this one's parent (this Issue narrows or requires it); `child`: the other narrows or requires this one */
+            direction: components["schemas"]["EdgeDirection"];
+            /**
+             * Issue Id
+             * Format: uuid
+             * @description the other Issue
+             */
+            issue_id: string;
+            /**
+             * Title
+             * @description the other Issue's title
+             */
+            title: string;
+            /** @description the other Issue's status */
+            status: components["schemas"]["IssueStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             * @description when the edge was recorded
+             */
+            created_at: string;
+        };
         /** IssueEdgeCreate */
         IssueEdgeCreate: {
             kind: components["schemas"]["EdgeKind"];
@@ -6775,6 +6865,17 @@ export interface components {
         IssueKind: "question" | "step" | "read";
         /** IssueProduct */
         IssueProduct: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "belief" | "fact";
+            /**
+             * Id
+             * Format: uuid
+             * @description the Belief's or the Fact's ID, by `kind`
+             */
+            id: string;
             /** Belief Id */
             belief_id: string | null;
             /** Fact Id */
@@ -13481,7 +13582,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Issue"];
+                    "application/json": components["schemas"]["IssueDetail"];
                 };
             };
             /** @description Not Found */
@@ -16731,7 +16832,10 @@ export interface operations {
     };
     map_of_theme_api_v1_themes__theme_id__map_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description comma-separated sections to compute and return, from theme, beliefs, layers, unlayered, relationships, counterparties, candidates, bottlenecks, companies (`companies` is `layers` and `unlayered`); the others are absent, not computed. `theme` counts the edges and the Candidates, `counterparties` are the edges' ends. None: the whole map. */
+                include?: string | null;
+            };
             header?: never;
             path: {
                 theme_id: string;
@@ -16758,13 +16862,13 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
