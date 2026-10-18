@@ -106,7 +106,7 @@ test("a first run names what was spotted, at most two, then counts the rest", ()
     cp({ id: "z", constraint: "Z" }),
     cp({ id: "k", constraint: "K", status: "killed" }),
   ];
-  const named = namedOnBoard(board, { previous: null }, NOW);
+  const named = namedOnBoard(board, { previous: null });
   expect(named.parts.map((part) => [part.label, part.chokepoints.map((each) => each.id)])).toEqual([
     ["Thesis-ready", ["y"]],
     ["New", ["x"]],
@@ -122,10 +122,10 @@ test("a later run names only what changed since the previous run", () => {
     cp({ id: "new2", created_at: "2026-10-22T00:00:00Z" }),
     cp({ id: "gone", status: "killed", created_at: "2026-10-01T00:00:00Z", last_event_at: "2026-10-20T00:00:00Z" }),
   ];
-  const named = namedOnBoard(board, { previous }, NOW);
+  const named = namedOnBoard(board, { previous });
   expect(named.parts).toEqual([{ label: "New", chokepoints: [board[1], board[2]] }]);
   expect(named.more).toBe(1);
-  expect(namedOnBoard([board[0] as Chokepoint], { previous }, NOW)).toEqual({ parts: [], more: 0 });
+  expect(namedOnBoard([board[0] as Chokepoint], { previous })).toEqual({ parts: [], more: 0 });
 });
 
 test("Today's rows follow the cards' theme order, then the slugs /themes does not list", () => {

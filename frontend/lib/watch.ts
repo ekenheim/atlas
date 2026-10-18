@@ -64,20 +64,16 @@ export interface Named {
  * What Today names on a theme's Watch row: the chokepoints that became thesis-ready (as their
  * current state, until W8's `status_set_at`), were spotted, or were ruled out since the previous
  * run (a first run has no lower bound), at most `shown`. Each chokepoint is named once, under the
- * first label that applies; within a label the API's order (latest event first) holds.
+ * first label that applies; within a label the API's order (latest event first) holds. The window
+ * has no upper bound: the browser's clock may run behind the server's.
  */
 export function namedOnBoard(
   board: readonly Chokepoint[],
   runs: Pick<LatestRuns, "previous"> | null,
-  now: Date = new Date(),
   shown = 2,
 ): Named {
   const from = runs?.previous ? Date.parse(runs.previous.created_at) : Number.NEGATIVE_INFINITY;
-  const to = now.getTime();
-  const inside = (at: string) => {
-    const time = Date.parse(at);
-    return time > from && time <= to;
-  };
+  const inside = (at: string) => Date.parse(at) > from;
   const rules: [NamedLabel, (cp: Chokepoint) => boolean][] = [
     ["Thesis-ready", (cp) => cp.status === "thesis_ready" && inside(cp.last_event_at)],
     ["New", (cp) => cp.status !== "killed" && inside(cp.created_at)],
@@ -135,7 +131,7 @@ export function watchRows(
       title: themeTitle(slug, themes),
       runs: theirs,
       counts: boardCounts(mine),
-      named: namedOnBoard(mine, theirs, now),
+      named: namedOnBoard(mine, theirs),
       excerpt: theirs ? memoExcerpt(theirs.latest.memo) : "",
       unseen: theirs ? isUnseen(theirs.latest.created_at, mark) : false,
       stopped: theirs ? stoppedWatch(theirs.latest, now) : false,

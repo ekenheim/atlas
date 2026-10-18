@@ -131,6 +131,16 @@ test("the excerpt: the first paragraph, else the first list, else nothing", () =
   expect(memoExcerpt("")).toBe("");
 });
 
+/** The median of five timed runs: one sample on a busy CI runner is noise, not a measure. */
+function medianMs(run: () => unknown): number {
+  const times = Array.from({ length: 5 }, () => {
+    const start = performance.now();
+    run();
+    return performance.now() - start;
+  }).sort((a, b) => a - b);
+  return times[2] ?? 0;
+}
+
 test("hostile input parses quickly: a 50 KB memo of markers in under 50 ms", () => {
   const hostile = [
     "*".repeat(10_000),
@@ -142,15 +152,10 @@ test("hostile input parses quickly: a 50 KB memo of markers in under 50 ms", () 
   ].join("");
   expect(hostile.length).toBeGreaterThan(50_000);
   parseMarkdown("warm up **a** [b](https://c)");
-  const start = performance.now();
-  const blocks = parseMarkdown(hostile);
-  const elapsed = performance.now() - start;
-  expect(blocks.length).toBeGreaterThan(0);
-  expect(elapsed).toBeLessThan(50);
+  expect(parseMarkdown(hostile).length).toBeGreaterThan(0);
+  expect(medianMs(() => parseMarkdown(hostile))).toBeLessThan(50);
   const lines = Array.from({ length: 2_000 }, (_, index) => `- item ${index} **b** [l](https://x.io/${index}) step d`).join(
     "\n",
   );
-  const begin = performance.now();
-  parseMarkdown(lines);
-  expect(performance.now() - begin).toBeLessThan(50);
+  expect(medianMs(() => parseMarkdown(lines))).toBeLessThan(50);
 });
