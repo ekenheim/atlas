@@ -6,33 +6,14 @@
 // never an error, and the label is always there so nothing reshuffles.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 
-import { cacheCount, cachedCount, loadDecideCount } from "../lib/decide";
 import { NAV_ITEMS, sectionOf } from "../lib/nav";
+import { useDecideCount } from "../lib/use-decide-count";
 
 export function SiteNav() {
   const pathname = usePathname();
   const current = sectionOf(pathname);
-  const [count, setCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    const read = async () => {
-      const cached = cachedCount();
-      if (cached !== null) return cached;
-      const found = await loadDecideCount();
-      cacheCount(found);
-      return found;
-    };
-    read().then(
-      (found) => live && setCount(found),
-      () => undefined,
-    );
-    return () => {
-      live = false;
-    };
-  }, []);
+  const count = useDecideCount();
 
   return (
     <nav aria-label="Site">

@@ -74,6 +74,23 @@ export function forgetDecideCount(store: Store | null = tabStore()): void {
   }
 }
 
+let inflight: Promise<number> | null = null;
+
+/** The count for this tab: cached, else read once however many parts of the page ask. */
+export function getDecideCount(): Promise<number> {
+  const cached = cachedCount();
+  if (cached !== null) return Promise.resolve(cached);
+  inflight ??= loadDecideCount()
+    .then((found) => {
+      cacheCount(found);
+      return found;
+    })
+    .finally(() => {
+      inflight = null;
+    });
+  return inflight;
+}
+
 /** The badge's count: Beliefs to judge and open proposed updates (two list calls). The gate
  * blocks are counted on the Decide page itself, which makes a call for each draft. */
 export async function loadDecideCount(): Promise<number> {

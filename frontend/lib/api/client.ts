@@ -295,7 +295,13 @@ export const api = {
   /** Reporting dates TradingView's calendar gave, from `eventFrom` on (leads, never Evidence). */
   calendarLeads: (eventFrom: string) =>
     get("/api/v1/leads", {
-      query: { origin: "tradingview_calendar", event_from: eventFrom, limit: 100, offset: 0 },
+      query: {
+        origin: "tradingview_calendar",
+        // The API wants a time with its zone: the start of that UTC day.
+        event_from: `${eventFrom.slice(0, 10)}T00:00:00Z`,
+        limit: 100,
+        offset: 0,
+      },
     }),
   /** How many edges wait in the exceptions queue (the total only). */
   exceptionsTotal: async () =>
