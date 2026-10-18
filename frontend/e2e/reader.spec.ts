@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { expectNoOverflow, openSystem } from "./helpers";
+import { expectNoOverflow, openRecords, openSystem } from "./helpers";
 
 // The reader's way in: the nav (five items, the current one marked), the research index on the
 // workbench's page, and the company dossier (findings first, records folded away). The index is
@@ -68,21 +68,21 @@ test.describe("the company dossier", () => {
     await expect(page.getByRole("region", { name: "What Atlas believes" })).toContainText(
       "Lumentum's laser demand is outrunning its capacity.",
     );
+    // What Atlas found is a record: folded away until opened.
+    await expect(page.getByRole("heading", { level: 2, name: "What Atlas found" })).toHaveCount(0);
+    await openRecords(page);
     await expect(page.getByRole("heading", { level: 2, name: "What Atlas found" })).toBeVisible();
 
     const finding = page.locator("button.finding-line").first();
     await expect(finding).toHaveAttribute("aria-expanded", "false");
     await finding.click();
     await expect(finding).toHaveAttribute("aria-expanded", "true");
-    const quote = page.locator(".reader-quote blockquote").first();
+    const quote = page.locator(".quote-card blockquote").first();
     await expect(quote).toBeVisible();
     await expect(quote).not.toHaveText("");
-    await expect(page.locator(".reader-quote").getByRole("link", { name: "Source" })).toBeVisible();
+    await expect(page.locator(".quote-card").getByRole("link", { name: "Open in source" })).toBeVisible();
 
-    // The records are folded away until opened.
     const identity = page.getByRole("table", { name: "Identity" });
-    await expect(identity).toBeHidden();
-    await page.locator("summary", { hasText: "Records" }).click();
     await expect(identity.getByRole("row", { name: /^CIK/ }).getByRole("cell")).toHaveText(
       "0001633978",
     );
@@ -93,7 +93,7 @@ test.describe("the company dossier", () => {
     await page.goto("/companies/");
     await page.getByRole("link", { name: "Lumentum" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Lumentum" })).toBeVisible();
-    await page.locator("summary", { hasText: "Records" }).click();
+    await openRecords(page);
     await expect(page.getByRole("table", { name: "Identity" })).toBeVisible();
     await expectNoOverflow(page);
   });

@@ -69,6 +69,26 @@ for (const width of WIDTHS) {
       await checkSurface(page);
     });
 
+    test("Company", async ({ page }) => {
+      await page.goto("/companies/");
+      await page.getByRole("link", { name: "Lumentum" }).click();
+      await expect(page.getByRole("region", { name: "What Atlas believes" })).toBeVisible();
+      await checkSurface(page);
+      await expect(page.locator("details.reader-records")).toHaveCount(1);
+    });
+
+    test("Sessions", async ({ page }) => {
+      await page.goto("/sessions/");
+      await expect(page.getByRole("list", { name: "Runs, newest first" })).toBeVisible();
+      await checkSurface(page);
+    });
+
+    test("System", async ({ page }) => {
+      await page.goto("/system/");
+      await expect(page.getByRole("list", { name: "System" })).toBeVisible();
+      await checkSurface(page);
+    });
+
     test("Decide", async ({ page }) => {
       await page.goto("/decide/");
       await expect(page.getByRole("heading", { level: 2, name: "With the lead" })).toBeVisible();
