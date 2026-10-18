@@ -741,3 +741,586 @@ Each step runs the same overflow and leak checks. The company page must be ≤ 2
 - **B4.** Hypothesis drafting should emit the thesis proposition separately from its supporting facts (for example `content.thesis_proposition`). `lib/thesis.ts` prefers it when present; the colon rule is the fallback.
 - **B5 (optional).** A `newest_evidence_at` field (the latest cited document date) on `BeliefSummary`, for a theme-level `newest evidence 14 Aug` line. Round 1 shows examination freshness and `as of` instead.
 - **Later.** `GET /api/v1/scorecard?theme=` once the scorecard ticket lands. For each case: the case, the date Atlas would have called it, the date it was priced, the lead time, and hit or miss with the reason. Record renders its scorecard section only when the route answers.
+---
+
+## 10. Round 3: the Chokepoint Watch (W1 8623f56)
+
+Built on `ui/the-board` (main at v0.6.16 plus `ticket/w1-the-board` 8623f56). Round 3 adds the board, the Watch memo and the bear checks to the owner's pages. It reuses rounds 1 and 2 without change: the tokens, `<Status>`, `<Quote>`, `<RecordsFold>`, the row-as-link, the `.step` / `.step-details` disclosure, the three date helpers, `lib/seen` and the leak guard. It adds no npm dependency and no colour token. The debate behind this section is in `debate-round3-2026-10-18.json`.
+
+**The shipping state is empty.** 0.6.17 goes live with no chokepoint and no watch run, so each new slot renders nothing, or one terse line where §10.3 says so. With Records closed, Today stays at 999/1542 px or less (desktop/phone) and Theme photonics at 1722/2904 px or less. Both are acceptance checks (§10.9, item 10).
+
+### 10.1 Decisions
+
+#### Where I yield to the director
+
+| # | Director's point | What I build |
+|---|---|---|
+| Z1 | The bear checks were drafted against a shape the backend does not have. `value` is a dict, `basis` is agent prose, and a source span has no Assertion | `lib/bear-checks.ts` formats each check's `value` from its own fields (§10.6). The Unknown reason is written in the UI, per check, until B8 adds `unknown_reason`. A source span links through a new viewer path, `/version/?id=&from=&to=&parse=`, which highlights the span (§10.6). I never promise a highlight that cannot render. |
+| Z2 | On Today, the memo leads and the board does not | Line 2 of the Watch row names up to two chokepoints, each linked, so Today → chokepoint → `Open in source` is two clicks. The memo excerpt moves to line 3 (one-line clamp, `Memo →`). The row says `Thesis-ready:` (the current state), never "became thesis-ready", until B12 adds `status_set_at`. |
+| Z3 | The board-only theme put the memo above the board, and twice | The memo block and "This week's" are cut. The status line is `Watching · last watch 24 Oct · 4 chokepoints · 1 thesis-ready`. The board header's `Memo · 24 Oct →` is the page's only memo entry. |
+| Z4 | "Lead" meant three things | The chokepoint status `lead` becomes `Spotted`, with the group `Spotted (n)`. The step status `primary` becomes `Quoted`. "Lead" now means the record only (`2 leads`). The step status `lead` becomes `Unquoted` (H2). |
+| Z5 | "Needs a second look" already has a meaning, and here it fired on progress | A lapsed gate takes new words, `Below the bar` (H1). It is warn only when a thesis step lost its quote or the falsifiers were cleared. When only the open question is missing, it reads `No open question`, muted. The verdict line never says "No longer thesis-ready" next to `Thesis-ready`. The open-Issue gate goes to the lead (B13). The e2e seeds both cases (§10.8). |
+| Z6 | R4 gave robotics both a card and a Watch row | A Today card shows when the theme has active Beliefs, or when it has no board, no run and `company_count > 0` (today's Starting card). A theme with a board or a run but no Belief has a Watch row only. The two robotics cases then look the same on Today (§10.2.4). Themes keeps every card (`Watching` / `Not started`). |
+| Z7 | The theme layout depended on a condition, not on the data | The page always loads `GET /chokepoints?theme=` and `GET /watch-runs?theme=&limit=8` by slug, in parallel with `/themes`. The layout is chosen from what comes back (§10.3.1). This covers memory-packaging with a board. A zero-company theme with nothing in it reads `Not started · the first watch has not run`. |
+| Z8 | The step strip was not glanceable | The label's brightness carries the state: `Quoted` is `--text` with `●`, `Unquoted` is `--text-2` with `○`, `Not examined` is `--muted` with no mark, and `Contradicted` is `--gap` with `✕`. The mark comes first. The layout stays 4 + `Against` + 2. One legend line appears, on the board only. On desktop the strip sits on the right of line 2. |
+| Z9 | Rows repeated their group's word, the counts included the ruled-out, and the board pushed the thesis's Changed \| Due down | Grouped rows carry badges only, no status word. "Active" means not ruled out, and Ruled out keeps its own count. On a theme with a thesis, the board sits **after Changed \| Due and before Companies**, so the thesis's changes and due dates stay beside its steps. |
+| Z10 | Warn was overused | `Quiet since …` is muted, and quiet rows sort to the end of their group. `Holder not yet named` and `None written yet` are muted. Warn is kept for two things: `Below the bar` (a lapsed thesis step or falsifier) and Today's stopped watch (`last watch 24 Oct`, warn). |
+| Z11 | Three near-synonyms for falsifiers | The band is `What would falsify it`, and the gate text says `a falsifier`. Step f keeps `STEPS.invalidation`, `What would invalidate it`, the Hypothesis page's pairing. The extra sentence under `Context, not evidence` is cut. The gate lines read `Meets the bar for a thesis.` and `Waiting for proof` (muted). |
+| Z12 | Real memos will leak | `markdown.ts` runs a deterministic owner-words pass over its text nodes, driven by the `lib/status.ts` tables (§10.5). A UUID is removed and the gap it leaves is collapsed. Exactly one internal link form is allowed, `atlas:chokepoint/<uuid>` (it depends on B9). B9 fixes the memo's shape. `expectNoLeaks` against production is part of W2's first-run acceptance. |
+| Z13 | Correctness: R7, Facts on mount, Issue titles, the runs limit, holder matching, the mode word, the relief clamp | Spans link through `fact.assertion.id` (as `company/page.tsx:443` does). On mount the page reads only the first Fact of each thesis step (at most 3, plus their documents); the rest load when a step opens. Any Issue title missing from the cached list is read with `GET /issues/{id}`. Today reads `GET /watch-runs?limit=200`. A holder is matched by slug, else CIK, else exact name. Only `First survey` is shown as a mode word; the weekly default shows none. The relief horizon is clamped at a word boundary, with an ellipsis. The board-only theme's Issue list is titled `Open questions`. |
+| Z14 | On a phone, the bear-checks grid goes ragged | The checks are rows: label, then the value right-aligned, then a word only for Flag or Unknown. Each row is a disclosure. Two columns at ≥ 64rem. The order of the checks is fixed (Y7); a flag is coloured, never moved. |
+| Z15 | Optional: crowding words | `Early`, `Emerging`, `Crowded`, each with `title="Atlas's guess at how widely it is known"`. "Not yet noticed" asserted a fact the model cannot know. |
+| Z16 | Optional: two-line board rows, the memo h1, EDGAR links | The board rows are two lines on desktop (§10.3.3). The memo page's h1 is `Robotics · 24 Oct`. Each holder CIK in Records links to its EDGAR filer page. |
+
+#### Where I hold
+
+- **H1: `Below the bar`, not `Gate lapsed`.** The chokepoint page already says `Meets the bar for a thesis.` One concept should have one word on all three surfaces: the badge, the page line and the gate text. "Gate" is the system's word for publishing, and Decide shows it only in "gate blocks". The page line reads `Below the bar: no quote for control`.
+- **H2: the step status `lead` reads `Unquoted`, not `Unquoted lead`.** The backend sets `lead` for a step that rests on a lead *or an Issue* (`StepEvidence`: "`lead` a lead or an Issue"). A step backed only by an open question would then read "lead", which is false, and it brings back the word Z4 retires. `Unquoted` pairs with `Quoted`, and says exactly what the owner cannot yet click.
+- **H3: a bear check's `basis` goes in the company page's Records, not in the open row.** Real basis strings carry ISO dates, `XBRL`, `in the ledger`, `the as-of time`, unscaled numbers, bracketed concept names and the rule's own text. The owner's rule allows raw records only in Records, and a muted line inside an open row is still above Records. The open row shows the UI-written figures from `value`, plus the quotes and the filings with their links. Records holds `Bear checks: how each was read`, with every check's basis verbatim.
+
+#### Kept from the draft (the director agreed)
+
+- R1: the Watch is keyed by theme slug.
+- R6: board rows fetch no Fact.
+- R9: the memo is React elements, never `innerHTML`, and only http(s) links leave Atlas.
+- R10: the memo is not exempt from the leak guard.
+- R12: the vocabularies live in `lib/status.ts`.
+- The Watch section sits below the theme cards.
+- `Ruled out` is its own closed, lazily rendered fold outside Records.
+- The band (falsify / supply catches up / context).
+- Stale is read from `last_evidence_at`.
+- Empty Today slots render nothing.
+- The step regions use `lib/beliefs.STEPS` (step f reads `What would invalidate it`). The strip and pips use `lib/argument.STEP_LABELS`. Step letters never render.
+
+### 10.2 Owner words (all in `lib/status.ts`, covered by the enum test)
+
+| Source | Value | Word | Tone |
+|---|---|---|---|
+| `ChokepointStatus` | `lead` | Spotted | muted |
+| | `candidate` | Candidate | muted |
+| | `thesis_ready` | Thesis-ready | ok |
+| | `killed` | Ruled out | gap |
+| derived: `needs_review`, `missing` has a step or `kill_criteria` | | Below the bar | warn |
+| derived: `needs_review`, `missing` is only `open_issue` | | No open question | muted |
+| derived: `stale` | | Quiet since `<plainDay(last_evidence_at)>` | muted |
+| `StepState.status` | `primary` | Quoted (`●`, label `--text`) | — |
+| | `lead` | Unquoted (`○`, label `--text-2`) | — |
+| | `unexamined` | Not examined (no mark, label `--muted`) | muted |
+| | `contradicted` | Contradicted (`✕`) | gap |
+| `Crowding` | `early` / `emerging` / `consensus` | Early / Emerging / Crowded (title: `Atlas's guess at how widely it is known`) | muted |
+| | null | Crowding not judged | muted |
+| `WatchMode` | `architect` | First survey | muted |
+| | `delta` | (no word: the default) | — |
+| gate `missing` | `step_a_primary` | a quote for the constraint | — |
+| | `step_b_primary` | a quote for demand against supply | — |
+| | `step_d_primary` | a quote for control | — |
+| | `kill_criteria` | a falsifier | — |
+| | `open_issue` | an open question | — |
+| | anything else | something else, needs review (plus a console warning, as `gateFailureText` does) | — |
+| route filter `BoardFilter` | `stale`, `needs_review` | mapped for coverage only; the UI does not filter by them | — |
+| `CheckStatus` | `flag` / `clear` / `unknown` | Flag / (no word) / Unknown | warn / — / muted |
+| `CheckKey` | the six keys | §10.6 table | — |
+
+**Section and group words:** `Watch`, `Memo`, `Chokepoints`, `Thesis-ready`, `Candidates`, `Spotted`, `All N spotted`, `Ruled out`, `Held by`, `Holder not yet named`, `not yet researched`, `The argument`, `Against the thesis`, `Still needs:`, `Meets the bar for a thesis.`, `Waiting for proof`, `What would falsify it`, `None written yet`, `When supply could catch up`, `Not estimated`, `Context, not evidence`, `Open questions`, `Nothing on the board yet.`, `Watching`, `Not started`, `last watch`, `Bear checks`, `Open the filing`, `Open in source`.
+
+**Never shown above Records:**
+- step letters and every enum code above;
+- holder CIKs;
+- event, run, session, Fact and chokepoint ids;
+- tool calls, cost, tokens and a run's `counts` keys;
+- the actor;
+- a bear check's `basis`, concept names and ISO dates.
+
+### 10.3 Pages
+
+#### 10.3.1 Today (`app/page.tsx`)
+
+**Reads.** Two reads join Today's parallel loads; each fails on its own (the slot rule):
+- `GET /watch-runs?limit=200`, all themes, newest first. `latestByTheme` keeps the two newest runs per theme: the latest, and the previous one, which sets the window.
+- `GET /chokepoints?limit=500`, all themes.
+
+Both answer `items: []` in the shipping state. No Fact is read (R6).
+
+**Cards (Z6).** `todayCards(themes, beliefs, board, runs)`:
+- A theme with active Beliefs gets its round-2 card, unchanged, with no board line (the Watch row carries it).
+- A theme with no Belief, no chokepoint, no run and `company_count > 0` gets today's Starting card.
+- Any other theme gets no card.
+
+Every layer name goes through `layerName()`: `COMPANY_LAYERS[layer]`, else the humanised slug (`gating-equipment` → `Gating equipment`). This applies to `startingLine`, `startingStatus` and `LayerMatrix`, so a W6a slug never renders `undefined`.
+
+**The Watch section.** It sits between the theme cards and the Agents line: `<section aria-labelledby="watch">`, with the h2 `Watch` (`.reader-label`). It renders only when some slug is watched. A slug is watched when it has a run or an active (not ruled-out) chokepoint. Rows follow the cards' theme order, then watched slugs missing from `/themes`, alphabetically.
+
+```
+WATCH
+● Robotics · 24 Oct · First survey                    4 chokepoints · 1 thesis-ready
+  New: Precision reducer capacity · Servo magnet supply +2
+  Two makers hold most precision reducer capacity; lead times stretched … Memo →
+```
+
+**Line 1:**
+- The unseen dot, when the latest run's `created_at` is after the last-visit mark (`isUnseen`).
+- The theme title: from `/themes`, else the humanised slug.
+- `plainDay(run_date)`, then `First survey` for an architect run (nothing for a weekly one).
+- When the latest run is more than 9 days old, the date reads `last watch 24 Oct`, in warn. Only a stopped watch takes warn.
+- **Right side:** `boardLine(counts)`, for example `4 chokepoints · 1 thesis-ready · 1 below the bar`.
+  - Active chokepoints only. Zero parts drop out.
+  - `below the bar` is warn, and counts only the warn case of Z5.
+  - It links to `/theme?id=<slug>#board`, above the row overlay as `.row-secondary`.
+
+**Line 2: named chokepoints** (`namedOnBoard(board, runs)`), at most two, each a link to `/chokepoint/?id=`, then `+N` for the rest.
+- **The window** runs from the previous run's `created_at` (a first run has no lower bound) to now.
+- **What can be named, in order:**
+  1. `Thesis-ready:` a chokepoint at that status with `last_event_at` in the window;
+  2. `New:` one with `created_at` in the window;
+  3. `Ruled out:` one ruled out with `last_event_at` in the window.
+- Within a label, the API order holds (latest event first). Parts sharing a label share it, as in `New: A · B +2`.
+- With nothing to name, line 2 is omitted. Until B12, the label is the current status; after B12 it reads from `status_set_at`.
+
+**Line 3:** `memoExcerpt(memo)`, as plain text with a one-line clamp in `--text-2`, then `Memo →` to `/watch-run/?id=`. A theme with chokepoints but no run has no date in line 1 and no line 3.
+
+**Row-as-link.** Each named chokepoint is its own link. The row overlay is not used, because the row holds three or more links.
+
+**Empty, loading, failed.**
+- The shipping state renders nothing: no heading, no skeleton.
+- While loading, the section renders nothing.
+- A failed read renders nothing and shows no error.
+
+**Both robotics cases (after Z6 they are identical on Today):**
+
+| | Robotics in `GET /themes` | Robotics not in `GET /themes` |
+|---|---|---|
+| Before its first run (the shipping state) | No card, no Watch row. Themes shows `Robotics · Not started` | Nothing anywhere |
+| After the architect run | A Watch row only (no card) | A Watch row only. It opens `/theme?id=robotics` (board-led). Themes lists a `Watching` card for it, from `watchedSlugs` |
+| After W6 admits holders, while it has no Belief | A Watch row only (a board exists, so no Starting card) | the same |
+
+**Phone (390):**
+- Line 1 wraps: the title and date, then the board line under them at 0.85rem.
+- Line 2 wraps to at most two lines.
+- Line 3 keeps its one-line clamp.
+- A row is about 100 px.
+
+#### 10.3.2 Theme (`app/theme/page.tsx`)
+
+**Reads.** `Theme()` loads four reads in parallel: `/themes`, `/beliefs?theme=` (as today), `GET /chokepoints?theme=<slug>&limit=500` and `GET /watch-runs?theme=<slug>&limit=8`. `themeLayout(summary, beliefs, board, runs)` picks the page. Taken in order, the first that applies wins:
+1. **Active Beliefs → the thesis layout** (round 2). It renders as soon as the Beliefs arrive, without waiting for the board.
+2. **Any chokepoint (ruled-out ones too) or a run → the board-led layout.** This holds for robotics in or out of `/themes`, and for memory-packaging with a board.
+3. **The slug is in `/themes` → Starting.** With `company_count > 0`, it is today's Starting block. With zero, the status line reads `Not started · the first watch has not run`, and no "documents arrive" text appears.
+4. **Otherwise → today's error,** `Could not load the theme: it is not one of the themes.`
+
+A failed board or runs read counts as empty when choosing the layout. `GET /beliefs?theme=` filters by plain equality, so an unknown slug answers an empty list. For a slug missing from `/themes`, a Beliefs error also counts as "no Beliefs", so the board-led path never depends on it. In the board-led layout, it renders `Chokepoints unavailable` in the board slot; in the thesis layout, nothing. Rule 1 does not wait for the board; rules 2 to 4 wait for all four reads, behind the round-1 thesis-block skeleton.
+
+**Thesis layout (photonics):**
+1. Crumb, h1
+2. Thesis block
+3. `What Atlas believes`
+4. Changed \| Due
+5. **`Chokepoints`** (Z9), only when the board has items or a run exists
+6. Companies
+7. Records
+
+In the shipping state, item 5 renders nothing, so photonics keeps 1722/2904 px.
+
+**Board-led layout (robotics, memory-packaging with a board):**
+1. Crumb `Themes`, h1 (the summary's title, else the humanised slug).
+2. **Status line:** `Watching · last watch 24 Oct · 4 chokepoints · 1 thesis-ready`. `last watch` is warn after 9 days.
+3. **The board,** as the page's lead section.
+4. **`Open questions`:** `<OpenIssues theme>`, 7 rows plus `All Issues`.
+5. **`Companies`:** only when the theme is in `/themes` and has companies.
+6. **`<RecordsFold counts="2 watch runs">`:**
+   - each run as a row, `24 Oct · First survey · 212 tool calls · $3.10`, linking to its memo page;
+   - the theme description and universe details, when the theme is in `/themes`.
+
+A board-led theme with a run and no chokepoint shows the board slot as `Nothing on the board yet.` (one muted line).
+
+#### 10.3.3 The board (`components/board.tsx`, `id="board"`)
+
+```
+CHOKEPOINTS                                                      Memo · 24 Oct →
+● quoted  ○ unquoted  ✕ contradicted  · dim: not examined
+
+THESIS-READY (1)
+Indium phosphide substrate capacity                                Below the bar
+AXT, Sumitomo Electric +1 · Substrate · Early · relief 2028…   ● Constraint ● Demand ○ Control Capture · Against Relief Invalidation
+
+CANDIDATES (2)  …
+SPOTTED (9)  … first 5, then "All 9 spotted" (expands in place)
+▸ Ruled out (3)
+```
+
+**Header:**
+- The h2 `Chokepoints`, with `Memo · <plainDay> →` on the right (the theme's latest run; omitted with none).
+- The legend: one muted 0.8rem line, `aria-hidden`.
+
+**Groups,** each a `.reader-label` h3 with its count; an empty group renders nothing:
+1. `Thesis-ready`: `Below the bar` rows first.
+2. `Candidates`.
+3. `Spotted`: the first 5, then `All N spotted`.
+
+Within a group, rows keep the API order (latest event first), and quiet rows move to the group's end.
+
+**`Ruled out (n)`:** a closed `<details className="board-killed">` whose rows render on first open. Each row reads `<constraint> · ruled out <plainDay(last_event_at)> · <status_reason, one-line clamp>`.
+
+**Row** (`components/chokepoint-row.tsx`, `<li className="reader-row">`):
+- **Line 1:** the constraint (`.row-title`, the overlay link to `/chokepoint/?id=`, 2-line clamp). On the right, the badges only: `Below the bar` (warn), `No open question` (muted), `Quiet since 14 Aug` (muted).
+- **Line 2, left** (`.row-secondary`, 0.85rem muted), each part omitted when absent:
+  - holders, with up to 2 names and then `+N`;
+  - `layerName(layer)`;
+  - the crowding word;
+  - `relief <horizon>`, clamped at a word boundary to about 28 characters, with `…`.
+
+  Holder names are plain text here. They link only on the chokepoint page, so the row overlay keeps one target.
+- **Line 2, right:** `<StepPips>`, a `<ul aria-label="Steps">` in `ARGUMENT_ORDER`: four items, a `·`, the small word `Against`, then two. Each `<li>` is the mark, then the `STEP_LABELS` label, in the Z8 brightness. Its accessible name reads `Control: unquoted`.
+- **No** status word, CIK, event count or id.
+
+**Heights:** about 60 px a row on desktop. On a phone, line 2's parts wrap and the pips take their own lines (4, then `Against` + 2), about 80 px.
+
+#### 10.3.4 Chokepoint (`/chokepoint/?id=`, `app/chokepoint/page.tsx`; nav section Themes)
+
+The page answers what is scarce, who holds it, how far the evidence has got, what it still needs, what would falsify it, and where the quotes are. Top to bottom:
+
+1. **Crumb** to `/theme?id=<slug>#board`. **Kicker** `<theme title> · <layerName>`. **h1** the constraint.
+
+2. **Holders:** `Held by Harmonic Drive Systems, Nabtesco, Leaderdrive`.
+   - `holderView(holders, companies)` matches each holder by slug, else CIK, else exact case-folded name, against `GET /companies` (cached).
+   - A match links to `/company?id=`. Otherwise the name is plain text, followed by a muted `not yet researched`.
+   - With no holder: `Holder not yet named` (muted).
+
+3. **Verdict line:** `<Status>` word, then `since <plainDay>`. The date is the last `status_set` event in `history`, else `created_at`; after B12, `status_set_at`.
+   - Ruled out: `Ruled out 3 Nov: <status_reason>` (gap), with the reason whole.
+   - Badges follow, as on the board.
+
+4. **The bar line** (`barLine(chokepoint)`), with one case per state:
+
+   | State | Line |
+   |---|---|
+   | Spotted or candidate, gate fails | `Still needs: a quote for demand against supply · a falsifier · an open question` |
+   | Spotted or candidate, gate holds | `Meets the bar for a thesis.` |
+   | Thesis-ready, gate holds | `Waiting for proof` (muted) |
+   | Thesis-ready, a step or the falsifiers missing | `Below the bar: no quote for control` (warn; `no` + the gate words without their article, joined with ` · `) |
+   | Thesis-ready, only the open question missing | `No open question linked` (muted) |
+   | Ruled out | no line |
+
+5. **`The argument`** (h2): the four for-steps, then an h3 `Against the thesis` and the two against-steps. Each is a `<section aria-label={STEPS[name]}>` using the `.step-details` disclosure.
+   - **The summary:**
+     - the step name and its status word;
+     - the count line `2 quotes · 1 lead · 1 open question`, with zero parts dropped;
+     - `set <plainDay(set_at)>`;
+     - for a thesis step whose first Fact has loaded, that Fact's statement as the headline (2-line clamp).
+   - **A not-examined step** is a plain row, `Relief · Not examined`, with no disclosure.
+   - **The body:**
+     - Facts as `<Quote>`s (statement, verbatim quote, caption, `Open in source →` via `routes.span(fact.assertion.source_version_id, fact.assertion.id)`). The caption is `<company> · <document> · <evidenceDay(available_at)>`. `against` is set on a contradicted step.
+     - Issues as row-links to `/issue?id=`.
+     - Leads as a muted `2 leads`, unlinked until B6.
+   - **Fetching (Z13):**
+     - On mount, the page reads the first Fact of steps a, b and d (at most 3) and their distinct Source Versions (`GET /source-versions/{id}`, cached).
+     - A step's other Facts load when it first opens, with `+N quotes loading`.
+     - A failed Fact shows `Quote unavailable` in its place.
+     - Issue titles come from the cached `GET /issues`; any missing one is read with `GET /issues/{id}`.
+   - **Two clicks:** board row → `/chokepoint` (1); open the step (a disclosure, not counted, as in §8.9); `Open in source` (2).
+
+6. **The band:** three columns at ≥ 64rem, stacked below that.
+   - `What would falsify it`: the kill criteria as a list. With none, `None written yet` (muted).
+   - `When supply could catch up`: `horizon`, then `basis` as a `--text-2` paragraph. With none, `Not estimated`.
+   - `Context, not evidence`: the crowding word, with its title. With none, `Crowding not judged`.
+
+7. **`Open questions`:** the linked Issues still open, as rows. With none, the section is omitted (the bar line already says it).
+
+8. **`<RecordsFold counts="14 events">`:**
+   - **History,** oldest first, from `historyRows(events)`. It replays the events, so each sentence knows the before and after values:
+     - `24 Oct · Created at Gating equipment, held by 3`
+     - `Control: not examined → unquoted · why: <reason>`
+     - `Status: Candidate → Thesis-ready`
+     - `Falsifiers rewritten (2)`
+     - `Note: <text>`
+
+     Each sentence is followed by `· by <actor>`, the session link, and `exact` time.
+   - The holders' CIKs, each linked to its EDGAR filer page.
+   - The closed linked Issues.
+   - The created-by session or run.
+
+**States:**
+- Loading: an h1 skeleton and six step outlines.
+- Not found: `This chokepoint does not exist.`
+- Error: `Could not load the chokepoint`.
+
+**Phone:** the same order. The verdict line wraps, with the badges under the word, and the band stacks.
+
+#### 10.3.5 Memo (`/watch-run/?id=`, `app/watch-run/page.tsx`; nav section Themes)
+
+1. Crumb: the theme (`/theme?id=<slug>`). h1 `Robotics · 24 Oct` (the theme title · `plainDay(run_date)`). Kicker `First survey` for an architect run only.
+2. One muted line: `The Watch's memo · not evidence`.
+3. `<Memo source>` at `.measure`.
+4. `Earlier runs`: up to 7 rows from `GET /watch-runs?theme=&limit=8`, each `24 Oct · <excerpt, one-line clamp>`, linked. Omitted with none.
+5. `<RecordsFold>`: the `counts` as a key-value table, tool calls, cost, tokens, the session link and the exact created time.
+
+**States:**
+- Not found: `This memo does not exist.`
+- Error: `Could not load the memo`.
+
+**Phone:** the same order.
+
+**The renderer** (`lib/markdown.ts` → `components/memo.tsx`). It parses the memo into `Block[]` and renders React elements. No `innerHTML`.
+- **Blocks:** headings (levels 1–3 render as h3, 4–6 as h4), paragraphs, and lists (ordered or not, one level; deeper items are flattened).
+- **Inlines:** text, `em`, `strong` and links.
+  - A link renders as `<a target="_blank" rel="noopener noreferrer nofollow">` only when its target matches `^https?://`. Its host follows in muted text.
+  - `atlas:chokepoint/<uuid>` becomes a `Link` to `/chokepoint/?id=` (B9 makes the Watch cite this way).
+  - Any other target renders as its text.
+- **Neutralised:**
+  - Fenced and indented code blocks are dropped.
+  - Inline code becomes text, then passes the owner-words pass.
+  - Raw HTML stays literal text.
+- **The owner-words pass** (`ownerWords(text)`), on every text node outside link targets, replaces exact tokens only:
+  - each `ChokepointStatus`, `StepStatus`, `Crowding` and gate code by its §10.2 word, with case kept at sentence start;
+  - step names `demand_vs_supply` and the like by their `STEPS` words;
+  - `step a`…`step f`, `step_a`…`step_f` and `(a)`…`(f)` after the word "step" by the `STEP_LABELS` label.
+
+  A UUID is removed, along with the whitespace and punctuation it leaves stranded (`Fact <uuid> shows` → `Fact shows`; `(<uuid>)` → nothing).
+- **Robustness:** CRLF is normalised, unbalanced emphasis stays literal, and the parser is linear-time (no backtracking regex over unbounded input).
+- **`memoExcerpt(src)`:** the first paragraph block as plain text, after the owner-words pass. It falls back to the first list's items joined with ` · `. A heading-only memo gives `""`, and line 3 then shows only `Memo →`.
+
+#### 10.3.6 Company: the bear checks (§10.6)
+
+### 10.4 Lib and component layout
+
+**`frontend/lib/`** (pure modules, each unit-tested):
+- **`status.ts`** (extended): `CHOKEPOINT_WORDS`, `STEP_STATUS_WORDS`, `STEP_MARKS`, `CROWDING_WORDS`, `WATCH_MODE_WORDS`, `GATE_MISSING`, `gateMissingText`, `BEAR_STATUS_WORDS`, `BEAR_LABELS`, `BEAR_UNKNOWN_REASONS`, and `OWNER_TOKENS` (the map the memo pass reads, built from the tables above).
+- **`chokepoints.ts`:** `boardGroups`, `boardCounts` (active only, per theme, with `ready`, `below`, `killed`), `boardLine`, `badges(cp)` (returns `below` / `noQuestion` / `quiet`), `pipsOf`, `barLine`, `stepCounts`, `thesisHeadlineFactIds` (at most 3), `factIdsOf(step)`, `historyRows`, `holderView`, `layerName`, `themeTitle`, `humanise`, `clampWords`.
+- **`watch.ts`:** `latestByTheme` (latest and previous), `watchedSlugs`, `watchRows`, `namedOnBoard`, `stoppedWatch` (more than 9 days), `todayCards`, `themeLayout`.
+- **`markdown.ts`:** `parseMarkdown`, `ownerWords`, `memoExcerpt`.
+- **`bear-checks.ts`:** `parseBearChecks` (a runtime guard until B8), `bearSummary`, `bearValue(check)`, `bearFigures(check)`, `unknownReason(check)`, `money(amount, unit)`.
+- **`nav.ts`:** `/chokepoint` and `/watch-run` → Themes.
+- **`routes.ts`:** `chokepoint(id)`, `watchRun(id)`, `spanAt(versionId, from, to, parse)`.
+- **`api/client.ts`:**
+  - `chokepoints({ theme?, status?, limit })`, `chokepoint(id)`, `watchRuns({ theme?, limit })`, `watchRun(id)`;
+  - `companiesIndex()`, a memoised map by slug, CIK and folded name;
+  - `bearChecks(companyId)`: a raw `send` with the guard; null on 404.
+
+**`frontend/components/`:**
+
+| Component | What it is |
+|---|---|
+| `watch-section.tsx` `<WatchSection rows>` | Today's Watch section. Renders null with no rows. |
+| `board.tsx` `<Board items run? lead?>` | The header, legend, groups, `All N spotted`, and the lazy `Ruled out` fold. |
+| `chokepoint-row.tsx` | One board row. |
+| `step-pips.tsx` `<StepPips steps>` | The strip, with accessible names. |
+| `chokepoint-steps.tsx` | The page's six step sections (`.step` / `.step-details`, `<Quote>`, Issue rows). |
+| `memo.tsx` `<Memo source>` | The renderer over `Block[]`. |
+| `bear-checks.tsx` `<BearChecks companyId>`, `<BearChecksRecords checks>` | The section, and its Records table. |
+
+**Pages:** `app/chokepoint/page.tsx`, `app/watch-run/page.tsx`. Extended: `app/page.tsx`, `app/theme/page.tsx`, `app/themes/page.tsx` (the `Watching` / `Not started` cards and watch-only slugs), `app/company/page.tsx`, `app/version/page.tsx` (`?from=&to=&parse=`).
+
+**CSS:** `.watch-row`, `.board-group`, `.board-killed`, `.pips`, `.pip-q` / `.pip-u` / `.pip-n` / `.pip-x`, `.bear-rows`, `.memo` (h3/h4 sizes from the scale; `.memo p a` underlined as prose). Existing tokens only.
+
+### 10.5 The leak guard
+
+**`surface.spec.ts`** adds the following pages at 1440 and 390, each with `expectNoOverflow`, `expectFoldsClosed` (plus `details.board-killed` closed and empty) and `expectNoLeaks`:
+- Today, with the Watch rows;
+- Theme photonics, with the board;
+- Theme robotics;
+- Chokepoints A, B, D and F;
+- the photonics memo page;
+- Company Lumentum, with the bear checks.
+
+**`LEAKS`** gains exact tokens only (no snake_case catch-all):
+
+```
+\bstep [a-f]\b | \bstep_[a-f](_primary)?\b | \bthesis_ready\b | \bdemand_vs_supply\b | \bkill_criteria\b
+| \bopen_issue\b | \bunexamined\b | \bneeds_review\b | \bshelf_or_atm\b | \bgaap_gross_margin\b
+| \bcustomer_concentration\b | \bgoing_concern\b | \bnet_cash\b | \buv run\b | \bXBRL\b
+| \bin the ledger\b | \bas-of time\b | \b\d{4}-\d{2}-\d{2}\b
+| [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+```
+
+Quotes and Records stay excluded; the memo is not (R10). If the ISO-date token fails an existing surface page, that is a defect to fix, not a reason to drop the token.
+
+**`unit/no-system-on-surface.test.ts`:**
+- `SURFACE` adds the new pages and components.
+- `FORBIDDEN` adds a rendered `.cik`, `.tool_calls`, `.cost_usd`, `.tokens`, `.basis`, `.concept` and `{step.step}`.
+- `char_start` and `char_end` stay allowed only inside an `href` builder (`routes.spanAt`).
+
+**W2's acceptance (for the lead):** after the first live Watch run, `expectNoLeaks` runs against production Today and that memo page (`.scratch/ui-review/<date>/watch-leaks.cjs`).
+
+### 10.6 Company: the bear checks (`components/bear-checks.tsx`)
+
+**Where.** `<section aria-labelledby="bear">`, with the h2 `Bear checks`, after `What Atlas believes` and before `On this company`.
+
+**Summary line:** `1 flag · 4 clear · 1 unknown`.
+
+**Rows.** The six checks are rows in this fixed order: dilution, shelf_or_atm, gaap_gross_margin, customer_concentration, going_concern, net_cash. One column on a phone and two at ≥ 64rem. Each row is a `<details>`:
+- **Summary:** the label, then the value right-aligned in tabular figures, then the word, shown only for `Flag` (warn) or `Unknown` (muted).
+- **An Unknown row** reads `Unknown · <reason>`. It is always shown, never collapsed into the others.
+
+**`bearValue`, read from `value`'s own fields:**
+
+| Key | Label | Flag / clear shown as | Unknown reason (UI-written until B8) |
+|---|---|---|---|
+| `dilution` | Share count growth | `growth_pct` → `+12% in a year` | `no comparable share counts` |
+| `shelf_or_atm` | Shelf or offering filings | `filings[]` → `2 filings · S-3, 424B5 · latest 4 Mar` | `not in the filings Atlas collects` |
+| `gaap_gross_margin` | Gross margin, last four quarters | `ttm_margin_pct`, `change_points` → `41% · down 6 pts` (or `· up 2 pts`; no change part when null) | `no usable quarterly figures` |
+| `customer_concentration` | Largest customer | `current_percent` → `38% of revenue` (`more than 38%` when its match has `lower_bound`); clear on `no_customer_above` → `none above 10%` | `no customer share stated` |
+| `going_concern` | Going-concern warning | flag → `in the <document.form>`; clear → `none in the <document.form>` | `no report fully read` |
+| `net_cash` | Net cash or debt | `net_cash`, `unit` → `net cash $412M` / `net debt $1.2B` | `no complete balance sheet` |
+
+An unknown key or status renders with its humanised key and `Unknown`, plus a console warning. A null or malformed `value` on a flag or clear row shows `—`.
+
+**`money`:** `USD` → `$`, `EUR` → `€`, `GBP` → `£`, `JPY` → `¥`; any other unit follows the number (`412M CHF`). Scaling is B/M/K with `groupDigits`.
+
+**The open row (`bearFigures`):**
+- **The figures,** from `value` with UI labels:
+  - dilution: shares now and a year earlier, each with `plainDay` of its date;
+  - margin: the trailing and prior margins, and one row per quarter (`30 Jun 2026 · 41.2%`);
+  - net cash: cash, short-term investments and debt;
+  - shelf: one row per filing, `S-3 · 4 Mar 2026 · Open the filing →`.
+- **Quotes:** each source span (`kind: source_version` with `char_start`, `char_end` and `quote`) is a `<Quote>`. Its `Open in source →` goes to `routes.spanAt(source_version_id, char_start, char_end, parser_version)`.
+- A filing source without a span is `Open the filing →` (`/version/?id=`).
+- Observation sources render nothing here: the figures already show them.
+
+**The viewer's span path.** `app/version/page.tsx` accepts `?from=&to=&parse=`, loads that parse as it does for a reparsed Assertion, and highlights with the existing `splitAtSpan`. The note reads `Quoted passage · <form> · filed <day>`. `?assertion=` keeps priority, and the offsets appear only in the href and in Provenance.
+
+**Records.** The company page's existing `<RecordsFold>` gains `Bear checks: how each was read`: per check its label, `basis` verbatim and the concept names, and the as-of time (`exact`).
+
+**Empty or failed.**
+- A 404 (an older backend) or a failed read hides the section, with no error line.
+- A company with no filings shows six Unknown rows and `6 unknown`: honest, and shown.
+
+**Height:** about 200 px at 1440 (three rows of two) and about 300 px at 390. The company page stays ≤ 2,000 px at 1440.
+
+### 10.7 Backend tickets for the lead
+
+- **B6 (should-have).** `GET /chokepoints/{id}` should resolve its evidence:
+  - `facts[]` (`id, assertion_id, statement, quote, company_name, document_title, available_at, source_version_id`);
+  - `leads[]` (`id, title, url, origin, published_at`);
+  - `issues[]` (`id, title, status`).
+
+  Leads then link, and the page reads nothing else.
+- **B7.** `Holder` gains `company_id` when it resolves. The UI's slug/CIK/name match then goes.
+- **B8 (must-have before the bear checks leave the runtime guard).** `CheckKey` and `CheckStatus` go into the OpenAPI schema. `value` gets one typed model per key (the fields of §10.6, with `customer_concentration` and `going_concern` pinned). Two fields are added: `unknown_reason`, an enum such as `form_not_collected`, `no_xbrl`, `not_comparable` or `no_statement`, and an owner-facing `summary`.
+- **B9 (must-have before W2's first run).** The Watch prompt carries the owner's writing rules:
+  - no ids, enum codes, step letters, commands, job or tool names, times of day or code blocks;
+  - steps named in words;
+  - http(s) links only for sources, and `atlas:chokepoint/<id>` for the board;
+  - the shape: a lead paragraph of one or two sentences on what changed on the board, then the watch spec's four headed sections (discoveries, rejections, changes, next questions).
+- **B10.** Once W6a lands, decide whether `ThemeSummary.empty_layers` stays the `CompanyLayer` enum. The UI already falls back through `layerName`.
+- **B11.** Decide whether a theme with no companies appears in `GET /themes`. Both cases are designed (§10.3.1).
+- **B12.** `Chokepoint.status_set_at`, which the fold already knows. Today's line 2 and the page's `since` then read it.
+- **B13.** The open-question gate. Either the gate counts a linked Issue whether open or answered, or completing a chokepoint's last open Issue requires linking the next. Until then the UI mutes the open-question-only case (Z5).
+- **B14 (optional).** Board counts on `ThemeSummary`, or `GET /chokepoints/counts`. `list_chokepoints` folds every chokepoint before slicing, and Today pays that on every load.
+
+### 10.8 e2e
+
+**Seeding** (`scripts/e2e.py`, `seed_board(base_url)`, with `httpx` against the first served API, after `running_api` and before Playwright; public routes only):
+1. **Look up ids.** `GET /companies` gives the Lumentum id. `GET /facts?session_id=<the seeded session>` gives its two Facts (Lumentum's March 2026 10-Q).
+2. **Issues.** `POST /issues` five times (I1 to I5) for theme `photonics`, so `issues.spec`'s seeded Issues are left as they are.
+3. **One session.** `POST /sessions {theme: "photonics", question, as_of: now, seed_company_ids: [lumentum], actor: "e2e-watch"}`. As-of must be now, because events refuse a session more than 36 h old (`not_prospective`).
+   - The session creates A and writes one event, then closes.
+   - Every other write omits `session_id`.
+   - `sessions.spec`'s `2 Facts` still holds, since this run adds no Fact.
+4. **A, thesis-ready.** `constraint: "Indium phosphide laser capacity"`, `layer: "laser"`, holders Lumentum (slug) and `Outside Holder Co`. Then:
+   - steps a, b and d `primary` with the two Facts;
+   - e `lead` with I1;
+   - `field_set` with `kill_criteria`, `add_issue_ids: [I1]`, `crowding: "early"` and `relief_horizon`;
+   - status `candidate`, then `thesis_ready`.
+5. **B, below the bar.** Built like A, linked to I2. Then `field_set {kill_criteria: []}`. The payload refuses null but accepts an empty list. The thesis-ready lock (`thesis_ready_step_locked`, `chokepoints/service.py`) applies only to a `step_set` of a, b or d, so this is a valid route to the warn case.
+6. **F, no open question.** Built like A, linked to I3 only. Then `POST /issues/{I3}/complete`: the muted case.
+7. **C, candidate.** Step f `contradicted` with a Fact, and step c `lead` with I4 only (H2's `Unquoted` backed by an Issue).
+8. **D, ruled out.** Status `killed`, with the reason `Supply added faster than demand.`
+9. **E, spotted.** No holders.
+10. **Robotics.** `POST /watch-runs {theme: "robotics", mode: "architect", run_date: today, memo: CLEAN}`, plus one robotics chokepoint. `robotics` is not in the e2e universe.
+11. **Photonics.** `POST /watch-runs {theme: "photonics", mode: "delta", run_date: today, memo: DIRTY}`. `DIRTY` holds:
+    - a heading, a paragraph and a list;
+    - `**bold**`;
+    - `[ok](https://example.com)` and `[bad](javascript:window.__pwned=1)`;
+    - `[A](atlas:chokepoint/<A's id>)`;
+    - `<script>window.__pwned=1</script>`;
+    - a fenced block holding `uv run atlas ingest --company x`;
+    - inline `` `thesis_ready` `` and the prose `step d`;
+    - a bare UUID mid-sentence.
+12. **Memory-packaging** gets nothing: the empty-state control.
+
+Stale is clock-derived, so it is covered by `unit/chokepoints.test.ts` on `unit/fixtures/board.json` (a real board answer) with a fixed `now`.
+
+**New `e2e/watch.spec.ts`:**
+- **Today:**
+  - The `Watch` region has a Robotics row (`First survey`) and a Photonics row (no mode word).
+  - The photonics row's line 2 starts `Thesis-ready:` and links a thesis-ready chokepoint (A, B or F) by name. Clicking it lands on `/chokepoint/?id=`.
+  - There is no Memory packaging row and no robotics card.
+  - `Memo` opens `/watch-run/?id=`.
+- **The memo page:**
+  - `window.__pwned` is undefined, and `main` has no `script` element.
+  - `<script>` shows as literal text.
+  - `bad` is text; `ok` is a link with `noopener`.
+  - `A` links to `/chokepoint/?id=`.
+  - `main` contains no `uv run` and no UUID. It reads `thesis-ready` and `Control`, never `thesis_ready` or `step d`, and has no double space where the UUID was.
+- **Theme photonics:**
+  - `Chokepoints` comes after `Changed` and before `Companies`.
+  - The groups read `Thesis-ready (3)`, `Candidates (1)` and `Spotted (1)`.
+  - B shows `Below the bar`, and F shows `No open question`.
+  - `Ruled out (1)` is closed and renders no row until it is opened.
+  - The pips' accessible names read `Constraint: quoted`, …, `Relief: not examined`.
+  - Rows carry no status word.
+- **`/theme?id=robotics`:** the h1 is `Robotics`, the status line starts `Watching`, the board leads, and nothing reads `not one of the themes`.
+- **`/theme?id=memory-packaging`:** no `Chokepoints` region and no `Watch` text. Height as before.
+- **A:**
+  - `Waiting for proof` shows, and `Still needs` does not.
+  - Opening `Constraint` and clicking `Open in source` lands on `/version/?id=…&assertion=<fact.assertion.id>` with the span highlighted. The only navigation clicks are the board row and `Open in source`.
+  - `Lumentum` is a link. `Outside Holder Co` is not, and is followed by `not yet researched`.
+  - On load the page makes at most 3 `GET /facts/` requests (counted with `page.on("request")`).
+- **B:** `Below the bar: no falsifier` is the bar line, and the verdict still reads `Thesis-ready`.
+- **F:** `No open question linked`, muted.
+- **C:** Relief reads `Unquoted`.
+- **D:** `Ruled out <day>: Supply added faster than demand.`
+
+**Bear checks (with checklist item 9):**
+- On the Company page (Lumentum), the `Bear checks` region has six rows in the fixed order, and the summary counts add up to 6.
+- The shelf row reads `Unknown · not in the filings Atlas collects`; the fixtures hold no S-3.
+- If a row has a quote, its `Open in source` lands on `/version/?id=&from=&to=&parse=` with a highlight.
+- No ISO date shows above Records.
+
+**Unit tests:**
+- New:
+  - `chokepoints.test.ts`: groups, the quiet order, every badge, `barLine` for each row of its table, `historyRows`, `holderView` by slug, CIK and name, `layerName`, `clampWords`.
+  - `watch.test.ts`: `latestByTheme`, `namedOnBoard` (first run; window; none), `stoppedWatch` at 9 days, `todayCards` and `themeLayout` (every rule, with robotics both in and out of `/themes`).
+  - `markdown.test.ts`: the draft's cases, plus the owner-words pass, UUID gap collapsing, `atlas:chokepoint/` with a valid and an invalid UUID, and a 50 KB memo in under 50 ms.
+  - `bear-checks.test.ts`: the guard, every value format on fixtures copied from `tests/integration/test_bear_checks.py`'s answers, `money`, and the unknown reasons.
+- Extended:
+  - `status.test.ts`: enum coverage of `ChokepointStatus`, `StepStatus`, `Crowding`, `WatchMode` and `BoardFilter`, then `CheckKey` and `CheckStatus` once they are in `openapi.json`.
+  - `nav.test.ts`.
+  - `today.test.ts`.
+
+### 10.9 Build checklist (in order)
+
+1. **Words and libraries:** `status.ts` additions, `chokepoints.ts`, `watch.ts`, `markdown.ts`, `routes.ts`, `nav.ts`, and the client functions, with `scripts/gen_api_client.sh` run on the W1 schema.
+   - *Accept:* the unit tests pass, including enum coverage. The markdown cases pass. `layerName("gating-equipment")` is `Gating equipment`. `gen_api_client.sh --check` is clean.
+2. **Components:** `StepPips`, `ChokepointRow`, `Board`, `WatchSection`, `Memo`, and the CSS.
+   - *Accept:* the pips' accessible names read `Control: unquoted`. `Board` renders null for `[]`. `Ruled out` rows are absent from the DOM until the fold opens.
+3. **Theme page:** the four parallel reads, `themeLayout`, the board after Changed | Due, and the board-led layout. Themes gains the `Watching` / `Not started` cards.
+   - *Accept:* photonics is pixel-equal in the empty state (1722/2904). Robotics renders board-led out of `/themes`. A zero-company theme in `/themes` reads `Not started · the first watch has not run`. Memory-packaging is unchanged.
+4. **Today:** the Watch section, `todayCards`, `layerName` in the Starting lines.
+   - *Accept:* Today is ≤ 999/1542 px in the empty state. A robotics theme in `/themes` with nothing in it adds no card (unit). Line 2's link reaches a chokepoint in one click.
+5. **Chokepoint page.**
+   - *Accept:* the two-click path from the board, at most 3 Fact reads on mount, the bar line for every state, holder matching. No CIK appears above Records.
+6. **Memo page.**
+   - *Accept:* the dirty memo's assertions (§10.8). Earlier runs and Records are correct.
+7. **e2e seeding,** `watch.spec.ts`, and the surface-spec additions for the board pages and the memo.
+   - *Accept:* `scripts/e2e.py` is green. The surface spec passes at 1440 and 390 on every new page with Records closed.
+8. **Gates:** `npm --prefix frontend run lint | typecheck | test | build`.
+   - *Accept:* all green.
+9. **The bear checks** (last; their types arrive with the integrate branch): the viewer's `?from=&to=&parse=`, `lib/bear-checks.ts`, `<BearChecks>` and its Records table, the company page slot, and their e2e and unit tests. The runtime guard stays until B8, then the types replace it.
+   - *Accept:*
+     - Lumentum shows six rows in order, with counts adding to 6, and `Unknown · not in the filings Atlas collects` on the shelf row.
+     - No basis text, concept name or ISO date appears above Records.
+     - A quoted source lands highlighted in two clicks.
+     - The company page is ≤ 2,000 px at 1440, with no sideways overflow at 390.
+     - A 404 hides the section.
+10. **Production acceptance** (an acceptance step, not a build item) after deploy, with Records closed and the same capture as round 2 (`.scratch/ui-review/<date>/after/`).
+    - *Accept:*
+      - Today is ≤ 999/1542 px.
+      - Theme photonics is ≤ 1722/2904 px.
+      - No `Watch` or `Chokepoints` text appears.
+      - The Company page shows `Bear checks` with live rows.
+      - The surface leak guard passes against production on Today, Theme and Company.
+      - `docs/implementation-log.md` records the files, the tests and the heights before and after.
+
+**Optional, after item 9:**
+- On the chokepoint page, a researched holder carries its bear flag count (`AXT · 1 bear flag`), linking to the company's `#bear`. This is one bear-check read per researched holder, at most 3.
+- An e2e universe with robotics in `/themes` and empty, so Z6's hidden card is covered beyond the unit test.
