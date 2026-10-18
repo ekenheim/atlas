@@ -2495,7 +2495,7 @@ export interface components {
             last_examined_outcome: components["schemas"]["ExaminationOutcome"] | null;
             /**
              * Newest Evidence At
-             * @description the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none
+             * @description the latest `available_at` among the Source Versions of its supporting citations, those of load-bearing weight and positive valence (Facts or Assertions; counterevidence and context do not count); None with none
              */
             newest_evidence_at: string | null;
             /** Citations */
@@ -2659,7 +2659,7 @@ export interface components {
             last_examined_outcome: components["schemas"]["ExaminationOutcome"] | null;
             /**
              * Newest Evidence At
-             * @description the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none
+             * @description the latest `available_at` among the Source Versions of its supporting citations, those of load-bearing weight and positive valence (Facts or Assertions; counterevidence and context do not count); None with none
              */
             newest_evidence_at: string | null;
         };
@@ -4287,7 +4287,7 @@ export interface components {
             last_examined_outcome: components["schemas"]["ExaminationOutcome"] | null;
             /**
              * Newest Evidence At
-             * @description the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none
+             * @description the latest `available_at` among the Source Versions of its supporting citations, those of load-bearing weight and positive valence (Facts or Assertions; counterevidence and context do not count); None with none
              */
             newest_evidence_at: string | null;
             /**
@@ -11178,7 +11178,7 @@ export interface components {
             last_examined_outcome: components["schemas"]["ExaminationOutcome"] | null;
             /**
              * Newest Evidence At
-             * @description the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none
+             * @description the latest `available_at` among the Source Versions of its supporting citations, those of load-bearing weight and positive valence (Facts or Assertions; counterevidence and context do not count); None with none
              */
             newest_evidence_at: string | null;
             /**

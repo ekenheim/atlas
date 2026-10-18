@@ -10627,7 +10627,7 @@
               }
             ],
             "title": "Newest Evidence At",
-            "description": "the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none"
+            "description": "the latest `available_at` among the Source Versions of its supporting citations, those of load-bearing weight and positive valence (Facts or Assertions; counterevidence and context do not count); None with none"
           },
           "citations": {
             "items": {
@@ -11033,7 +11033,7 @@
               }
             ],
             "title": "Newest Evidence At",
-            "description": "the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none"
+            "description": "the latest `available_at` among the Source Versions of its supporting citations, those of load-bearing weight and positive valence (Facts or Assertions; counterevidence and context do not count); None with none"
           }
         },
         "type": "object",
@@ -15231,7 +15231,7 @@
               }
             ],
             "title": "Newest Evidence At",
-            "description": "the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none"
+            "description": "the latest `available_at` among the Source Versions of its supporting citations, those of load-bearing weight and positive valence (Facts or Assertions; counterevidence and context do not count); None with none"
           },
           "cited_companies": {
             "items": {
@@ -33983,7 +33983,7 @@
               }
             ],
             "title": "Newest Evidence At",
-            "description": "the latest `available_at` among the Source Versions of its load-bearing citations (Facts or Assertions); None with none"
+            "description": "the latest `available_at` among the Source Versions of its supporting citations, those of load-bearing weight and positive valence (Facts or Assertions; counterevidence and context do not count); None with none"
           },
           "cited_companies": {
             "items": {

@@ -189,8 +189,9 @@ class BeliefSummary(BaseModel):
     )
     last_examined_outcome: ExaminationOutcome | None
     newest_evidence_at: datetime | None = Field(
-        description="the latest `available_at` among the Source Versions of its load-bearing"
-        " citations (Facts or Assertions); None with none",
+        description="the latest `available_at` among the Source Versions of its supporting"
+        " citations, those of load-bearing weight and positive valence (Facts or Assertions;"
+        " counterevidence and context do not count); None with none",
     )
 
 
@@ -278,10 +279,11 @@ _SUMMARY = """
            (SELECT count(*) FROM belief_notice n WHERE n.belief_id = b.id
               AND n.cleared_by IS NULL) AS open_notices,
            (SELECT count(*) FROM belief_citation c WHERE c.belief_id = b.id) AS citations,
-           (SELECT max(v.available_at) FROM belief_citation c
+           (SELECT max(av.available_at) FROM belief_citation c
                JOIN assertion a ON a.id = c.ref_id
-               JOIN source_version v ON v.id = a.source_version_id
-               WHERE c.belief_id = b.id AND c.weight = 'load_bearing') AS newest_evidence_at
+               JOIN source_version_availability av ON av.source_version_id = a.source_version_id
+               WHERE c.belief_id = b.id AND c.weight = 'load_bearing'
+                 AND c.valence > 0) AS newest_evidence_at
     FROM belief b
     JOIN LATERAL (
         SELECT * FROM belief_judgement x WHERE x.belief_id = b.id
@@ -296,15 +298,16 @@ _CITATIONS = """
            CASE WHEN f.assertion_id IS NULL THEN NULL
                 ELSE a.value_json->>'statement' END AS statement,
            a.quote, a.span_start, a.span_end, a.source_version_id,
-           d.title AS source_title, v.available_at, a.verification_status AS review_state
+           d.title AS source_title, av.available_at, a.verification_status AS review_state
     FROM belief_citation c
     JOIN assertion a ON a.id = c.ref_id
     JOIN company co ON co.id = a.subject_company_id
     JOIN source_version v ON v.id = a.source_version_id
+    JOIN source_version_availability av ON av.source_version_id = v.id
     JOIN source_document d ON d.id = v.source_document_id
     LEFT JOIN fact f ON f.assertion_id = c.ref_id
     WHERE c.belief_id = :id
-    ORDER BY v.available_at, c.created_at, c.id
+    ORDER BY av.available_at, c.created_at, c.id
 """
 
 

@@ -26,7 +26,8 @@ _AGENTS: tuple[Agent, ...] = ("scout", "researcher", "skeptic", "editor")
 _ACTOR = re.compile(r"(?:atlas[-_])?(scout|researcher|skeptic|editor)(?:[-_](?:agent|routine))?")
 # A question that opens with an agent's name and a colon ("Scout: what ...", "Skeptic: what would
 # falsify Belief ...", "Editor: draft ..."): how the agents' prompts (`scout.md`, `skeptic.md`,
-# `editor.md`) tell them to open their session, since a scheduled routine passes no actor.
+# `editor.md`) tell them to open their session: the fallback for sessions older than the
+# routines' `actor: atlas-<agent>` (ticket 29b).
 _OPENING = re.compile(r"\s*(scout|skeptic|editor)\s*:", re.IGNORECASE)
 
 
