@@ -34,8 +34,9 @@ export function StepPips({ steps }: { steps: Chokepoint["steps"] }) {
         .map((pip) => (
           <PipItem key={pip.name} pip={pip} />
         ))}
+      <li className="pips-break" aria-hidden="true" />
       <li className="pips-against" aria-hidden="true">
-        · Against
+        <span className="pips-dot">· </span>Against
       </li>
       {pips
         .filter((pip) => pip.against)
