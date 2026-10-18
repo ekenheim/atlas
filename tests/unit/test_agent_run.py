@@ -262,6 +262,19 @@ ISOLATED_TOOLS = [
 ]
 BUILT_IN = ["Read", "Write", "Edit", "Glob"]
 
+# Tools the server gained after v0.6.14 (the Chokepoint Watch's board, ticket W1). Each refuses an
+# isolated session server-side (`isolated_session`, tests/integration/test_mcp_watch.py), so the
+# frozen isolated prompt neither lists nor names them: the scorecard's sessions see exactly what
+# they saw in v0.6.14. A tool added later goes here only if it too refuses isolated sessions.
+REFUSED_SERVER_SIDE_SINCE_0_6_14 = {
+    "board",
+    "get_chokepoint",
+    "add_chokepoint",
+    "update_chokepoint",
+    "write_memo",
+}
+ISOLATED_DRY_RUN_0_6_14 = ROOT / "tests" / "fixtures" / "scorecard" / "isolated-dry-run.v0.6.14.txt"
+
 SCORECARD_QUESTION = (
     "As of 2025-02-28, does anything constrain supply in SanDisk's market, who holds it, and"
     " what would relieve it? {{not a placeholder}} & more"
@@ -356,7 +369,11 @@ def test_the_isolated_prompt_names_every_tool_that_is_off_the_list(run: Run):
     assert on_list == ISOLATED_TOOLS
     assert len(named) == len(set(named))
     assert not set(named) & set(on_list)
-    assert set(named) | set(on_list) == server, sorted(server ^ (set(named) | set(on_list)))
+    # The allow-list, the tools the frozen prompt names and the tools refused server-side since
+    # v0.6.14 are the server's tools: a new tool must be decided into one of the three.
+    assert not REFUSED_SERVER_SIDE_SINCE_0_6_14 & (set(named) | set(on_list))
+    decided = set(named) | set(on_list) | REFUSED_SERVER_SIDE_SINCE_0_6_14
+    assert decided == server, sorted(server ^ decided)
     # The sixteen the lead named, whatever else the server lists.
     assert {
         "open_session",
@@ -376,6 +393,21 @@ def test_the_isolated_prompt_names_every_tool_that_is_off_the_list(run: Run):
         "upcoming_reports",
         "newest_documents",
     } <= set(named)
+
+
+def test_the_isolated_researchers_dry_run_is_what_it_was_in_v0_6_14(run: Run):
+    # The frozen surface (ticket 29): the scorecard's prompt and command are byte-identical to
+    # v0.6.14's. The recording is that release's `--dry-run` (agent/ and .claude/skills have not
+    # changed since), with the scratch directory and the working directory masked.
+    result = scorecard_run(run, "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    shown = re.sub(
+        r"(?m)^working directory: .*$",
+        "working directory: <cwd>",
+        result.stdout.replace(posix(run.tmp), "<tmp>"),
+    )
+    assert shown == ISOLATED_DRY_RUN_0_6_14.read_text(encoding="utf-8")
 
 
 def test_a_question_without_isolation_still_uses_prior_work_and_both_banks(run: Run):

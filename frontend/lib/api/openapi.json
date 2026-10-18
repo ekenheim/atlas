@@ -5372,6 +5372,421 @@
         }
       }
     },
+    "/api/v1/chokepoints": {
+      "get": {
+        "tags": [
+          "chokepoints"
+        ],
+        "summary": "Board",
+        "operationId": "board_api_v1_chokepoints_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/BoardFilter"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Chokepoint_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "chokepoints"
+        ],
+        "summary": "Create",
+        "operationId": "create_api_v1_chokepoints_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChokepointCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChokepointDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/chokepoints/{chokepoint_id}": {
+      "get": {
+        "tags": [
+          "chokepoints"
+        ],
+        "summary": "Read",
+        "operationId": "read_api_v1_chokepoints__chokepoint_id__get",
+        "parameters": [
+          {
+            "name": "chokepoint_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Chokepoint Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChokepointDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chokepoints/{chokepoint_id}/events": {
+      "post": {
+        "tags": [
+          "chokepoints"
+        ],
+        "summary": "Append",
+        "operationId": "append_api_v1_chokepoints__chokepoint_id__events_post",
+        "parameters": [
+          {
+            "name": "chokepoint_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Chokepoint Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChokepointDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/watch-runs": {
+      "get": {
+        "tags": [
+          "chokepoints"
+        ],
+        "summary": "Runs",
+        "operationId": "runs_api_v1_watch_runs_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_WatchRun_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "chokepoints"
+        ],
+        "summary": "Create",
+        "operationId": "create_api_v1_watch_runs_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchRunCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchRun"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/watch-runs/{run_id}": {
+      "get": {
+        "tags": [
+          "chokepoints"
+        ],
+        "summary": "Read",
+        "operationId": "read_api_v1_watch_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchRun"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/hypotheses/{hypothesis_id}/predictions": {
       "post": {
         "tags": [
@@ -11299,6 +11714,16 @@
         "title": "BeliefsHealth",
         "description": "The judged Beliefs Memory holds, per theme (beliefs tickets 06 and 12): what the\nconclusions bank holds of what Atlas found, apart from the archive's sections in the\nresearch bank."
       },
+      "BoardFilter": {
+        "type": "string",
+        "enum": [
+          "lead",
+          "candidate",
+          "thesis_ready",
+          "killed",
+          "stale"
+        ]
+      },
       "Bottlenecks": {
         "properties": {
           "status": {
@@ -14142,6 +14567,481 @@
         ],
         "title": "CheckpointMove"
       },
+      "Chokepoint": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "created_by_session": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Session"
+          },
+          "created_by_run": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Run"
+          },
+          "constraint": {
+            "type": "string",
+            "title": "Constraint"
+          },
+          "layer": {
+            "type": "string",
+            "title": "Layer"
+          },
+          "holders": {
+            "items": {
+              "$ref": "#/components/schemas/Holder"
+            },
+            "type": "array",
+            "title": "Holders"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ChokepointStatus",
+            "description": "the status last set; `stale` is not stored"
+          },
+          "status_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Reason",
+            "description": "the reason given with that status"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale",
+            "description": "derived: no event for 56 days (never for a killed one)"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepState"
+            },
+            "type": "array",
+            "title": "Steps",
+            "description": "the six bottleneck-test steps, a to f"
+          },
+          "kill_criteria": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Kill Criteria"
+          },
+          "relief_horizon": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReliefHorizon"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "crowding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Crowding"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "context, never evidence"
+          },
+          "issue_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Issue Ids",
+            "description": "the Issues linked to it"
+          },
+          "last_event_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Event At"
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "theme",
+          "created_at",
+          "created_by_session",
+          "created_by_run",
+          "constraint",
+          "layer",
+          "holders",
+          "status",
+          "status_reason",
+          "stale",
+          "steps",
+          "kill_criteria",
+          "relief_horizon",
+          "crowding",
+          "issue_ids",
+          "last_event_at",
+          "event_count"
+        ],
+        "title": "Chokepoint",
+        "description": "The fold of the chokepoint's events."
+      },
+      "ChokepointCreate": {
+        "properties": {
+          "theme": {
+            "$ref": "#/components/schemas/Text"
+          },
+          "constraint": {
+            "$ref": "#/components/schemas/Text",
+            "description": "the scarce thing"
+          },
+          "layer": {
+            "$ref": "#/components/schemas/Text",
+            "description": "where in the chain it sits"
+          },
+          "holders": {
+            "items": {
+              "$ref": "#/components/schemas/Holder"
+            },
+            "type": "array",
+            "title": "Holders"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "the research session"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id",
+            "description": "the run that created it"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Text"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "who; default: the API's actor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "theme",
+          "constraint",
+          "layer"
+        ],
+        "title": "ChokepointCreate"
+      },
+      "ChokepointDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "created_by_session": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Session"
+          },
+          "created_by_run": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Run"
+          },
+          "constraint": {
+            "type": "string",
+            "title": "Constraint"
+          },
+          "layer": {
+            "type": "string",
+            "title": "Layer"
+          },
+          "holders": {
+            "items": {
+              "$ref": "#/components/schemas/Holder"
+            },
+            "type": "array",
+            "title": "Holders"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ChokepointStatus",
+            "description": "the status last set; `stale` is not stored"
+          },
+          "status_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Reason",
+            "description": "the reason given with that status"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale",
+            "description": "derived: no event for 56 days (never for a killed one)"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepState"
+            },
+            "type": "array",
+            "title": "Steps",
+            "description": "the six bottleneck-test steps, a to f"
+          },
+          "kill_criteria": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Kill Criteria"
+          },
+          "relief_horizon": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReliefHorizon"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "crowding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Crowding"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "context, never evidence"
+          },
+          "issue_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Issue Ids",
+            "description": "the Issues linked to it"
+          },
+          "last_event_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Event At"
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/ChokepointEvent"
+            },
+            "type": "array",
+            "title": "History",
+            "description": "every event, oldest first"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "theme",
+          "created_at",
+          "created_by_session",
+          "created_by_run",
+          "constraint",
+          "layer",
+          "holders",
+          "status",
+          "status_reason",
+          "stale",
+          "steps",
+          "kill_criteria",
+          "relief_horizon",
+          "crowding",
+          "issue_ids",
+          "last_event_at",
+          "event_count",
+          "history"
+        ],
+        "title": "ChokepointDetail"
+      },
+      "ChokepointEvent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "chokepoint_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chokepoint Id"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EventKind"
+          },
+          "payload": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Payload"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "chokepoint_id",
+          "at",
+          "actor",
+          "session_id",
+          "run_id",
+          "kind",
+          "payload",
+          "reason"
+        ],
+        "title": "ChokepointEvent"
+      },
+      "ChokepointStatus": {
+        "type": "string",
+        "enum": [
+          "lead",
+          "candidate",
+          "thesis_ready",
+          "killed"
+        ]
+      },
       "CitationIn": {
         "properties": {
           "kind": {
@@ -16376,6 +17276,14 @@
           "no_sources"
         ]
       },
+      "Crowding": {
+        "type": "string",
+        "enum": [
+          "early",
+          "emerging",
+          "consensus"
+        ]
+      },
       "DiffClaim": {
         "properties": {
           "change": {
@@ -17528,6 +18436,85 @@
           "finished_at"
         ],
         "title": "EvaluationRunSummary"
+      },
+      "EventCreate": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/WriteKind"
+          },
+          "payload": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Payload",
+            "description": "by kind: `field_set` any of constraint, layer, holders, relief_horizon ({horizon, basis} or null), crowding (early|emerging|consensus|null), kill_criteria, issue_ids; `step_set` {step a-f, status, evidence {fact_ids, lead_ids, issue_ids}}; `status_set` {status}; `note` {text}"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "why; `killed` needs one"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "the research session: its as-of time bounds the Facts cited"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Text"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "payload"
+        ],
+        "title": "EventCreate"
+      },
+      "EventKind": {
+        "type": "string",
+        "enum": [
+          "created",
+          "field_set",
+          "step_set",
+          "status_set",
+          "note"
+        ]
       },
       "Evidence": {
         "properties": {
@@ -19938,6 +20925,43 @@
         ],
         "title": "Headline",
         "description": "A TradingView news headline's metadata (a `tradingview_news` lead)."
+      },
+      "Holder": {
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/Text"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Text"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the company's slug, if it has one"
+          },
+          "cik": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{1,10}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cik"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "Holder",
+        "description": "Who holds the scarce input: a name, with the universe's slug and a CIK when known. A\nholder outside the universe is allowed (the board looks beyond the universe)."
       },
       "Hypothesis": {
         "properties": {
@@ -25089,6 +26113,37 @@
         ],
         "title": "Page[CatalogEntry]"
       },
+      "Page_Chokepoint_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Chokepoint"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[Chokepoint]"
+      },
       "Page_Claim_": {
         "properties": {
           "items": {
@@ -25832,6 +26887,37 @@
           "offset"
         ],
         "title": "Page[TriageDecision]"
+      },
+      "Page_WatchRun_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WatchRun"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[WatchRun]"
       },
       "Passage": {
         "properties": {
@@ -29327,6 +30413,25 @@
         ],
         "title": "RelationshipRecorded",
         "description": "A mutation's result: the Relationship as it now is, and the audit event recording it."
+      },
+      "ReliefHorizon": {
+        "properties": {
+          "horizon": {
+            "$ref": "#/components/schemas/Text",
+            "description": "when supply could catch up"
+          },
+          "basis": {
+            "$ref": "#/components/schemas/Text",
+            "description": "what that rests on"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "horizon",
+          "basis"
+        ],
+        "title": "ReliefHorizon"
       },
       "ReplayAnswer": {
         "properties": {
@@ -34033,6 +35138,83 @@
         "title": "StepCitation",
         "description": "A load-bearing citation of a Belief: a Fact (or Assertion) and the words at its span."
       },
+      "StepEvidence": {
+        "properties": {
+          "fact_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Fact Ids"
+          },
+          "lead_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Lead Ids"
+          },
+          "issue_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Issue Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "StepEvidence",
+        "description": "What justifies a step's status: `primary` and `contradicted` need Facts, `lead` a lead\nor an Issue."
+      },
+      "StepKey": {
+        "type": "string",
+        "enum": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ]
+      },
+      "StepState": {
+        "properties": {
+          "step": {
+            "$ref": "#/components/schemas/StepKey"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StepStatus"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/StepEvidence"
+          },
+          "set_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set At",
+            "description": "when the status was last set; null: never"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "status",
+          "evidence",
+          "set_at"
+        ],
+        "title": "StepState"
+      },
       "StepStatement": {
         "properties": {
           "statement": {
@@ -34066,6 +35248,15 @@
         ],
         "title": "StepStatement",
         "description": "One point of a step, citing the Beliefs it rests on."
+      },
+      "StepStatus": {
+        "type": "string",
+        "enum": [
+          "unexamined",
+          "lead",
+          "primary",
+          "contradicted"
+        ]
       },
       "TagMatch": {
         "type": "string",
@@ -34210,6 +35401,11 @@
         ],
         "title": "Task",
         "description": "One role task of the plan. `depends_on` names tasks of the same round by key; a task\nruns once each of them is done, and is cancelled when one of its premises is disproven or\nevery task it depends on was cancelled."
+      },
+      "Text": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "\\S"
       },
       "ThemeBelief": {
         "properties": {
@@ -36146,11 +37342,154 @@
         ],
         "title": "VersionSample"
       },
+      "WatchMode": {
+        "type": "string",
+        "enum": [
+          "architect",
+          "delta"
+        ]
+      },
+      "WatchRun": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "run_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Run Date"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/WatchMode"
+          },
+          "memo": {
+            "type": "string",
+            "title": "Memo"
+          },
+          "counts": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "tool_calls": {
+            "type": "integer",
+            "title": "Tool Calls"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "theme",
+          "run_date",
+          "mode",
+          "memo",
+          "counts",
+          "tool_calls",
+          "session_id",
+          "created_at"
+        ],
+        "title": "WatchRun"
+      },
+      "WatchRunCreate": {
+        "properties": {
+          "theme": {
+            "$ref": "#/components/schemas/Text"
+          },
+          "run_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Run Date"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/WatchMode",
+            "description": "`architect`: the first run, decomposing the industry"
+          },
+          "memo": {
+            "$ref": "#/components/schemas/Text",
+            "description": "the memo, markdown"
+          },
+          "counts": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "tool_calls": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Calls",
+            "description": "default: the session's recorded calls, else 0"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "theme",
+          "run_date",
+          "mode",
+          "memo"
+        ],
+        "title": "WatchRunCreate"
+      },
       "Weight": {
         "type": "string",
         "enum": [
           "load_bearing",
           "context"
+        ]
+      },
+      "WriteKind": {
+        "type": "string",
+        "enum": [
+          "field_set",
+          "step_set",
+          "status_set",
+          "note"
         ]
       },
       "XbrlSource": {

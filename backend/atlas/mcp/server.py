@@ -39,6 +39,7 @@ from pydantic import ValidationError
 from sqlalchemy import Engine, text
 
 from atlas import __version__
+from atlas.mcp import watch_tools as watch_tools  # registers its tools
 from atlas.mcp.agents import AGENT_TOOLS
 from atlas.mcp.api import Api, Failed, Refusal, obj
 from atlas.mcp.tools import TOOLS, Ctx, SessionRow

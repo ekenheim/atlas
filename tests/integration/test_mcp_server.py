@@ -87,6 +87,11 @@ TOOLS = {
     "signal_leads",
     "prior_work",
     "examine_belief",
+    "board",
+    "get_chokepoint",
+    "add_chokepoint",
+    "update_chokepoint",
+    "write_memo",
 }
 NO_SESSION_REQUIRED = {"open_session", "companies", "next_issue"}
 
