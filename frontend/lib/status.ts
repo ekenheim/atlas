@@ -350,10 +350,8 @@ export const BEAR_LABELS: Record<CheckKeyName, string> = {
 };
 
 /** Why Atlas cannot answer a check (the API's `unknown_reason`), in a few words after
- * "Unknown ·". The API's `summary` says it in a sentence; this is the row's short form.
- * `no_revenue` and `taxonomy_not_read` arrive with the W8 review; until the client is regenerated
- * they are not yet in `UnknownReason`, and the enum test checks every value has words. */
-export const UNKNOWN_REASON_WORDS: Record<UnknownReason | "no_revenue" | "taxonomy_not_read", string> = {
+ * "Unknown ·". The API's `summary` says it in a sentence; this is the row's short form. */
+export const UNKNOWN_REASON_WORDS: Record<UnknownReason, string> = {
   form_not_collected: "not in the filings Atlas collects",
   no_xbrl: "not in the company's financial data",
   not_comparable: "nothing a year earlier to compare",

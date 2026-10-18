@@ -250,8 +250,8 @@ test("the thesis gate's codes read as what is still needed", () => {
 test("every bear check, check status and unknown reason has words", () => {
   expect(sorted(Object.keys(BEAR_LABELS))).toEqual(sorted(enumOf("CheckKey")));
   expect(sorted(Object.keys(BEAR_STATUS_WORDS))).toEqual(sorted(enumOf("CheckStatus")));
-  // Every reason the API sends has words (the map may run ahead of the schema by a review).
-  for (const reason of enumOf("UnknownReason")) expect(Object.keys(UNKNOWN_REASON_WORDS)).toContain(reason);
+  expect(sorted(Object.keys(UNKNOWN_REASON_WORDS))).toEqual(sorted(enumOf("UnknownReason")));
+  expect(enumOf("UnknownReason")).toHaveLength(14);
   for (const words of Object.values(UNKNOWN_REASON_WORDS)) expect(words).not.toMatch(/_|XBRL/);
   expect(BEAR_STATUS_WORDS.clear).toBeNull();
 });
