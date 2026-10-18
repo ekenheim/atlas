@@ -5,7 +5,8 @@ import { DESKTOP } from "./helpers";
 // The Chokepoint Watch's pages, against the board `scripts/e2e_board.py` seeds through the
 // public routes: photonics with A thesis-ready, B below the bar, F needing a new open question,
 // C a candidate, D ruled out and E spotted, and a weekly run whose memo carries hostile text;
-// robotics, not one of the themes, with a first survey and one chokepoint; memory-packaging
+// robotics (Robotics manufacturing: a config theme with no company) with a first survey and one
+// chokepoint; memory-packaging
 // with nothing. Expected values are the seed's.
 test.use(DESKTOP);
 
@@ -14,6 +15,7 @@ const B = "EML supply for 800G transceivers";
 const F = "Indium phosphide substrate export permits";
 const C = "CW lasers for silicon photonics";
 const D = "Pump laser capacity";
+const ROBOTICS = "Robotics manufacturing";
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 async function openChokepoint(page: import("@playwright/test").Page, name: string): Promise<void> {
@@ -27,15 +29,15 @@ test("Today: a Watch row per watched theme, naming what became thesis-ready", as
   await page.goto("/");
   const watch = page.getByRole("region", { name: "Watch" });
   const rows = watch.getByRole("listitem");
-  const robotics = rows.filter({ hasText: "Robotics" });
+  const robotics = rows.filter({ hasText: ROBOTICS });
   await expect(robotics).toContainText("First survey");
   const photonics = rows.filter({ hasText: "Photonics for AI data centers" });
   await expect(photonics).not.toContainText("First survey");
   await expect(photonics).toContainText("3 thesis-ready");
   await expect(photonics.locator(".watch-named")).toHaveText(/^Thesis-ready: /);
   await expect(rows.filter({ hasText: "Memory and advanced packaging" })).toHaveCount(0);
-  // Robotics has a Watch row only, no card.
-  await expect(page.getByRole("article", { name: "Robotics" })).toHaveCount(0);
+  // Robotics has a Watch row only, no card (no company, no Belief).
+  await expect(page.getByRole("article", { name: ROBOTICS })).toHaveCount(0);
 
   const named = photonics.locator(".watch-named").getByRole("link").first();
   const name = (await named.textContent()) ?? "";
@@ -128,9 +130,9 @@ test("the photonics board: after Changed, before Companies, grouped, with badges
   }
 });
 
-test("robotics, not one of the themes, leads with its board; memory-packaging has none", async ({ page }) => {
+test("robotics, a theme with no company, leads with its board; memory-packaging has none", async ({ page }) => {
   await page.goto("/theme/?id=robotics");
-  await expect(page.getByRole("heading", { level: 1, name: "Robotics" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: ROBOTICS, exact: true })).toBeVisible();
   await expect(page.locator(".thesis-status").first()).toHaveText(/^Watching/);
   await expect(page.getByRole("region", { name: "Chokepoints" })).toContainText("Precision strain-wave reducer capacity");
   await expect(page.locator("main")).not.toContainText("not one of the themes");

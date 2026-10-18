@@ -2,9 +2,11 @@ import { expect, test } from "@playwright/test";
 
 import { DESKTOP } from "./helpers";
 
-// Today, against the database `scripts/e2e.py` seeds: the three themes of the config, photonics
+// Today, against the database `scripts/e2e.py` seeds: the four themes of the config, photonics
 // with a proven constraint (whose judgement made a call) and a flagged, unproven relief, the
-// other two with no Belief yet. Expected values are the seed's.
+// others with no Belief yet. Robotics manufacturing has no company, so it never has a card (spec
+// §10.3.1, Z6): before its first watch it is not on Today at all, after it a Watch row only (the
+// seed's board, `scripts/e2e_board.py`). Expected values are the seed's.
 test.use(DESKTOP);
 
 const PHOTONICS = "Photonics for AI data centers";
@@ -16,14 +18,11 @@ test("one card per theme in config order, the thesis, weakest step and strip in 
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeAttached();
   const cards = page.locator("article.theme-card:not(.theme-card-skeleton)");
-  await expect(cards).toHaveCount(4);
-  // Photonics has Beliefs; the three themes with none come last, in the config's order.
-  await expect(cards.locator("h2")).toHaveText([
-    PHOTONICS,
-    MEMORY,
-    "Robotics manufacturing",
-    "Early-call scorecard",
-  ]);
+  await expect(cards).toHaveCount(3);
+  // Photonics has Beliefs; the two themes with none and with companies come last, in the
+  // config's order. Robotics manufacturing has no company: no card.
+  await expect(cards.locator("h2")).toHaveText([PHOTONICS, MEMORY, "Early-call scorecard"]);
+  await expect(page.getByRole("article", { name: "Robotics manufacturing" })).toHaveCount(0);
 
   const photonics = page.getByRole("article", { name: PHOTONICS });
   await expect(photonics).toContainText("No thesis yet · 1 proven Belief");

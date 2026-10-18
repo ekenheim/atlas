@@ -5,7 +5,8 @@ Photonics gets six chokepoints, one per state the pages must read: A thesis-read
 bar (its falsifiers cleared), F needing a new open question (its only question answered), C a
 candidate with a contradicted step and a step resting on an Issue alone, D ruled out, E spotted
 with no holder; and a weekly run whose memo carries everything the renderer must neutralise.
-Robotics, which the e2e universe does not list, gets a first survey and one chokepoint.
+Robotics (Robotics manufacturing, a config theme with no company) gets a first survey and
+one chokepoint.
 Memory-packaging gets nothing: the empty-state control.
 
 Only A's creation and one event carry a session (it must be of now, so it is opened here and
