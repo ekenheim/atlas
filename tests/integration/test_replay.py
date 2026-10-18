@@ -225,8 +225,12 @@ def test_a_replay_bank_is_created_from_the_template_without_mental_models(
     assert all("mental_models" not in body for body in imports)
     template = json.loads((REPO / "configs" / "hindsight" / "bank-template.json").read_text())
     assert replay["template_version"] == template["template_version"]
-    # Without companies, the questions are scoped by every theme (the repository's two).
-    assert replay["scope"]["tags"] == ["theme:memory-packaging", "theme:photonics", "theme:scorecard"]
+    # Without companies, the questions are scoped by every theme (the repository's three).
+    assert replay["scope"]["tags"] == [
+        "theme:memory-packaging",
+        "theme:photonics",
+        "theme:scorecard",
+    ]
     assert replay["status"] == "completed"
 
 
