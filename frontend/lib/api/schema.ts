@@ -1695,6 +1695,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/themes/{theme_id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Changes Of Theme */
+        get: operations["changes_of_theme_api_v1_themes__theme_id__changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{company_id}/dossier": {
         parameters: {
             query?: never;
@@ -3732,6 +3749,8 @@ export interface components {
             /** Source Version Id */
             source_version_id?: string | null;
         };
+        /** @enum {string} */
+        ChangeKind: "judged" | "flagged" | "notice" | "fact";
         /**
          * Check
          * @description One gold expectation, what was observed, and whether it held.
@@ -11064,6 +11083,35 @@ export interface components {
              */
             zero_fact: number;
         };
+        /** ThemeChange */
+        ThemeChange: {
+            kind: components["schemas"]["ChangeKind"];
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Text
+             * @description one line: the statement and what happened to it
+             */
+            text: string;
+            /**
+             * Belief Id
+             * @description the Belief it is about (not for a Fact)
+             */
+            belief_id: string | null;
+            /**
+             * Fact Id
+             * @description the Fact recorded (only for a Fact)
+             */
+            fact_id: string | null;
+            /**
+             * Source Version Id
+             * @description the Source Version the Fact quotes
+             */
+            source_version_id: string | null;
+        };
         /** ThemeCompany */
         ThemeCompany: {
             /**
@@ -16373,6 +16421,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ThemeMapView"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    changes_of_theme_api_v1_themes__theme_id__changes_get: {
+        parameters: {
+            query?: {
+                /** @description at most this many */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                theme_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThemeChange"][];
                 };
             };
             /** @description Not Found */

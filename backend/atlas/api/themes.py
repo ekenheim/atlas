@@ -5,6 +5,8 @@
 - `GET /themes/{id}/map`: the theme's companies by supply-chain layer (upstream to
   downstream, empty layers included), the Relationships between them, its Candidates, and
   the Bottlenecks mental model's open gaps
+- `GET /themes/{id}/changes?limit=`: what changed, newest first (Beliefs judged, flags and
+  notices raised on them, Facts recorded; atlas-beliefs ticket 21)
 
 The Bottlenecks model is Hindsight output, never Evidence: it comes with its citations
 resolved like a reflect answer's, and with a `status` saying why it is absent
@@ -14,9 +16,9 @@ Hindsight failure never fails the map. Errors use the envelope: 404 `not_found`.
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine
@@ -28,6 +30,7 @@ from atlas.companies import Universe, extend_universe
 from atlas.discovery.service import GAPS_MENTAL_MODEL
 from atlas.hindsight import HindsightError, HindsightGateway
 from atlas.mental_models import MentalModelReader, MentalModelView
+from atlas.theme_changes import ThemeChange, theme_changes
 from atlas.themes import ThemeMap, ThemeSummary, list_themes, theme_map
 
 type BottlenecksStatus = Literal[
@@ -85,5 +88,15 @@ def themes_router(
         if found is None:
             return not_found("theme")
         return ThemeMapView(**dict(found), bottlenecks=bottlenecks())
+
+    @router.get("/{theme_id}/changes", response_model=list[ThemeChange], responses=NOT_FOUND)
+    def changes_of_theme(  # pyright: ignore[reportUnusedFunction]
+        theme_id: str,
+        limit: Annotated[int, Query(ge=1, le=200, description="at most this many")] = 30,
+    ) -> list[ThemeChange] | JSONResponse:
+        with engine.connect() as connection:
+            if theme_id not in extend_universe(connection, universe()).themes:
+                return not_found("theme")
+            return theme_changes(connection, theme_id, limit)
 
     return router

@@ -88,6 +88,7 @@ export type BeliefQuery = Omit<
 export type SessionSummary = Schemas["SessionSummary"];
 export type ResearchSession = Schemas["ResearchSession"];
 export type Issue = Schemas["Issue"];
+export type ThemeChange = Schemas["ThemeChange"];
 export type Call = Schemas["Call"];
 export type Checkpoint = Schemas["Checkpoint"];
 export type Prediction = Schemas["Prediction"];
@@ -210,6 +211,9 @@ export const api = {
   /** One theme's map: companies by layer, Relationships between them, Candidates, gaps. */
   themeMap: (id: string) =>
     get("/api/v1/themes/{theme_id}/map", { path: { theme_id: id } }),
+  /** What changed on a theme, newest first: judgements, flags, notices and new Facts. */
+  themeChanges: (id: string) =>
+    get("/api/v1/themes/{theme_id}/changes", { path: { theme_id: id }, query: { limit: 30 } }),
   companySources: (id: string) =>
     get("/api/v1/companies/{company_id}/sources", { path: { company_id: id }, query: PAGE }),
   source: (id: string) => get("/api/v1/sources/{document_id}", { path: { document_id: id } }),

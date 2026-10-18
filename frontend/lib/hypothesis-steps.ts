@@ -1,6 +1,12 @@
 // The pure parts of a Hypothesis over Beliefs (atlas-beliefs ticket 14): the version's steps in
 // the argument's order, each with the Beliefs it rests on, and the theme's open Issues.
-import type { BeliefSummary, HypothesisVersion, Issue } from "./api/client";
+import type {
+  Belief,
+  BeliefSummary,
+  Call,
+  HypothesisVersion,
+  Issue,
+} from "./api/client";
 import { STEPS } from "./beliefs";
 import { words } from "./hypotheses";
 
@@ -81,6 +87,75 @@ export function beliefCount(version: HypothesisVersion): number {
     each.beliefs.map((b) => b.belief_id),
   );
   return new Set(ids).size;
+}
+
+/** The Beliefs the version rests on, once each, in the order its steps list them. */
+export function stepBeliefIds(version: HypothesisVersion): string[] {
+  return [
+    ...new Set(
+      stepViews(version).flatMap((each) =>
+        each.beliefs.map((b) => b.belief_id),
+      ),
+    ),
+  ];
+}
+
+export type ThesisCheck = {
+  /** `supported`: the judge passed it; `misstated`: it says more than its quotes; `unchecked`. */
+  state: "supported" | "misstated" | "unchecked";
+  text: string;
+};
+
+/** Whether the thesis was checked against its Beliefs' quotes, in a line. A version of an
+ * investigation has no such check: null. */
+export function thesisCheck(version: HypothesisVersion): ThesisCheck | null {
+  if (stepsOf(version).length === 0) return null;
+  const { thesis_judged: judged, thesis_misstated_reason: reason } =
+    version.content;
+  if (judged === "supported") {
+    return { state: "supported", text: "Checked against its Beliefs' quotes." };
+  }
+  if (judged === "misstated") {
+    return {
+      state: "misstated",
+      text: `Says more than its quotes: ${reason ?? "see the judge's reason"}`,
+    };
+  }
+  return { state: "unchecked", text: "Not checked against its quotes yet." };
+}
+
+type Against = Belief["counterevidence"][number];
+
+/** What stands against the Beliefs a version rests on: each Belief that has counterevidence,
+ * with those citations, the most heavily against first. */
+export function counterevidenceOf(
+  beliefs: readonly Pick<Belief, "id" | "statement" | "counterevidence">[],
+): { id: string; statement: string; against: Against[] }[] {
+  return beliefs
+    .filter((belief) => belief.counterevidence.length > 0)
+    .map((belief) => ({
+      id: belief.id,
+      statement: belief.statement,
+      against: [...belief.counterevidence].sort((a, b) => a.valence - b.valence),
+    }));
+}
+
+/** The calls made for a Hypothesis: those of its versions when they were published, and of the
+ * Beliefs it rests on when they were proven. Newest first. */
+export function callsFor(
+  calls: readonly Call[],
+  versionIds: readonly string[],
+  beliefIds: readonly string[],
+): Call[] {
+  const versions = new Set(versionIds);
+  const beliefs = new Set(beliefIds);
+  return calls
+    .filter(
+      (call) =>
+        (call.origin === "hypothesis" && versions.has(call.origin_id)) ||
+        (call.origin === "belief" && beliefs.has(call.origin_id)),
+    )
+    .sort((a, b) => b.made_at.localeCompare(a.made_at));
 }
 
 /** The Issues still open on a theme, the most pressing first. */

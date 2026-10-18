@@ -75,10 +75,16 @@ test("a Hypothesis's versions, diff, gate, snapshots and scenarios, and a citati
   await expect(findings.getByRole("listitem").first()).toContainText(SUPPLY.finding);
   await expect(findings.getByRole("listitem").last()).toContainText(INVESTMENT);
   await expect(findings.getByRole("link", { name: /^Citation \d+:/ })).toHaveText(["[1]", "[2]"]);
-  await expect(page.getByRole("list", { name: "Falsifiers" })).toHaveText(
+  await expect(page.getByRole("list", { name: "What would falsify it" })).toHaveText(
     "Verified laser capacity exceeds plausible demand",
   );
   await expect(page.getByRole("list", { name: "Contradictions" })).toContainText(LIMIT);
+  // The assessment leads; the raw records are one click deeper.
+  await expect(page.getByRole("region", { name: "Changes between versions" })).toHaveCount(0);
+  await page.locator("summary", { hasText: "Records" }).click();
+  await expect(page.getByRole("list", { name: "Falsifiers" })).toHaveText(
+    "Verified laser capacity exceeds plausible demand",
+  );
 
   // The diff from version 1: the investment is new, the supply finding unchanged.
   const diff = page.getByRole("region", { name: "Changes between versions" });
@@ -113,6 +119,12 @@ test("a Hypothesis's versions, diff, gate, snapshots and scenarios, and a citati
   await expect(
     publish.getByText("The latest version is published.", { exact: false }),
   ).toBeVisible();
+
+  // Coming back from the edge's page remounted the dossier with its records folded again.
+  const records = page.locator("details.reader-records");
+  if (!(await records.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await page.locator("summary", { hasText: "Records" }).click();
+  }
 
   // Both publications froze a snapshot, each verified when it is read.
   // Version 1 rests on the supply edge and carries the scenario; version 2 adds the owns edge.
@@ -200,11 +212,61 @@ test("a Hypothesis over Beliefs leads with its thesis and steps, each Belief wit
     page.getByRole("list", { name: "What would falsify it" }).getByRole("listitem"),
   ).toHaveText(["A qualified second laser source ships to NVIDIA"]);
   await expect(page.getByRole("heading", { level: 2, name: "Open Issues" })).toBeVisible();
+  // Whether the thesis was checked against its Beliefs' quotes is said under it.
+  await expect(page.getByLabel("Thesis check")).toContainText(/checked/i);
+  // The order of the page: the thesis, the steps, what is against it, the falsifiers, the
+  // Issues, the predictions and the calls; then the raw records, folded.
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+    "What it rests on",
+    "Against it",
+    "What would falsify it",
+    "Open Issues",
+    "Predictions",
+    "Calls made for it",
+    "Lifecycle and publication",
+    "Records",
+  ]);
+  await expect(page.getByRole("region", { name: "Against it" })).toContainText(
+    "Nothing recorded against its Beliefs.",
+  );
   // It has no investigation: the summary gives its question instead.
   await expect(page.getByRole("row", { name: /^Investigation/ })).toHaveCount(0);
 
   // The Belief's record, and the quote opened at its span.
   await beliefs.getByRole("link", { name: "Source" }).click();
+  const mark = page.getByRole("region", { name: "Parsed text" }).locator("mark");
+  await expect(mark).toHaveText(SUPPLY.quote);
+});
+
+// The theme page leads with its Hypotheses (the published one first), then its Beliefs, then
+// what changed: the seed's judgement of the Belief and the Fact it cites.
+test("the theme page leads with its Hypotheses and shows what changed", async ({ page }) => {
+  await page.goto("/theme/?id=photonics");
+  await expect(page.getByRole("heading", { level: 2 }).first()).toHaveText("Hypotheses");
+  const hypotheses = page.getByRole("list", { name: "Hypotheses" });
+  await expect(hypotheses.getByRole("listitem")).toHaveCount(2);
+  // The published Hypothesis comes before the draft over Beliefs.
+  await expect(hypotheses.getByRole("listitem").first()).toContainText(THESIS[2]);
+  await expect(hypotheses.getByRole("listitem").first()).toContainText(/published \d{4}-\d\d-\d\d/);
+  await expect(hypotheses.getByRole("listitem").last()).toContainText("not published");
+  await expect(hypotheses.getByRole("listitem", { name: BELIEF_THESIS })).toBeVisible();
+
+  // The Beliefs follow, then what changed, newest first.
+  await expect(page.getByRole("heading", { level: 2 }).nth(1)).toHaveText("What Atlas believes");
+  const believed = page.getByRole("region", { name: "What Atlas believes" });
+  await expect(believed.getByRole("listitem", { name: BELIEF })).toContainText("Proven 85%");
+  const changes = page.getByRole("list", { name: "Changes, newest first" });
+  await expect(changes.getByRole("listitem").filter({ hasText: "Judged" })).toContainText(
+    `proven 85%: ${BELIEF}`,
+  );
+  const fact = changes.getByRole("listitem").filter({ hasText: "New fact" });
+  await expect(fact).toContainText(`Coherent: ${BELIEF_STEP}`);
+
+  // A change opens its record: the Belief, and a Fact at its span.
+  await changes.getByRole("link", { name: `proven 85%: ${BELIEF}` }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(BELIEF);
+  await page.goBack();
+  await changes.getByRole("link", { name: `Coherent: ${BELIEF_STEP}` }).click();
   const mark = page.getByRole("region", { name: "Parsed text" }).locator("mark");
   await expect(mark).toHaveText(SUPPLY.quote);
 });

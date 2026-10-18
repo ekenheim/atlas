@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { BeliefSteps } from "../../components/beliefs";
 import { CallsPanel } from "../../components/calls";
 import { EdgeList } from "../../components/edge-list";
+import { ThemeChanges, ThemeHypotheses } from "../../components/theme-feed";
 import { Code, Load, Missing, Timestamp } from "../../components/ui";
 import {
   api,
@@ -46,6 +47,8 @@ function Theme() {
             <h1>{map.theme.title}</h1>
             {map.theme.description && <p>{map.theme.description}</p>}
 
+            <ThemeHypotheses theme={map.theme.id} />
+
             <section aria-labelledby="believed">
               <h2 className="reader-label" id="believed">
                 What Atlas believes
@@ -56,6 +59,8 @@ function Theme() {
               </p>
               <BeliefSteps beliefs={map.beliefs} all />
             </section>
+
+            <ThemeChanges theme={map.theme.id} />
 
             <CallsPanel theme={map.theme.id} />
 

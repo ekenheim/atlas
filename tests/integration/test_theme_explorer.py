@@ -658,3 +658,90 @@ def test_the_map_and_the_dossier_lead_with_the_beliefs_and_the_company_s_exposur
     assert exposure("nvidia") == {}
     [shown] = atlas.dossier("lumentum", as_of=NOW)["beliefs"]
     assert (shown["judgement"]["judgement"], shown["citation_count"]) == ("proven", 1)
+
+
+# --- What changed (atlas-beliefs ticket 21) -----------------------------------------------------
+
+
+def test_the_changes_feed_lists_judgements_flags_notices_and_facts_newest_first(
+    atlas: ExplorerAtlas,
+) -> None:
+    atlas.seed()
+    atlas.ingest_lumentum()
+    session = atlas.api.post(
+        "/api/v1/sessions",
+        json={
+            "question": "Is Lumentum supply-constrained?",
+            "theme": "photonics",
+            "as_of": NOW,
+            "actor": "claude-session",
+        },
+    )
+    assert session.status_code == 201, session.text
+    version = atlas.version(LITE_10K)["id"]
+    start = atlas.parsed(version).index(SOLE_SOURCE)
+    recorded = atlas.api.post(
+        "/api/v1/facts",
+        json={
+            "subject_company_id": atlas.ids()["lumentum"],
+            "source_version_id": version,
+            "quote": SOLE_SOURCE,
+            "span_start": start,
+            "span_end": start + len(SOLE_SOURCE),
+            "epistemic_type": "company_claim",
+            "step": "context",
+            "statement": SOLE_SOURCE,
+            "status": "hedged",
+            "session_id": session.json()["id"],
+        },
+    )
+    assert recorded.status_code == 201, recorded.text
+    fact = recorded.json()["fact"]["id"]
+    belief = propose_belief(
+        atlas, "Lumentum depends on one contract manufacturer.", "constraint", ["lumentum"], fact
+    )
+    # Only the Fact so far: proposing a Belief is no judgement.
+    [only] = atlas.get("/api/v1/themes/photonics/changes")
+    assert (only["kind"], only["text"], only["belief_id"], only["fact_id"]) == (
+        "fact",
+        f"Lumentum: {SOLE_SOURCE}",
+        None,
+        fact,
+    )
+    assert only["source_version_id"] == version
+
+    atlas.api.post(
+        f"/api/v1/beliefs/{belief['id']}/judge",
+        json={"actor": "owner", "judgement": "proven", "confidence": 0.8, "reason": "checked"},
+    ).raise_for_status()
+    reviewed = atlas.api.post(
+        f"/api/v1/assertions/{fact}/review", json={"review_state": "disputed"}
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    with atlas.engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO belief_notice (id, belief_id, kind, ref_id, detail)"
+                " VALUES (:id, :belief, 'belief_confirmed', :fact, 'A newer filing agrees.')"
+            ),
+            {"id": uuid.uuid4(), "belief": belief["id"], "fact": fact},
+        )
+
+    changes = atlas.get("/api/v1/themes/photonics/changes")
+    assert [(each["kind"], each["belief_id"], each["fact_id"]) for each in changes] == [
+        ("notice", belief["id"], None),
+        ("flagged", belief["id"], None),
+        ("judged", belief["id"], None),
+        ("fact", None, fact),
+    ]
+    assert changes[0]["text"].startswith("A newer filing agrees.")
+    assert changes[2]["text"] == "proven 80%: Lumentum depends on one contract manufacturer."
+    stamps = [each["at"] for each in changes]
+    assert stamps == sorted(stamps, reverse=True)
+    assert [each["kind"] for each in atlas.get("/api/v1/themes/photonics/changes", limit=2)] == [
+        "notice",
+        "flagged",
+    ]
+
+    assert atlas.api.get("/api/v1/themes/not-a-theme/changes").status_code == 404
+    assert atlas.api.get("/api/v1/themes/photonics/changes", params={"limit": 0}).status_code == 422

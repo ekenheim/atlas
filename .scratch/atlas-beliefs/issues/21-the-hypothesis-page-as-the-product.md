@@ -1,7 +1,7 @@
 # 21: The Hypothesis page as the product
 
 Type: build
-Status: open
+Status: in-review
 Blocked by: 14
 
 ## What to build
@@ -11,3 +11,7 @@ Blocked by: 14
 ## Acceptance criteria
 
 - [ ] Playwright on the seeded Hypothesis and theme; the owner reads one real page and says what is missing (recorded on the ticket).
+
+## Implementation (2026-10-17)
+
+Built and in review; see `docs/implementation-log.md`. Playwright is written (the dossier's order and records, the theme page's Hypotheses and feed) and runs on the runners; the box stays unticked until it has passed there and the owner has read a real page.

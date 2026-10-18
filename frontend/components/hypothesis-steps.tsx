@@ -20,12 +20,18 @@ import {
 import {
   type Step,
   beliefCount,
+  callsFor,
+  counterevidenceOf,
   openIssues,
   standingNow,
+  stepBeliefIds,
   stepViews,
+  thesisCheck,
 } from "../lib/hypothesis-steps";
 import { routes } from "../lib/routes";
 import { useApi } from "../lib/use-api";
+import { CitationQuote } from "./beliefs";
+import { CallsPanel } from "./calls";
 import { Load } from "./ui";
 
 type StepBelief = Step["beliefs"][number];
@@ -147,6 +153,94 @@ function StepBeliefRow({
       </div>
       {pill(belief)}
     </li>
+  );
+}
+
+/** Whether the thesis was checked against its Beliefs' quotes (a version of an investigation
+ * has no such check and says nothing). */
+export function ThesisLine({ version }: { version: HypothesisVersion }) {
+  const check = thesisCheck(version);
+  if (check === null) return null;
+  return (
+    <p className="reader-meta" aria-label="Thesis check">
+      <span
+        className={`reader-pill ${
+          check.state === "supported"
+            ? "reader-supported"
+            : check.state === "misstated"
+              ? "reader-disputed"
+              : "reader-unknown"
+        }`}
+      >
+        {check.state === "supported"
+          ? "Checked"
+          : check.state === "misstated"
+            ? "Overreaches"
+            : "Unchecked"}
+      </span>{" "}
+      {check.text}
+    </p>
+  );
+}
+
+const loadAgainst = async (key: string) =>
+  counterevidenceOf(
+    await Promise.all(key.split(",").map((id) => api.belief(id))),
+  );
+
+/** What stands against the Beliefs the version rests on: each citation against, its quote
+ * opening the source at its span. */
+export function Counterevidence({ version }: { version: HypothesisVersion }) {
+  const ids = stepBeliefIds(version).join(",");
+  const against = useApi(ids === "" ? null : ids, loadAgainst);
+  if (ids === "") return null;
+  return (
+    <section aria-labelledby="counterevidence">
+      <h2 id="counterevidence">Against it</h2>
+      <Load loaded={against} what="the counterevidence">
+        {(groups) =>
+          groups.length === 0 ? (
+            <p className="muted">Nothing recorded against its Beliefs.</p>
+          ) : (
+            <ul className="reader-rows" aria-label="Counterevidence">
+              {groups.map((group) => (
+                <li className="reader-row" key={group.id}>
+                  <div>
+                    <div className="reader-row-title">
+                      <Link href={routes.belief(group.id)}>
+                        {group.statement}
+                      </Link>
+                    </div>
+                    {group.against.map((citation) => (
+                      <CitationQuote key={citation.ref_id} citation={citation} />
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </Load>
+    </section>
+  );
+}
+
+/** The calls made for this Hypothesis: its published versions and the Beliefs it rests on. */
+export function HypothesisCalls({
+  theme,
+  versionIds,
+  beliefIds,
+}: {
+  theme: string;
+  versionIds: readonly string[];
+  beliefIds: readonly string[];
+}) {
+  return (
+    <CallsPanel
+      theme={theme}
+      title="Calls made for it"
+      select={(calls) => callsFor(calls, versionIds, beliefIds)}
+    />
   );
 }
 
