@@ -36,8 +36,8 @@ function issue(over: Partial<Issue> & Pick<Issue, "title">): Issue {
   };
 }
 
-const belief = { belief_id: "b-1", fact_id: null, actor: "t", created_at: "2026-10-02T00:00:00Z" };
-const fact = { belief_id: null, fact_id: "f-1", actor: "t", created_at: "2026-10-02T00:00:00Z" };
+const belief = { kind: "belief" as const, id: "b-1", belief_id: "b-1", fact_id: null, actor: "t", created_at: "2026-10-02T00:00:00Z" };
+const fact = { kind: "fact" as const, id: "f-1", belief_id: null, fact_id: "f-1", actor: "t", created_at: "2026-10-02T00:00:00Z" };
 
 test("the next action is a step with no Belief, then flagged or disputed, then priority, then age", () => {
   const old = issue({ title: "old", priority: 1 });
