@@ -6,7 +6,8 @@
 - `POST /issues/{id}/edges`: add `narrows` or `requires` to a parent; 409 `issue_cycle`
 - `POST /issues/{id}/complete|abandon`: close an active Issue (409 `issue_not_active`)
 - `POST /issues/{id}/produced`: record a Belief or a Fact it produced
-- `GET /issues?theme=&status=`, `GET /issues/{id}`
+- `GET /issues?theme=&status=`, `GET /issues/{id}` (also its `edges`, from both ends: kind,
+  direction `parent`|`child`, the other Issue's id, title and status; ticket 32)
 - `GET /issues/next?theme=`: the next action by rule (`atlas.issues.next_issue`)
 
 An **isolated** session (ticket 29a, the early-call scorecard) has no Issues: `POST /issues` with
@@ -40,6 +41,7 @@ from atlas.issues import (
     Issue,
     IssueCreate,
     IssueCycle,
+    IssueDetail,
     IssueEdgeCreate,
     IssueNotFound,
     IssueNotOpen,
@@ -49,7 +51,7 @@ from atlas.issues import (
     UnknownCompany,
     UnknownLead,
     UnknownProduct,
-    get_issue,
+    get_issue_detail,
     list_issues,
     next_issue,
 )
@@ -97,10 +99,10 @@ def issues_router(engine: Engine, actor: Actor, themes_config: Path | None = Non
         with engine.connect() as connection:
             return next_issue(connection, theme)
 
-    @router.get("/{issue_id}", response_model=Issue, responses={**NOT_FOUND, **INVALID})
-    def issue(issue_id: uuid.UUID) -> Issue | JSONResponse:  # pyright: ignore[reportUnusedFunction]
+    @router.get("/{issue_id}", response_model=IssueDetail, responses={**NOT_FOUND, **INVALID})
+    def issue(issue_id: uuid.UUID) -> IssueDetail | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         with engine.connect() as connection:
-            found = get_issue(connection, issue_id)
+            found = get_issue_detail(connection, issue_id)
         return found if found is not None else not_found("issue")
 
     @router.post(

@@ -11,6 +11,8 @@ from atlas.issues.service import (
     Issue,
     IssueCreate,
     IssueCycle,
+    IssueDetail,
+    IssueEdge,
     IssueEdgeCreate,
     IssueNotFound,
     IssueNotOpen,
@@ -23,6 +25,7 @@ from atlas.issues.service import (
     UnknownProduct,
     create_session_issues,
     get_issue,
+    get_issue_detail,
     list_issues,
     next_issue,
 )
@@ -31,6 +34,8 @@ __all__ = [
     "Issue",
     "IssueCreate",
     "IssueCycle",
+    "IssueDetail",
+    "IssueEdge",
     "IssueEdgeCreate",
     "IssueNotFound",
     "IssueNotOpen",
@@ -43,6 +48,7 @@ __all__ = [
     "UnknownProduct",
     "create_session_issues",
     "get_issue",
+    "get_issue_detail",
     "list_issues",
     "next_issue",
 ]

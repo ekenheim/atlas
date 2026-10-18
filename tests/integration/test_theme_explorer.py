@@ -15,10 +15,12 @@ members are the theme config's; figures are the recorded filings' (ticket 18).
 
 import json
 import os
+import re
 import subprocess
 import sys
 import uuid
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -28,7 +30,7 @@ import httpx2
 import pytest
 import yaml
 from pydantic import JsonValue
-from sqlalchemy import text
+from sqlalchemy import Engine, event, text
 
 from atlas.archive import open_archive
 from atlas.assertions import AssertionCreate, Assertions
@@ -425,6 +427,124 @@ def test_an_unknown_theme_is_not_found(atlas: ExplorerAtlas) -> None:
     response = atlas.api.get("/api/v1/themes/power/map")
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "not_found"
+
+
+# --- the map's `include` (ticket 32) -----------------------------------------------------------
+
+MAP_KEYS = [
+    "theme",
+    "beliefs",
+    "layers",
+    "unlayered",
+    "relationships",
+    "counterparties",
+    "candidates",
+    "bottlenecks",
+]
+
+
+@contextmanager
+def statements() -> Generator[list[str]]:
+    """The SQL every engine in the process runs while the block does."""
+    seen: list[str] = []
+
+    def record(connection: Any, cursor: Any, statement: str, *args: Any) -> None:
+        seen.append(statement)
+
+    event.listen(Engine, "before_cursor_execute", record)
+    try:
+        yield seen
+    finally:
+        event.remove(Engine, "before_cursor_execute", record)
+
+
+def reads(seen: list[str], *tables: str) -> list[str]:
+    """The statements that read any of the tables."""
+    pattern = rf"\b(FROM|JOIN) ({'|'.join(tables)})\b"
+    return [statement for statement in seen if re.search(pattern, statement)]
+
+
+def test_the_map_without_include_is_the_whole_answer_in_its_order(
+    researched: ExplorerAtlas,
+) -> None:
+    insert_candidate(researched, "photonics", "Sivers Semiconductors", "0000000001")
+    full = researched.map()
+    assert list(full) == MAP_KEYS
+    named = researched.get(
+        "/api/v1/themes/photonics/map",
+        include="bottlenecks,candidates,counterparties,relationships,unlayered,layers,"
+        "beliefs,theme",
+    )
+    assert named == full
+    assert named["theme"]["relationship_count"] == 3
+    assert len(named["candidates"]) == 1
+
+
+def test_include_companies_returns_the_layers_with_their_counts_and_computes_nothing_else(
+    researched: ExplorerAtlas,
+) -> None:
+    insert_candidate(researched, "photonics", "Sivers Semiconductors", "0000000001")
+    full = researched.map()
+    with statements() as seen:
+        response = researched.api.get(
+            "/api/v1/themes/photonics/map", params={"include": "companies"}
+        )
+    assert response.status_code == 200, response.text
+    part = response.json()
+    assert list(part) == ["layers", "unlayered"]
+    assert part["layers"] == full["layers"]
+    assert part["unlayered"] == full["unlayered"]
+    companies = {c["slug"]: c for layer in part["layers"] for c in layer["companies"]}
+    assert companies["lumentum"]["source_count"] > 0
+    assert companies["lumentum"]["relationship_count"] == 4  # the NVIDIA edge too
+    # Skipped, not dropped: nothing read the edges' Evidence, the Candidates or the Beliefs.
+    assert not reads(seen, "relationship_assertion", "relationship_review", "candidate", "belief")
+    assert response.headers["Server-Timing"].startswith("companies;dur=")
+
+
+def test_include_reads_only_what_it_names(researched: ExplorerAtlas) -> None:
+    insert_candidate(researched, "photonics", "Sivers Semiconductors", "0000000001")
+    full = researched.map()
+    with statements() as seen:
+        candidates = researched.get("/api/v1/themes/photonics/map", include="candidates")
+    assert candidates == {"candidates": full["candidates"]}
+    assert reads(seen, "candidate")
+    assert not reads(seen, "relationship_assertion", "belief")
+
+    with statements() as seen:
+        edges = researched.get("/api/v1/themes/photonics/map", include="relationships")
+    assert edges == {"relationships": full["relationships"]}
+    assert reads(seen, "relationship_assertion")
+    assert not reads(seen, "candidate", "belief")
+
+    # The counterparties are the edges' ends; the summary counts edges and Candidates.
+    assert researched.get("/api/v1/themes/photonics/map", include="counterparties") == {
+        "counterparties": full["counterparties"]
+    }
+    assert researched.get("/api/v1/themes/photonics/map", include="theme, beliefs") == {
+        "theme": full["theme"],
+        "beliefs": full["beliefs"],
+    }
+    assert researched.get("/api/v1/themes/photonics/map", include="bottlenecks") == {
+        "bottlenecks": full["bottlenecks"]
+    }
+
+
+def test_an_unknown_include_section_is_refused(atlas: ExplorerAtlas) -> None:
+    for include in ("edges", "layers,edges,nothing", ""):
+        response = atlas.api.get("/api/v1/themes/photonics/map", params={"include": include})
+        assert response.status_code == 422, include
+        assert response.json()["error"]["code"] == "invalid_include"
+    assert (
+        "'edges'"
+        in atlas.api.get("/api/v1/themes/photonics/map", params={"include": "layers,edges"}).json()[
+            "error"
+        ]["message"]
+    )
+    # A theme that does not exist is still not found.
+    assert (
+        atlas.api.get("/api/v1/themes/power/map", params={"include": "layers"}).status_code == 404
+    )
 
 
 def test_without_hindsight_the_map_says_the_gaps_are_not_configured(atlas: ExplorerAtlas) -> None:

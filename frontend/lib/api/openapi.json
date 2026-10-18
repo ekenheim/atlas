@@ -2445,7 +2445,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Issue"
+                  "$ref": "#/components/schemas/IssueDetail"
                 }
               }
             }
@@ -8012,6 +8012,24 @@
               "type": "string",
               "title": "Theme Id"
             }
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "comma-separated sections to compute and return, from theme, beliefs, layers, unlayered, relationships, counterparties, candidates, bottlenecks, companies (`companies` is `layers` and `unlayered`); the others are absent, not computed. `theme` counts the edges and the Candidates, `counterparties` are the edges' ends. None: the whole map.",
+              "title": "Include"
+            },
+            "description": "comma-separated sections to compute and return, from theme, beliefs, layers, unlayered, relationships, counterparties, candidates, bottlenecks, companies (`companies` is `layers` and `unlayered`); the others are absent, not computed. `theme` counts the edges and the Candidates, `counterparties` are the edges' ends. None: the whole map."
           }
         ],
         "responses": {
@@ -8036,14 +8054,14 @@
             "description": "Not Found"
           },
           "422": {
-            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
-            }
+            },
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -16924,6 +16942,13 @@
         "title": "EdgarSearch",
         "description": "A query's EDGAR full-text search (atlas.discovery.edgar_fts)."
       },
+      "EdgeDirection": {
+        "type": "string",
+        "enum": [
+          "parent",
+          "child"
+        ]
+      },
       "EdgeKind": {
         "type": "string",
         "enum": [
@@ -21950,6 +21975,202 @@
         ],
         "title": "IssueCreate"
       },
+      "IssueDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/IssueKind"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority"
+          },
+          "status": {
+            "$ref": "#/components/schemas/IssueStatus"
+          },
+          "produced_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By"
+          },
+          "company_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Company Ids"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id",
+            "description": "the Issue it narrows"
+          },
+          "parent_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Title"
+          },
+          "requires": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Requires",
+            "description": "the Issues it requires"
+          },
+          "blocked": {
+            "type": "boolean",
+            "title": "Blocked",
+            "description": "a required Issue is still active"
+          },
+          "open_children": {
+            "type": "integer",
+            "title": "Open Children",
+            "description": "active Issues narrowing it"
+          },
+          "products": {
+            "items": {
+              "$ref": "#/components/schemas/IssueProduct"
+            },
+            "type": "array",
+            "title": "Products"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/IssueEdge"
+            },
+            "type": "array",
+            "title": "Edges"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "body",
+          "theme",
+          "kind",
+          "priority",
+          "status",
+          "produced_by",
+          "company_ids",
+          "created_by",
+          "created_at",
+          "closed_at",
+          "parent_id",
+          "parent_title",
+          "requires",
+          "blocked",
+          "open_children",
+          "products",
+          "edges"
+        ],
+        "title": "IssueDetail",
+        "description": "One Issue read by ID: the Issue and all its edges, both directions."
+      },
+      "IssueEdge": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/EdgeKind"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/EdgeDirection",
+            "description": "`parent`: the other Issue is this one's parent (this Issue narrows or requires it); `child`: the other narrows or requires this one"
+          },
+          "issue_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Issue Id",
+            "description": "the other Issue"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "the other Issue's title"
+          },
+          "status": {
+            "$ref": "#/components/schemas/IssueStatus",
+            "description": "the other Issue's status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "when the edge was recorded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "direction",
+          "issue_id",
+          "title",
+          "status",
+          "created_at"
+        ],
+        "title": "IssueEdge",
+        "description": "An edge of the Issue, from either end: edges are recorded from the child to the parent."
+      },
       "IssueEdgeCreate": {
         "properties": {
           "kind": {
@@ -21979,6 +22200,20 @@
       },
       "IssueProduct": {
         "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "belief",
+              "fact"
+            ],
+            "title": "Kind"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id",
+            "description": "the Belief's or the Fact's ID, by `kind`"
+          },
           "belief_id": {
             "anyOf": [
               {
@@ -22015,6 +22250,8 @@
         },
         "type": "object",
         "required": [
+          "kind",
+          "id",
           "belief_id",
           "fact_id",
           "actor",

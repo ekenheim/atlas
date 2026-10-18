@@ -139,6 +139,43 @@ def test_an_issue_narrows_and_requires_others_and_every_write_is_audited(atlas: 
     ]
 
 
+def test_an_issue_read_by_id_shows_its_edges_from_both_ends(atlas: Atlas) -> None:
+    parent = atlas.issue("Parent", kind="question")
+    first = atlas.issue("First sub-question", narrows=parent["id"])
+    second = atlas.issue("Second sub-question", narrows=parent["id"])
+    gate = atlas.issue("Gate")
+    atlas.api.post(
+        f"/api/v1/issues/{second['id']}/edges", json={"kind": "requires", "parent_id": gate["id"]}
+    ).raise_for_status()
+    atlas.api.post(f"/api/v1/issues/{gate['id']}/complete").raise_for_status()
+
+    def edges(issue_id: str) -> list[tuple[str, str, str, str, str]]:
+        read = atlas.get(f"/api/v1/issues/{issue_id}")
+        return [
+            (e["kind"], e["direction"], e["issue_id"], e["title"], e["status"])
+            for e in read["edges"]
+        ]
+
+    assert edges(parent["id"]) == [
+        ("narrows", "child", first["id"], "First sub-question", "active"),
+        ("narrows", "child", second["id"], "Second sub-question", "active"),
+    ]
+    assert edges(first["id"]) == [("narrows", "parent", parent["id"], "Parent", "active")]
+    assert edges(second["id"]) == [
+        ("narrows", "parent", parent["id"], "Parent", "active"),
+        ("requires", "parent", gate["id"], "Gate", "complete"),
+    ]
+    assert edges(gate["id"]) == [
+        ("requires", "child", second["id"], "Second sub-question", "active")
+    ]
+    assert edges(atlas.issue("Alone")["id"]) == []
+    # The list is as it was: no edges there, the parent's fields as before.
+    listed = {i["id"]: i for i in atlas.get("/api/v1/issues", theme=THEME)["items"]}
+    assert "edges" not in listed[parent["id"]]
+    assert listed[second["id"]]["parent_id"] == parent["id"]
+    assert listed[second["id"]]["requires"] == [gate["id"]]
+
+
 def test_an_edge_that_would_close_a_cycle_is_refused(atlas: Atlas) -> None:
     a = atlas.issue("A")
     b = atlas.issue("B", requires=[a["id"]])
@@ -206,6 +243,9 @@ def test_an_issue_records_the_belief_or_fact_it_produced(atlas: Atlas) -> None:
         (None, fact_id),
         (belief_id, None),
     ]
+    read = atlas.get(f"/api/v1/issues/{issue['id']}")["products"]
+    assert [(p["kind"], p["id"]) for p in read] == [("fact", fact_id), ("belief", belief_id)]
+    assert all(p["actor"] == ACTOR and p["created_at"] for p in read)
     for body in ({}, {"fact_id": fact_id, "belief_id": belief_id}):
         refused = atlas.api.post(f"/api/v1/issues/{issue['id']}/produced", json=body)
         assert refused.status_code == 422
