@@ -8,6 +8,9 @@ import {
   orderIssues,
   parseFilters,
   producedText,
+  statusWord,
+  subQuestions,
+  subQuestionsText,
   tier,
 } from "../lib/issues";
 
@@ -100,4 +103,22 @@ test("what an Issue produced reads as counts", () => {
   expect(producedText(issue({ title: "x", products: [belief, fact, fact] }))).toBe(
     "1 Belief, 2 Facts",
   );
+});
+
+test("an Issue's standing is a word: waiting, open, narrowed or how it ended", () => {
+  expect(statusWord(issue({ title: "a" }))).toEqual({ word: "Open", tone: "muted" });
+  expect(statusWord(issue({ title: "b", blocked: true }))).toEqual({ word: "Waiting", tone: "warn" });
+  expect(statusWord(issue({ title: "c", open_children: 2 })).word).toBe("Narrowed");
+  expect(statusWord(issue({ title: "d", status: "complete" })).word).toBe("Complete");
+  expect(statusWord(issue({ title: "e", status: "abandoned" })).word).toBe("Abandoned");
+});
+
+test("sub-questions are counted and listed under their parent", () => {
+  expect(subQuestionsText({ open_children: 0 })).toBe("");
+  expect(subQuestionsText({ open_children: 1 })).toBe("1 open sub-question");
+  expect(subQuestionsText({ open_children: 3 })).toBe("3 open sub-questions");
+  const parent = issue({ title: "parent" });
+  const child = issue({ title: "child", parent_id: parent.id });
+  const other = issue({ title: "other" });
+  expect(subQuestions([parent, child, other], parent.id).map((each) => each.title)).toEqual(["child"]);
 });

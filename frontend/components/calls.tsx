@@ -138,7 +138,7 @@ export function Predictions({ hypothesisId }: { hypothesisId: string }) {
               <tbody>
                 {predictions.map((prediction) => (
                   <tr key={prediction.id}>
-                    <th scope="row">
+                    <th scope="row" className="th-wrap">
                       {prediction.measure}
                       <br />
                       <span className="muted-small">version {prediction.version}</span>

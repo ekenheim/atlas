@@ -3,6 +3,7 @@
 // narrowing it; a `step` with no Belief first, then one flagged or disputed, then priority,
 // then oldest), the filters kept in the URL, and the words for the columns.
 import type { Issue } from "./api/client";
+import type { Word } from "./status";
 
 export type Tier = 0 | 1 | 2;
 
@@ -99,6 +100,30 @@ export function applyFilters(issues: Issue[], filters: IssueFilters): Issue[] {
       (filters.status === "all" || issue.status === filters.status),
   );
 }
+
+// --- the list as rows ------------------------------------------------------------------------
+
+/** The Issue's standing in a word: waiting, open (on the frontier), narrowed (sub-questions
+ * under it are open), or how it ended. */
+export function statusWord(issue: Issue): Word {
+  if (issue.status !== "active") return { word: STATUSES[issue.status], tone: "muted" };
+  if (issue.blocked) return { word: "Waiting", tone: "warn" };
+  return onFrontier(issue) ? { word: "Open", tone: "muted" } : { word: "Narrowed", tone: "muted" };
+}
+
+/** "2 open sub-questions", or nothing when nothing narrows it. */
+export function subQuestionsText(issue: Pick<Issue, "open_children">): string {
+  const count = issue.open_children;
+  return count === 0 ? "" : `${count} open sub-${count === 1 ? "question" : "questions"}`;
+}
+
+/** The Issues that sit directly under another, in the order of the list. */
+export function subQuestions(issues: readonly Issue[], parentId: string): Issue[] {
+  return orderIssues(issues.filter((each) => each.parent_id === parentId));
+}
+
+/** A long list shows this many rows, then `Show all`. */
+export const ROWS_SHOWN = 25;
 
 /** "1 Belief, 2 Facts", or an empty string when nothing was produced. */
 export function producedText(issue: Issue): string {
