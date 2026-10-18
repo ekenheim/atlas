@@ -1,31 +1,88 @@
 "use client";
 
-// The prospective record on the pages (atlas-beliefs ticket 19): a theme's calls with what
-// followed, and a Hypothesis's predictions with their settlements. A record of what Atlas said
-// and what came after, in few words; raw rows are one click deeper.
+// The prospective record on the pages (atlas-beliefs ticket 19): calls with what followed, and a
+// Hypothesis's predictions with their settlements. A record of what Atlas said and what came
+// after, in few words. A call has one cell until its first checkpoint; after, the change at
+// +1, +3 and +6 months relative to the benchmark, with the sign in the text.
 import Link from "next/link";
 
 import { api, type Call } from "../lib/api/client";
-import {
-  DIRECTIONS,
-  HORIZONS,
-  ORIGINS,
-  SOURCES,
-  callsSummary,
-  cells,
-  companiesLine,
-  expectedRange,
-  predictionStatus,
-} from "../lib/calls";
+import { DIRECTIONS, ORIGINS, SOURCES, companiesLine, expectedRange } from "../lib/calls";
 import { evidenceDay } from "../lib/format";
+import { callCells } from "../lib/record";
 import { routes } from "../lib/routes";
 import { useApi } from "../lib/use-api";
+import { PredictionStatus } from "./status";
 import { Load, Missing } from "./ui";
 
 const loadCalls = async (theme: string) => (await api.calls(theme)).items;
 
-/** The theme's calls: the date, the claim, the companies, and the change since, relative to the
- * theme's peers, at one, three and six months. */
+/** Calls as a table: the date, the claim, the companies, and the cells. */
+export function CallsTable({ calls, now = new Date() }: { calls: readonly Call[]; now?: Date }) {
+  const checkpointed = calls.some((call) => call.checkpoints.length > 0);
+  return (
+    <table className="calls">
+      <caption className="sr-only">Calls and the change since each</caption>
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Call</th>
+          <th scope="col">Companies</th>
+          {checkpointed ? (
+            <>
+              <th scope="col">+1 m</th>
+              <th scope="col">+3 m</th>
+              <th scope="col">+6 m</th>
+            </>
+          ) : (
+            <th scope="col">Next</th>
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {calls.map((call) => {
+          const cells = callCells(call, now);
+          return (
+            <tr key={call.id}>
+              <th scope="row">{evidenceDay(call.made_at)}</th>
+              <td className="call-claim">
+                {call.claim}
+                <br />
+                <span className="muted-small">
+                  {ORIGINS[call.origin]}
+                  {call.direction && `, ${DIRECTIONS[call.direction]}`}
+                </span>
+              </td>
+              <td className="call-companies">
+                {call.companies.length === 0 ? (
+                  <Missing>{companiesLine(call)}</Missing>
+                ) : (
+                  call.companies.map((company, index) => (
+                    <span key={company.company_id}>
+                      {index > 0 && ", "}
+                      <Link href={routes.company(company.company_id)}>{company.display_name}</Link>
+                    </span>
+                  ))
+                )}
+              </td>
+              {checkpointed ? (
+                cells.horizons.map((cell) => (
+                  <td key={cell.horizon} className={`call-${cell.tone}`}>
+                    {cell.text}
+                  </td>
+                ))
+              ) : (
+                <td className="call-due">{cells.first}</td>
+              )}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+/** The theme's calls (narrowed by `select`), in the Records of a Hypothesis. */
 export function CallsPanel({
   theme,
   select,
@@ -38,74 +95,18 @@ export function CallsPanel({
 }) {
   const loaded = useApi(theme, loadCalls);
   const calls =
-    select && loaded.state === "ready"
-      ? { ...loaded, data: select(loaded.data) }
-      : loaded;
+    select && loaded.state === "ready" ? { ...loaded, data: select(loaded.data) } : loaded;
   return (
     <section aria-labelledby="calls">
-      <h2 className="reader-label" id="calls">
-        {title}
-      </h2>
+      <h2 id="calls">{title}</h2>
       <Load loaded={calls} what="the calls">
-        {(calls) => (
-          <>
-            <p className="muted-small">
-              What Atlas said, on the date it said it, and what followed: each company&apos;s change
-              since, relative to the theme&apos;s companies together. {callsSummary(calls)}
-            </p>
-            {calls.length > 0 && (
-              <table className="calls">
-                <caption className="sr-only">Calls and the change since each</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Date</th>
-                    <th scope="col">Call</th>
-                    <th scope="col">Companies</th>
-                    {HORIZONS.map((months) => (
-                      <th scope="col" key={months}>
-                        +{months}m
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {calls.map((call) => (
-                    <tr key={call.id}>
-                      <th scope="row">{evidenceDay(call.made_at)}</th>
-                      <td>
-                        {call.claim}
-                        <br />
-                        <span className="muted-small">
-                          {ORIGINS[call.origin]}
-                          {call.direction && `, ${DIRECTIONS[call.direction]}`}
-                        </span>
-                      </td>
-                      <td>
-                        {call.companies.length === 0 ? (
-                          <Missing>{companiesLine(call)}</Missing>
-                        ) : (
-                          call.companies.map((company, index) => (
-                            <span key={company.company_id}>
-                              {index > 0 && ", "}
-                              <Link href={routes.company(company.company_id)}>
-                                {company.display_name}
-                              </Link>
-                            </span>
-                          ))
-                        )}
-                      </td>
-                      {cells(call).map((cell) => (
-                        <td key={cell.horizon} className={`call-${cell.tone}`} title={cell.detail}>
-                          {cell.text}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </>
-        )}
+        {(calls) =>
+          calls.length === 0 ? (
+            <p className="muted">No calls yet.</p>
+          ) : (
+            <CallsTable calls={calls} />
+          )
+        }
       </Load>
     </section>
   );
@@ -144,19 +145,19 @@ export function Predictions({ hypothesisId }: { hypothesisId: string }) {
                       <span className="muted-small">version {prediction.version}</span>
                     </th>
                     <td>
-                      {expectedRange(
-                        prediction.expected_low,
-                        prediction.expected_high,
-                        prediction.unit,
-                      )}
+                      {expectedRange(prediction.expected_low, prediction.expected_high, prediction.unit)}
                     </td>
                     <td>{SOURCES[prediction.source_kind]}</td>
-                    <td className={`prediction-${prediction.state}`}>
-                      {predictionStatus(prediction)}
-                      {prediction.settlement?.note && (
+                    <td>
+                      <PredictionStatus prediction={prediction} />
+                      <span className="muted-small">due {evidenceDay(prediction.deadline)}</span>
+                      {prediction.settlement && (
                         <>
                           <br />
-                          <span className="muted-small">{prediction.settlement.note}</span>
+                          <span className="muted-small">
+                            at {prediction.settlement.value}
+                            {prediction.settlement.note ? ` · ${prediction.settlement.note}` : ""}
+                          </span>
                         </>
                       )}
                     </td>

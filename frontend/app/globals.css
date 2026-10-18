@@ -1965,3 +1965,28 @@ h1,
 .quote-open {
   gap: 0.3em;
 }
+
+.calls td.call-claim,
+.calls td.call-companies {
+  min-width: 12rem;
+  white-space: normal;
+}
+
+.record-theme-title {
+  color: var(--text-2);
+  font-size: 0.95rem;
+  margin: var(--s4) 0 var(--s2);
+}
+
+.record-theme .records-body {
+  margin-top: 0;
+}
+
+.decide-rows .reader-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.decide-rows .reader-row:only-child,
+.decide-rows li:not(:has(.reader-pill)) {
+  grid-template-columns: minmax(0, 1fr);
+}
