@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import Engine, create_engine, event, text
 from sqlalchemy.exc import DBAPIError
 
 from atlas.api.app import create_app
@@ -95,19 +95,25 @@ class Board:
         assert response.status_code == 201, response.text
         return response.json()["fact"]["id"]
 
-    def lead(self, first_seen_at: str | None = None) -> str:
+    def lead(
+        self,
+        first_seen_at: str | None = None,
+        *,
+        title: str = "InP wafer lead times",
+        published: str | None = None,
+    ) -> str:
         with self.engine.begin() as connection:
             return str(
                 connection.execute(
                     text(
                         "INSERT INTO lead (id, canonical_url, url, title, snippet, engines,"
-                        " origin, first_seen_at) VALUES (gen_random_uuid(),"
+                        " origin, first_seen_at, published_date) VALUES (gen_random_uuid(),"
                         " 'https://example.test/' || gen_random_uuid(),"
-                        " 'https://example.test/a', 'InP wafer lead times', 'lead times',"
-                        " '{}', 'tradingview_news', COALESCE(CAST(:seen AS timestamptz), now()))"
-                        " RETURNING id"
+                        " 'https://example.test/a', :title, 'lead times',"
+                        " '{}', 'tradingview_news', COALESCE(CAST(:seen AS timestamptz), now()),"
+                        " CAST(:published AS date)) RETURNING id"
                     ),
-                    {"seen": first_seen_at},
+                    {"seen": first_seen_at, "title": title, "published": published},
                 ).scalar_one()
             )
 
@@ -201,8 +207,8 @@ def test_a_chokepoint_is_born_a_lead_and_every_change_is_an_event_in_its_history
     assert [step["step"] for step in created["steps"]] == list("abcdef")
     assert (created["constraint"], created["layer"], created["theme"]) == (CONSTRAINT, LAYER, THEME)
     assert created["holders"] == [
-        {"name": "AXT Inc", "slug": "axt", "cik": "1051627"},
-        {"name": "Sumitomo", "slug": None, "cik": None},
+        {"name": "AXT Inc", "slug": "axt", "cik": "1051627", "company_id": None},
+        {"name": "Sumitomo", "slug": None, "cik": None, "company_id": None},
     ]
     assert [event["kind"] for event in created["history"]] == ["created"]
     assert created["history"][0]["actor"] == ACTOR
@@ -247,7 +253,9 @@ def test_a_chokepoint_is_born_a_lead_and_every_change_is_an_event_in_its_history
     assert steps["a"]["evidence"]["fact_ids"] == [fact]
     assert steps["b"]["status"] == "lead" and steps["b"]["evidence"]["issue_ids"] == [issue]
     assert steps["c"]["status"] == "unexamined" and steps["c"]["set_at"] is None
-    assert read["holders"] == [{"name": "AXT Inc", "slug": "axt", "cik": None}]  # replaced
+    assert read["holders"] == [
+        {"name": "AXT Inc", "slug": "axt", "cik": None, "company_id": None}
+    ]  # replaced
     assert read["crowding"] == "early"
     assert read["relief_horizon"] == {"horizon": "2028", "basis": "announced capacity adds"}
     assert read["kill_criteria"] == ["a second qualified substrate vendor ships volume"]
@@ -459,7 +467,9 @@ def test_a_holder_may_be_outside_the_universe(board: Board) -> None:
     updated = board.ok(
         created["id"], "field_set", {"holders": [{"name": "Somebody", "slug": "not-in-universe"}]}
     )
-    assert updated["holders"] == [{"name": "Somebody", "slug": "not-in-universe", "cik": None}]
+    assert updated["holders"] == [
+        {"name": "Somebody", "slug": "not-in-universe", "cik": None, "company_id": None}
+    ]
 
 
 def test_a_fact_must_have_been_public_by_the_sessions_as_of_time(board: Board) -> None:
@@ -1052,3 +1062,231 @@ def test_the_tables_refuse_truncate(board: Board) -> None:
     for table in ("chokepoint_event", "chokepoint", "watch_run"):
         with pytest.raises(DBAPIError), board.engine.begin() as connection:
             connection.execute(text(f"TRUNCATE {table} CASCADE"))
+
+
+# --- the reads for the owner's pages (W8) ---
+
+
+def count_statements(board: Board, path: str) -> int:
+    """How many SQL statements one GET of the path runs."""
+    seen: list[str] = []
+
+    def record(*args: Any) -> None:
+        seen.append(args[2])
+
+    event.listen(Engine, "before_cursor_execute", record)
+    try:
+        board.get(path)
+    finally:
+        event.remove(Engine, "before_cursor_execute", record)
+    return len(seen)
+
+
+def test_a_read_resolves_every_fact_lead_and_issue_the_current_state_cites(board: Board) -> None:
+    company = next(c for c in board.get("/api/v1/companies")["items"] if c["slug"] == "lumentum")
+    fact, lead, issue = board.fact(), board.lead(published="2026-09-01"), board.issue()
+    linked = board.issue("Who else makes InP?")
+    chokepoint = board.create()["id"]
+    board.ok(chokepoint, "field_set", {"issue_ids": [linked]})
+    board.ok(chokepoint, "step_set", board.step("primary", "a", fact_ids=[fact]))
+    board.ok(chokepoint, "step_set", board.step("primary", "b", fact_ids=[fact]))  # the same Fact
+    board.ok(chokepoint, "step_set", board.step("lead", "c", lead_ids=[lead], issue_ids=[issue]))
+    board.ok(chokepoint, "step_set", board.step("lead", "d", issue_ids=[linked]))  # linked too
+    version = board.get(f"/api/v1/facts/{fact}")["assertion"]["source_version_id"]
+    documents = board.get(f"/api/v1/companies/{company['id']}/sources", limit=100)["items"]
+    title = next(d["title"] for d in documents if d["latest_version_id"] == version)
+
+    read = board.get(f"/api/v1/chokepoints/{chokepoint}")
+
+    # The step evidence and the linked Issues stay as they were: ids.
+    assert [step["evidence"]["fact_ids"] for step in read["steps"][:2]] == [[fact], [fact]]
+    assert read["issue_ids"] == [linked]
+    # Each cited Fact once, with what the page shows.
+    assert read["facts"] == [
+        {
+            "id": fact,
+            "assertion_id": fact,
+            "statement": "Lumentum's fourth-quarter fiscal 2026 net revenue was $1.01 billion.",
+            "quote": REVENUE_QUOTE,
+            "company_name": company["display_name"],
+            "document_title": title,
+            "available_at": read["facts"][0]["available_at"],
+            "source_version_id": version,
+        }
+    ]
+    assert read["facts"][0]["available_at"].startswith("2026-08-11")
+    assert read["leads"] == [
+        {
+            "id": lead,
+            "title": "InP wafer lead times",
+            "url": "https://example.test/a",
+            "origin": "tradingview_news",
+            "published_at": "2026-09-01",
+        }
+    ]
+    # The Issues: those the steps cite and those linked, once each.
+    assert {each["id"]: each for each in read["issues"]} == {
+        issue: {"id": issue, "title": "Is InP the constraint?", "status": "active"},
+        linked: {"id": linked, "title": "Who else makes InP?", "status": "active"},
+    }
+    assert len(read["issues"]) == 2
+    # The board's list stays light: no resolved evidence.
+    (listed,) = board.get("/api/v1/chokepoints")["items"]
+    assert not {"facts", "leads", "issues", "history"} & set(listed)
+
+
+def test_evidence_is_resolved_in_a_fixed_number_of_queries(board: Board) -> None:
+    few = board.create()["id"]
+    board.ok(few, "step_set", board.step("primary", "a", fact_ids=[board.fact()]))
+    many = board.create(constraint="Cryogenic pumps", layer="equipment")["id"]
+    for step in "abc":
+        board.ok(many, "step_set", board.step("primary", step, fact_ids=[board.fact()]))
+    for step in "def":
+        board.ok(
+            many,
+            "step_set",
+            board.step("lead", step, lead_ids=[board.lead()], issue_ids=[board.issue()]),
+        )
+
+    one = count_statements(board, f"/api/v1/chokepoints/{few}")
+    lots = count_statements(board, f"/api/v1/chokepoints/{many}")
+
+    assert one > 0 and lots == one + 2  # the leads and the Issues each cost one more statement
+    assert len(board.get(f"/api/v1/chokepoints/{many}")["facts"]) == 3
+
+
+def test_a_chokepoint_with_no_evidence_reads_empty_lists(board: Board) -> None:
+    read = board.get(f"/api/v1/chokepoints/{board.create()['id']}")
+
+    assert (read["facts"], read["leads"], read["issues"]) == ([], [], [])
+
+
+def test_a_holder_gains_the_company_id_its_slug_or_cik_resolves_to(board: Board) -> None:
+    lumentum = board.company_id()
+    created = board.create(
+        holders=[
+            {"name": "Lumentum Holdings", "slug": "lumentum"},
+            {"name": "Lumentum by CIK", "cik": "1633978"},  # 0001633978, unpadded
+            {"name": "A slug that names nobody", "slug": "no-such-company", "cik": "1633978"},
+            {"name": "Sumitomo Electric"},
+            {"name": "Unknown", "slug": "no-such-company", "cik": "9999999999"},
+        ]
+    )
+
+    expected = [
+        {"name": "Lumentum Holdings", "slug": "lumentum", "cik": None, "company_id": lumentum},
+        {"name": "Lumentum by CIK", "slug": None, "cik": "1633978", "company_id": lumentum},
+        {
+            "name": "A slug that names nobody",
+            "slug": "no-such-company",
+            "cik": "1633978",
+            "company_id": lumentum,
+        },
+        {"name": "Sumitomo Electric", "slug": None, "cik": None, "company_id": None},
+        {"name": "Unknown", "slug": "no-such-company", "cik": "9999999999", "company_id": None},
+    ]
+    assert created["holders"] == expected
+    assert board.get(f"/api/v1/chokepoints/{created['id']}")["holders"] == expected
+    (listed,) = board.get("/api/v1/chokepoints")["items"]
+    assert listed["holders"] == expected
+    # Resolution is a read: the event keeps what was written.
+    assert created["history"][0]["payload"]["holders"][0] == {
+        "name": "Lumentum Holdings",
+        "slug": "lumentum",
+        "cik": None,
+    }
+
+
+def test_status_set_at_is_the_last_status_event_else_the_creation(board: Board) -> None:
+    created = board.create()
+    chokepoint = created["id"]
+    born = created["created_at"]
+    assert created["status_set_at"] == born
+
+    board.clock.advance(hours=1)
+    board.ok(chokepoint, "note", {"text": "a note is not a status"})
+    board.ok(chokepoint, "field_set", {"crowding": "early"})
+    assert board.get(f"/api/v1/chokepoints/{chokepoint}")["status_set_at"] == born
+
+    board.clock.advance(hours=1)
+    candidate = board.ok(chokepoint, "status_set", {"status": "candidate"})["history"][-1]["at"]
+    board.clock.advance(hours=1)
+    board.ok(chokepoint, "step_set", board.step("lead", "a", lead_ids=[board.lead()]))
+    read = board.get(f"/api/v1/chokepoints/{chokepoint}")
+    assert read["status_set_at"] == candidate
+    assert read["last_event_at"] != candidate
+    assert board.get("/api/v1/chokepoints")["items"][0]["status_set_at"] == candidate
+
+    board.clock.advance(hours=1)
+    board.ok(chokepoint, "status_set", {"status": "killed"}, reason="a second source ships")
+    again = board.get(f"/api/v1/chokepoints/{chokepoint}")
+    assert again["status_set_at"] == again["last_event_at"] != candidate
+
+
+def test_the_board_counts_each_status_and_the_two_derived_flags(board: Board) -> None:
+    board.create()  # lead
+    board.create(constraint="b", layer=LAYER)  # lead
+    killed = board.create(constraint="c", layer=LAYER)["id"]
+    board.ok(killed, "status_set", {"status": "killed"}, reason="no longer true")
+    candidate = board.create(constraint="d", layer=LAYER)["id"]
+    board.ok(candidate, "status_set", {"status": "candidate"})
+    other = board.create(theme="robotics", constraint="Harmonic reducers", layer="parts")["id"]
+    board.ok(other, "status_set", {"status": "candidate"})
+    board.clock.advance(days=60)  # what is not killed is now stale
+    board.create(constraint="e", layer=LAYER)  # a lead, just made
+    ready = board.create(constraint="f", layer=LAYER)["id"]
+    fact, issue = board.fact(), board.issue()
+    for step in "abd":
+        board.ok(ready, "step_set", board.step("primary", step, fact_ids=[fact]))
+    board.ok(ready, "field_set", {"kill_criteria": ["a second vendor ships"], "issue_ids": [issue]})
+    board.ok(ready, "status_set", {"status": "thesis_ready"})
+    assert board.get(f"/api/v1/chokepoints/{ready}")["needs_review"] is False
+    assert board.api.post(f"/api/v1/issues/{issue}/abandon").status_code == 200
+
+    everywhere = board.get("/api/v1/chokepoints/counts")
+    photonics = board.get("/api/v1/chokepoints/counts", theme=THEME)
+
+    # The same numbers as the list's own filters give, whichever way it is asked.
+    for counts, scope in ((everywhere, {}), (photonics, {"theme": THEME})):
+        assert set(counts) == {
+            "lead",
+            "candidate",
+            "thesis_ready",
+            "killed",
+            "stale",
+            "needs_review",
+        }
+        for status, number in counts.items():
+            assert board.get("/api/v1/chokepoints", status=status, **scope)["total"] == number
+    # Six photonics chokepoints: three leads, a candidate, a killed one and a thesis_ready one
+    # whose open Issue was abandoned. The three older ones (not the killed) are stale.
+    assert photonics == {
+        "lead": 3,
+        "candidate": 1,
+        "thesis_ready": 1,
+        "killed": 1,
+        "stale": 3,
+        "needs_review": 1,
+    }
+    assert everywhere["candidate"] == 2 and everywhere["stale"] == 4
+    assert board.get("/api/v1/chokepoints/counts", theme="no-such-theme") == dict.fromkeys(
+        photonics, 0
+    )
+
+
+def test_a_theme_in_the_list_carries_its_board_counts(board: Board) -> None:
+    first = board.create()["id"]
+    board.create(constraint="b", layer=LAYER)
+    board.ok(first, "status_set", {"status": "candidate"})
+    board.create(theme="memory-packaging", constraint="HBM base dies", layer="logic")
+
+    themes = {each["id"]: each for each in board.get("/api/v1/themes")}
+
+    zero = dict.fromkeys(
+        ("lead", "candidate", "thesis_ready", "killed", "stale", "needs_review"), 0
+    )
+    assert themes["photonics"]["board"] == board.get("/api/v1/chokepoints/counts", theme=THEME)
+    assert themes["photonics"]["board"] == zero | {"lead": 1, "candidate": 1}
+    assert themes["memory-packaging"]["board"] == zero | {"lead": 1}
+    mapped = board.get("/api/v1/themes/photonics/map", include="theme")["theme"]
+    assert mapped["board"] == themes["photonics"]["board"]

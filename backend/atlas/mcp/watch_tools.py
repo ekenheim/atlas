@@ -39,13 +39,26 @@ class BoardArgs(Bound):
     ) = None
 
 
+# The routes answer more than these tools do: the owner's pages read a chokepoint's cited Facts,
+# leads and Issues, the time of its status and the company a holder resolves to (Chokepoint
+# Watch W8). The tools keep the shapes they had, the early-call scorecard's surface among them.
+_PAGES_ONLY = ("facts", "leads", "issues", "status_set_at")
+
+
+def _holders(item: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {"name": each.get("name"), "slug": each.get("slug"), "cik": each.get("cik")}
+        for each in rows(item.get("holders"))
+    ]
+
+
 def _line(item: dict[str, Any]) -> dict[str, Any]:
     """A chokepoint on the board: its state, the steps as their statuses only."""
     return {
         "id": item.get("id"),
         "constraint": item.get("constraint"),
         "layer": item.get("layer"),
-        "holders": item.get("holders"),
+        "holders": _holders(item),
         "status": item.get("status"),
         "status_reason": item.get("status_reason"),
         "stale": item.get("stale"),
@@ -111,7 +124,8 @@ class GetChokepointArgs(Bound):
 async def get_chokepoint(ctx: Ctx, args: GetChokepointArgs) -> dict[str, Any]:
     ctx.refuse_isolated("get_chokepoint")
     found = await ctx.api.get(f"/chokepoints/{args.id}", session_id=str(args.session_id))
-    return {**found, "note": BOARD_NOTE}
+    kept = {key: value for key, value in found.items() if key not in _PAGES_ONLY}
+    return {**kept, "holders": _holders(found), "note": BOARD_NOTE}
 
 
 class AddChokepointArgs(Bound):

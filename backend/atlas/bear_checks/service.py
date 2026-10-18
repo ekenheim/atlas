@@ -12,14 +12,29 @@ is `unknown`, never `clear`. Prices and consensus are not read. Rules in `docs/d
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
-from typing import Any
 
 from sqlalchemy import Connection, Engine, text
 
 from atlas.archive import Archive
 from atlas.bear_checks import xbrl
-from atlas.bear_checks.models import BearCheck, BearChecks, BearCheckSource
+from atlas.bear_checks.models import (
+    BearCheck,
+    BearChecks,
+    BearCheckSource,
+    CustomerConcentrationCheck,
+    CustomerConcentrationValue,
+    CustomerMatch,
+    DocumentRef,
+    GoingConcernCheck,
+    GoingConcernValue,
+    ShelfFiling,
+    ShelfOrAtmCheck,
+    ShelfOrAtmValue,
+    TopCustomersShare,
+    UnknownReason,
+)
 from atlas.bear_checks.patterns import customer_concentration, going_concern, no_large_customer
 from atlas.financials import load_metric_catalog, metric_values, select_as_of
 from atlas.financials.service import company_observations
@@ -81,7 +96,7 @@ def bear_checks(
         observations = company_observations(connection, company_id)
         selected = select_as_of(observations, as_of)
         values = metric_values(selected, catalog, xbrl.METRICS)
-        checks = [
+        checks: list[BearCheck] = [
             xbrl.dilution(selected, observations, as_of),
             _shelf_or_atm(connection, company_id, as_of),
             xbrl.gaap_gross_margin(values, as_of),
@@ -89,10 +104,18 @@ def bear_checks(
             _going_concern(connection, archive, company_id, as_of),
             xbrl.net_cash(selected, as_of),
         ]
-    return BearChecks(company_id=company_id, as_of=as_of, checks=checks)
+    return BearChecks(
+        company_id=company_id,
+        as_of=as_of,
+        checks=checks,
+        flagged=[each.key for each in checks if each.status == "flag"],
+        unknown=[each.key for each in checks if each.status == "unknown"],
+    )
 
 
-def _shelf_or_atm(connection: Connection, company_id: uuid.UUID, as_of: datetime) -> BearCheck:
+def _shelf_or_atm(
+    connection: Connection, company_id: uuid.UUID, as_of: datetime
+) -> ShelfOrAtmCheck:
     """Any shelf or ATM prospectus in the ledger in the twelve months before the cutoff. Atlas
     ingests 10-K, 10-Q and 8-K only, so an empty ledger proves nothing: unknown, never clear."""
     rows = (
@@ -109,32 +132,33 @@ def _shelf_or_atm(connection: Connection, company_id: uuid.UUID, as_of: datetime
         .all()
     )
     if not rows:
-        return BearCheck(
-            key="shelf_or_atm",
-            status="unknown",
-            value=None,
-            basis=(
-                "form not ingested: Atlas ingests 10-K, 10-Q and 8-K, and holds no S-3, S-3ASR,"
-                f" F-3, S-1 or 424B5 of this company in the {SHELF_WINDOW_DAYS} days before the"
-                " as-of time, which is not evidence that there was none"
-            ),
-            sources=[],
+        return ShelfOrAtmCheck.not_known(
+            "form_not_collected",
+            "form not ingested: Atlas ingests 10-K, 10-Q and 8-K, and holds no S-3, S-3ASR,"
+            f" F-3, S-1 or 424B5 of this company in the {SHELF_WINDOW_DAYS} days before the"
+            " as-of time, which is not evidence that there was none",
         )
     rows = sorted(rows, key=lambda row: row["available_at"], reverse=True)
     forms = sorted({row["form_type"] for row in rows})
     filings = [
-        {
-            "form": row["form_type"],
-            "available_at": row["available_at"].astimezone(UTC).isoformat(),
-            "source_version_id": str(row["version_id"]),
-            "title": row["title"],
-        }
+        ShelfFiling(
+            form=row["form_type"],
+            available_at=row["available_at"].astimezone(UTC).isoformat(),
+            source_version_id=row["version_id"],
+            title=row["title"],
+        )
         for row in rows
     ]
-    return BearCheck(
+    return ShelfOrAtmCheck(
         key="shelf_or_atm",
         status="flag",
-        value={"filings": filings},
+        unknown_reason=None,
+        summary=(
+            "The company filed one shelf or offering document in the last year."
+            if len(rows) == 1
+            else f"The company filed {len(rows)} shelf or offering documents in the last year."
+        ),
+        value=ShelfOrAtmValue(filings=filings),
         basis=(
             f"{len(rows)} shelf or offering filing(s) ({', '.join(forms)})"
             f" in the ledger, public in the {SHELF_WINDOW_DAYS} days before the as-of time"
@@ -176,13 +200,22 @@ class _Text:
     complete: bool  # a parse that read the whole document (`parsed`, not `incomplete`)
 
 
-def _parsed_text(connection: Connection, archive: Archive, report: _Report) -> _Text | str:
+@dataclass(frozen=True)
+class _NoText:
+    """Why a report has no text to read: the reason, and the words that follow the report's name
+    in a basis."""
+
+    reason: UnknownReason
+    text: str
+
+
+def _parsed_text(connection: Connection, archive: Archive, report: _Report) -> _Text | _NoText:
     """The report's current parse, or why there is none."""
     parse = current_parse(connection, report.version_id)
     if parse is None or parse.parse_status not in _WITH_TEXT or parse.parsed_object_uri is None:
-        return "has no parsed text"
+        return _NoText("no_parsed_text", "has no parsed text")
     if parse.language not in (None, "en"):
-        return "is not in English"
+        return _NoText("not_english", "is not in English")
     return _Text(
         archive.get(parse.parsed_object_uri).decode("utf-8"),
         parse.parser_version,
@@ -205,33 +238,38 @@ def _source(
     )
 
 
+def _share(percent: Decimal) -> str:
+    """A customer's share for a sentence: `31`, `26.6`."""
+    return f"{percent.normalize():f}"
+
+
 def _describe(report: _Report) -> str:
     return f"{report.form_type} public {report.available_at.astimezone(UTC).date()}"
 
 
-def _document(report: _Report) -> dict[str, Any]:
-    return {"source_version_id": str(report.version_id), "form": report.form_type}
+def _document(report: _Report) -> DocumentRef:
+    return DocumentRef(source_version_id=report.version_id, form=report.form_type)
 
 
 def _customer_concentration(
     connection: Connection, archive: Archive, company_id: uuid.UUID, as_of: datetime
-) -> BearCheck:
+) -> CustomerConcentrationCheck:
     """Flag when a customer's current-period share of revenue is 25% or more (a sentence or a
     table row of the latest 10-K or 20-F). Clear only on positive evidence: a customer's share
     below 25% stated as a value ("more than 10%" is a lower bound, not a value), or the
     statement that no customer exceeded a threshold of 25% or less, in a whole parse. A text
     that says nothing of the kind is unknown."""
-    unknown = BearCheck(
-        key="customer_concentration", status="unknown", value=None, basis="", sources=[]
-    )
     report = _latest_report(connection, company_id, as_of, CONCENTRATION_FORMS)
     if report is None:
-        unknown.basis = "no 10-K or 20-F of this company is in the ledger as of the as-of time"
-        return unknown
+        return CustomerConcentrationCheck.not_known(
+            "form_not_collected",
+            "no 10-K or 20-F of this company is in the ledger as of the as-of time",
+        )
     parsed = _parsed_text(connection, archive, report)
-    if isinstance(parsed, str):
-        unknown.basis = f"the latest annual report ({_describe(report)}) {parsed}"
-        return unknown
+    if isinstance(parsed, _NoText):
+        return CustomerConcentrationCheck.not_known(
+            parsed.reason, f"the latest annual report ({_describe(report)}) {parsed.text}"
+        )
     matches = customer_concentration(parsed.body)
     customers = [each for each in matches if each.kind == "customer"]
     groups = [each for each in matches if each.kind == "top_customers"]
@@ -242,37 +280,40 @@ def _customer_concentration(
         for each in no_large_customer(parsed.body)
         if each.threshold <= CONCENTRATION_FLAG_PERCENT
     ]
-    value: dict[str, Any] = {
-        "document": _document(report),
-        "current_percent": float(max((each.current for each in customers), default=0)) or None,
-        "matches": [
-            {
-                "percents": [float(p) for p in each.percents],
-                "current_percent": float(each.current),
-                "lower_bound": each.floor,
-                "char_start": each.char_start,
-                "char_end": each.char_end,
-                "quote": each.sentence,
-            }
+    value = CustomerConcentrationValue(
+        document=_document(report),
+        current_percent=float(max((each.current for each in customers), default=0)) or None,
+        matches=[
+            CustomerMatch(
+                percents=[float(p) for p in each.percents],
+                current_percent=float(each.current),
+                lower_bound=each.floor,
+                char_start=each.char_start,
+                char_end=each.char_end,
+                quote=each.sentence,
+            )
             for each in (flagged or customers)[:MAX_MATCHES]
         ],
-        "top_customers_share": [
-            {
-                "percents": [float(p) for p in each.percents],
-                "current_percent": float(each.current),
-                "char_start": each.char_start,
-                "char_end": each.char_end,
-                "quote": each.sentence,
-            }
+        top_customers_share=[
+            TopCustomersShare(
+                percents=[float(p) for p in each.percents],
+                current_percent=float(each.current),
+                char_start=each.char_start,
+                char_end=each.char_end,
+                quote=each.sentence,
+            )
             for each in groups[:MAX_MATCHES]
         ],
-        "no_customer_above": [float(each.threshold) for each in none_large],
-    }
+        no_customer_above=[float(each.threshold) for each in none_large],
+    )
     limit = CONCENTRATION_FLAG_PERCENT
     if flagged:
-        return BearCheck(
+        biggest = max(each.current for each in flagged)
+        return CustomerConcentrationCheck(
             key="customer_concentration",
             status="flag",
+            unknown_reason=None,
+            summary=f"One customer is {_share(biggest)}% of revenue.",
             value=value,
             basis=(
                 f"{len(flagged)} sentence(s) or table row(s) of the latest annual report"
@@ -287,17 +328,19 @@ def _customer_concentration(
             ],
         )
     if not parsed.complete:
-        unknown.basis = (
+        return CustomerConcentrationCheck.not_known(
+            "partial_parse",
             f"the latest annual report ({_describe(report)}) was only partly parsed: no flag in"
-            " the part read is not evidence that there is none"
+            " the part read is not evidence that there is none",
+            value=value,
         )
-        unknown.value = value
-        return unknown
     evidence = [*stated, *none_large]
     if evidence:
-        return BearCheck(
+        return CustomerConcentrationCheck(
             key="customer_concentration",
             status="clear",
+            unknown_reason=None,
+            summary=f"No customer is as much as {limit}% of revenue, the annual report says.",
             value=value,
             basis=(
                 f"the latest annual report ({_describe(report)}) states "
@@ -315,68 +358,78 @@ def _customer_concentration(
                 for each in evidence[:MAX_MATCHES]
             ],
         )
-    unknown.value = value
-    unknown.basis = (
+    return CustomerConcentrationCheck.not_known(
+        "no_statement",
         f"the latest annual report ({_describe(report)}) states no customer's share of revenue"
         f" below {limit}% and not that no customer exceeded a threshold ("
         f"{len(customers)} customer sentence(s) or row(s) give only a lower bound or nothing"
-        " below the line); only that wording is read"
+        " below the line); only that wording is read",
+        value=value,
     )
-    return unknown
 
 
 def _going_concern(
     connection: Connection, archive: Archive, company_id: uuid.UUID, as_of: datetime
-) -> BearCheck:
+) -> GoingConcernCheck:
     """Flag when the latest periodic report names substantial doubt about continuing as a going
     concern (a sentence that actually denies it does not count). Clear only from a whole parse
     of a 10-K, 10-Q, 20-F or 40-F; a partial parse that flags nothing is unknown."""
-    unknown = BearCheck(key="going_concern", status="unknown", value=None, basis="", sources=[])
     report = _latest_report(connection, company_id, as_of, GOING_CONCERN_FORMS)
     if report is None:
-        unknown.basis = (
-            "no 10-K, 10-Q, 20-F or 40-F of this company is in the ledger as of the as-of time"
+        return GoingConcernCheck.not_known(
+            "form_not_collected",
+            "no 10-K, 10-Q, 20-F or 40-F of this company is in the ledger as of the as-of time",
         )
-        return unknown
     parsed = _parsed_text(connection, archive, report)
-    if isinstance(parsed, str):
-        unknown.basis = f"the latest periodic report ({_describe(report)}) {parsed}"
-        return unknown
+    if isinstance(parsed, _NoText):
+        return GoingConcernCheck.not_known(
+            parsed.reason, f"the latest periodic report ({_describe(report)}) {parsed.text}"
+        )
     matches = going_concern(parsed.body)
     stated = [each for each in matches if not each.negated]
-    value: dict[str, Any] = {
-        "document": _document(report),
-        "sentences": len(stated),
-        "negated_sentences": len(matches) - len(stated),
-        "hedged_only": bool(stated) and all(each.hedged for each in stated),
-    }
+    value = GoingConcernValue(
+        document=_document(report),
+        sentences=len(stated),
+        negated_sentences=len(matches) - len(stated),
+        hedged_only=bool(stated) and all(each.hedged for each in stated),
+    )
     sources = [
         _source(report, parsed.parser_version, each.char_start, each.char_end, each.sentence)
         for each in (stated or matches)[:MAX_MATCHES]
     ]
     if stated:
-        return BearCheck(
+        return GoingConcernCheck(
             key="going_concern",
             status="flag",
+            unknown_reason=None,
+            summary=(
+                "The latest report says the company could face substantial doubt about"
+                " continuing as a going concern."
+                if value.hedged_only
+                else "The latest report raises substantial doubt that the company can continue"
+                " as a going concern."
+            ),
             value=value,
             basis=(
                 f"the latest periodic report ({_describe(report)}) names substantial doubt about"
                 f" the ability to continue as a going concern in {len(stated)} sentence(s)"
-                + (" (all conditional: 'could', 'may', 'if')" if value["hedged_only"] else "")
+                + (" (all conditional: 'could', 'may', 'if')" if value.hedged_only else "")
             ),
             sources=sources,
         )
     if not parsed.complete:
-        unknown.value = value
-        unknown.sources = sources
-        unknown.basis = (
+        return GoingConcernCheck.not_known(
+            "partial_parse",
             f"the latest periodic report ({_describe(report)}) was only partly parsed: no"
-            " going-concern language in the part read is not evidence that there is none"
+            " going-concern language in the part read is not evidence that there is none",
+            value=value,
+            sources=sources,
         )
-        return unknown
-    return BearCheck(
+    return GoingConcernCheck(
         key="going_concern",
         status="clear",
+        unknown_reason=None,
+        summary="The latest report does not raise going-concern doubt.",
         value=value,
         basis=(
             f"the whole latest periodic report ({_describe(report)}) was read and has no"

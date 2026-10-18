@@ -38,6 +38,7 @@ const theme = (over: Partial<ThemeSummary> = {}): ThemeSummary => ({
   empty_layers: [],
   relationship_count: 457,
   open_candidate_count: 104,
+  board: { lead: 0, candidate: 0, thesis_ready: 0, killed: 0, stale: 0, needs_review: 0 },
   ...over,
 });
 
