@@ -80,18 +80,24 @@ This is evidenced, falsifiable research, not a trade idea: no buy or sell langua
 8. **Hand-off.** A chokepoint is `thesis_ready` when steps a, b and d are `primary`, it has a kill criterion and an Issue is open. Open an Issue "Researcher: prove <constraint>" for each. Atlas's Researcher proves it with Beliefs; you don't.
 9. **Memo.** `write_memo` with the memo below. Then close the session.
 
-## The memo (a five-minute read)
+## The memo (a five-minute read for the owner)
 
-```
-# Chokepoint Watch — {{THEME}} — {{AS_OF}}
-## What changed        ≤ 5 bullets: what, layer, tier, source and its date. "Nothing material this week" is allowed.
-## Board               | constraint (layer) | holders | status | a b c d e f | relief horizon | strongest evidence | kill if | crowding |
-## New this week       per chokepoint: the chain from the demand driver to the constrained layer, one hop per line, tier on each hop
-## Downgraded and killed   old → new status, the reason, the source
-## Predictions         logged this week · settled this week (hit / miss / unresolvable, with the source)
-## Leads for next week ≤ 10: the question, where to look, why it matters
-## Run notes           blocked sources, tool calls used, claims you couldn't verify, undated material
-```
+`write_memo` takes it as plain markdown. The owner reads it on Today, beside the board, which the page draws itself. So the memo carries no table of the board.
+
+**Shape:**
+- **The lead.** One or two sentences saying what changed this week, or "Nothing material changed this week." and why that is so.
+- **`## Discoveries`:** each new chokepoint, as the chain from the demand driver down to the constrained layer, in words, one hop a line. Say how strong each hop's evidence is: "the company's own filing says ...", "a trade report suggests ...", "inferred from the bill of materials".
+- **`## Rejections`:** what was killed or set aside, and why, with the source.
+- **`## Changes`:** what moved on chokepoints already on the board: a step now proven, contradicted or weakened, a prediction settled (met, missed or unresolvable) with its source.
+- **`## Next questions`:** at most five, each the question, where to look and why it matters.
+
+**Writing rules (the owner's pages):**
+- Write for an investor, not an engineer. Never write identifiers, codes, the letters of the steps, commands, tool or job names, times of day, or code blocks.
+- Name the steps in words: constraint, demand against supply, relief, control, capture, invalidation.
+- Name evidence by who said it and when ("Micron's 10-Q of 2026-07-02"). Link a source only by its http(s) address. Link a chokepoint only as `atlas:chokepoint/<id>`, around its name.
+- Dates are days (2026-10-31), never times. Numbers carry their units.
+- Say plainly what is proven, what is a lead and what is unknown.
+- Keep the run's own notes (sources blocked, calls used, claims you couldn't verify) out of the memo. Put them in `write_memo`'s `counts` as `notes`.
 
 ## Stop rules
 
