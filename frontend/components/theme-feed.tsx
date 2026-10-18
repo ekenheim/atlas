@@ -81,7 +81,16 @@ const loadChanges = (theme: string) => api.themeChanges(theme);
 
 /** What changed on the theme: the window's important changes first, then the newest. A dot marks
  * what is newer than the last visit. */
-export function ChangedList({ theme, mark }: { theme: string; mark: Date | null }) {
+export function ChangedList({
+  theme,
+  mark,
+  statementOf,
+}: {
+  theme: string;
+  mark: Date | null;
+  /** The statement of a Belief the page holds, to say what a flag or a notice is about. */
+  statementOf: (beliefId: string) => string | undefined;
+}) {
   const loaded = useApi(theme, loadChanges);
   const [all, setAll] = useState(false);
   return (
@@ -106,11 +115,11 @@ export function ChangedList({ theme, mark }: { theme: string; mark: Date | null 
                         <div className="row-title">
                           {isUnseen(change.at, mark) ? <span className="unseen-dot" aria-label="new" /> : null}
                           {href ? (
-                            <Link href={href} title={changeLabel(change)}>
-                              {changeLabel(change)}
+                            <Link href={href} title={changeLabel(change, statementOf)}>
+                              {changeLabel(change, statementOf)}
                             </Link>
                           ) : (
-                            changeLabel(change)
+                            changeLabel(change, statementOf)
                           )}
                         </div>
                         <div className="reader-row-sub">{activity(change.at, now)}</div>

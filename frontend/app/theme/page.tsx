@@ -107,6 +107,8 @@ function Body({ theme, beliefs }: { theme: ThemeSummary; beliefs: BeliefSummary[
   const starting = active.length === 0;
   const steps = argumentOf(beliefs);
   const newest = newestEvidence(beliefs);
+  const statements = new Map(beliefs.map((each) => [each.id, each.statement]));
+  const statementOf = (id: string) => statements.get(id);
   const card = buildCard(theme, hypotheses.state === "ready" ? hypotheses.data : [], beliefs);
   const now = new Date();
   const callList = calls.state === "ready" ? calls.data : [];
@@ -157,7 +159,7 @@ function Body({ theme, beliefs }: { theme: ThemeSummary; beliefs: BeliefSummary[
           </section>
 
           <div className="band band-2">
-            <ChangedList theme={theme.id} mark={mark} />
+            <ChangedList theme={theme.id} mark={mark} statementOf={statementOf} />
             <section aria-labelledby="due">
               <h2 className="reader-label" id="due">
                 Due

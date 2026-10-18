@@ -157,6 +157,8 @@ function TodayCard({
   const now = new Date();
   const view = changes.state === "ready" ? selectChanges(changes.data, mark, now, 3) : null;
   const starting = beliefs.state === "ready" && themeBeliefs(beliefs.data, theme.id).length === 0;
+  const statements = new Map(beliefs.state === "ready" ? beliefs.data.map((each) => [each.id, each.statement]) : []);
+  const statementOf = (id: string) => statements.get(id);
   return (
     <ThemeCard
       theme={theme}
@@ -180,12 +182,13 @@ function TodayCard({
                     {view.shown.map((change, index) => {
                       const href = changeHref(change);
                       const unseen = isUnseen(change.at, mark);
+                      const label = changeLabel(change, statementOf);
                       return (
                         <li className="reader-row change-row" key={`${change.at}-${index}`}>
                           <div>
                             <div className="row-title">
                               {unseen ? <span className="unseen-dot" aria-label="new" /> : null}
-                              {href ? <Link href={href}>{changeLabel(change)}</Link> : changeLabel(change)}
+                              {href ? <Link href={href}>{label}</Link> : label}
                             </div>
                             <div className="reader-row-sub">{activity(change.at, now)}</div>
                           </div>

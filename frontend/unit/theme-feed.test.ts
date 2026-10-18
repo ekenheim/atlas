@@ -80,14 +80,17 @@ test("a flag or a notice reads as what happened to which Belief, with none of th
       ...fields,
     }) as ThemeChange;
   const text =
-    "A load-bearing citation at valence -1 stands against it (Lumentum can add laser capacity faster than demand grows.)";
-  expect(changeLabel(change({ kind: "flagged", text }))).toBe(
-    "Flagged: Lumentum can add laser capacity faster than demand grows.",
+    "A load-bearing citation against the Belief (valence -1) stands. (Lumentum can add laser capacity faster than demand grows.)";
+  const known = (id: string) => (id === "b1" ? "Lumentum can add laser capacity faster than demand grows." : undefined);
+  const flagged = changeLabel(change({ kind: "flagged", text, belief_id: "b1" }), known);
+  expect(flagged).toBe("Flagged: Lumentum can add laser capacity faster than demand grows.");
+  expect(flagged).not.toMatch(/valence/);
+  expect(changeLabel(change({ kind: "notice", text: "A newer 10-Q supports it (X is true.)", belief_id: "b1" }), known)).toBe(
+    "Confirmed: Lumentum can add laser capacity faster than demand grows.",
   );
-  expect(changeLabel(change({ kind: "notice", text: "A newer 10-Q supports it (X is true.)" }))).toBe(
-    "Confirmed: X is true.",
-  );
-  expect(changeLabel(change({ kind: "flagged", text: "no statement here" }))).toBe("Flagged");
+  // A Belief the page does not hold: the word alone, never the backend's detail.
+  expect(changeLabel(change({ kind: "flagged", text, belief_id: "other" }), known)).toBe("Flagged");
+  expect(changeLabel(change({ kind: "flagged", text }))).toBe("Flagged");
   // A judgement and a new Fact read as the feed gives them.
   expect(changeLabel(change({ kind: "judged", text: "proven 80%: X." }))).toBe("proven 80%: X.");
   expect(changeLabel(change({ kind: "fact", text: "Lumentum: Y." }))).toBe("Lumentum: Y.");

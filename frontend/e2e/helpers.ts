@@ -51,5 +51,9 @@ export async function expectNoLeaks(page: Page): Promise<void> {
       .forEach((node) => node.remove());
     return clone.textContent ?? "";
   });
-  expect(text).not.toMatch(LEAKS);
+  const hit = LEAKS.exec(text);
+  const context = hit
+    ? `...${text.slice(Math.max(0, hit.index - 60), hit.index + hit[0].length + 60)}...`
+    : "";
+  expect(hit, `leak "${hit?.[0]}" in: ${context}`).toBeNull();
 }
