@@ -1,8 +1,8 @@
 "use client";
 
-// A Hypothesis over Beliefs, as the dossier leads with it (atlas-beliefs ticket 14): the steps of
-// the argument, each with its statement and the Beliefs it rests on, every Belief with its
-// judgement and the Facts' quotes at their spans; and the theme's open Issues.
+// A Hypothesis over Beliefs (atlas-beliefs ticket 14). Above the fold: the six steps as rows, each
+// with its statement and the Beliefs it rests on (their quotes one toggle deeper), and the
+// theme's open Issues. In the Records: the full list of what it rests on, with the quotes.
 import Link from "next/link";
 
 import {
@@ -10,12 +10,12 @@ import {
   type BeliefSummary,
   type HypothesisVersion,
 } from "../lib/api/client";
+import { STEPS } from "../lib/beliefs";
+import { evidenceDay } from "../lib/format";
 import {
-  JUDGEMENTS,
-  type JudgementName,
-  confidenceText,
-  judgementTone,
-} from "../lib/beliefs";
+  changedSinceDrafting,
+  firstSentence,
+} from "../lib/hypothesis-page";
 import {
   type Step,
   beliefCount,
@@ -25,14 +25,16 @@ import {
   standingNow,
   stepBeliefIds,
   stepViews,
-  thesisCheck,
 } from "../lib/hypothesis-steps";
-import { evidenceDay } from "../lib/format";
 import { routes } from "../lib/routes";
 import { useApi } from "../lib/use-api";
 import { CitationQuote } from "./beliefs";
 import { CallsPanel } from "./calls";
+import type { QuoteProps } from "./quote";
+import { BeliefVerdict } from "./status";
+import { StepRows, type BeliefRowData, type StepRowData } from "./step-rows";
 import { Load } from "./ui";
+import { Quote } from "./quote";
 
 type StepBelief = Step["beliefs"][number];
 
@@ -40,7 +42,102 @@ const loadIssues = () => api.issues();
 const loadBeliefs = (key: string) =>
   api.beliefs({ theme: key.slice("beliefs:".length) });
 
-/** The steps, in the argument's order. Nothing for a version of an investigation. */
+function useNow(theme: string): Map<string, BeliefSummary> {
+  // How each Belief stands now, beside how the version drafted it (a failed read shows none).
+  const current = useApi(`beliefs:${theme}`, loadBeliefs);
+  return new Map<string, BeliefSummary>(
+    current.state === "ready"
+      ? current.data.items.map((each: BeliefSummary) => [each.id, each])
+      : [],
+  );
+}
+
+function quotesOf(belief: StepBelief): QuoteProps[] {
+  return belief.citations.map((citation) => ({
+    statement: citation.statement,
+    quote: citation.quote,
+    company: citation.company_name,
+    document: citation.source_title ?? "source",
+    availableAt: citation.available_at,
+    href: routes.span(citation.source_version_id, citation.ref_id),
+    against: citation.valence < 0,
+  }));
+}
+
+const GLYPH = {
+  checked: { glyph: "✓", name: "checked against its quotes", cls: "status-ok" },
+  aside: { glyph: "–", name: "set aside", cls: "status-muted" },
+} as const;
+
+/** The version's steps as rows: each step's statement (its first sentence leads), the Beliefs it
+ * rests on, and whether any has moved since the version was drafted. */
+export function VersionStepRows({
+  version,
+  theme,
+}: {
+  version: HypothesisVersion;
+  theme: string;
+}) {
+  const now = useNow(theme);
+  const views = stepViews(version);
+  if (views.length === 0) return null;
+  const rows: StepRowData[] = views.map((view) => {
+    const beliefs: BeliefRowData[] = view.beliefs.map((belief) => {
+      const current = now.get(belief.belief_id);
+      const changed = standingNow(belief, current);
+      return {
+        id: belief.belief_id,
+        statement: belief.statement,
+        judgement: (belief.judgement as BeliefRowData["judgement"]) ?? "unproven",
+        confidence: belief.confidence,
+        status: current?.status ?? "active",
+        open_flags: current?.open_flags ?? 0,
+        open_notices: current?.open_notices ?? 0,
+        companies: belief.companies,
+        asOf: belief.as_of,
+        note: changed ? <>Since drafted: {changed}</> : undefined,
+        quotes: quotesOf(belief),
+      };
+    });
+    const strongest = beliefs.find((each) => each.judgement === "proven") ?? beliefs[0] ?? null;
+    const statement = view.statements[0]?.statement ?? null;
+    const key = view.step as keyof typeof STEPS;
+    return {
+      key: view.step,
+      title: view.title,
+      against: key === "relief" || key === "invalidation",
+      count: `${beliefs.length} ${beliefs.length === 1 ? "Belief" : "Beliefs"}`,
+      headline: statement ? firstSentence(statement) : (strongest?.statement ?? null),
+      strongest,
+      changed: changedSinceDrafting(view, now) ? "changed since drafting" : null,
+      beliefs,
+      lead:
+        view.statements.length > 0 ? (
+          <ul className="step-statements" aria-label={`${view.title} statements`}>
+            {view.statements.map((one) => {
+              const mark = one.judged === true ? GLYPH.checked : GLYPH.aside;
+              return (
+                <li key={one.statement}>
+                  <span
+                    className={`status ${mark.cls}`}
+                    role="img"
+                    aria-label={mark.name}
+                    title={mark.name}
+                  >
+                    {mark.glyph}
+                  </span>{" "}
+                  {one.statement}
+                </li>
+              );
+            })}
+          </ul>
+        ) : undefined,
+    };
+  });
+  return <StepRows steps={rows} />;
+}
+
+/** The steps in full, in the argument's order: what the Records show of what it rests on. */
 export function HypothesisSteps({
   version,
   theme,
@@ -48,13 +145,7 @@ export function HypothesisSteps({
   version: HypothesisVersion;
   theme: string;
 }) {
-  // How each Belief stands now, beside how the version drafted it (a failed read shows none).
-  const current = useApi(`beliefs:${theme}`, loadBeliefs);
-  const now = new Map<string, BeliefSummary>(
-    current.state === "ready"
-      ? current.data.items.map((each: BeliefSummary) => [each.id, each])
-      : [],
-  );
+  const now = useNow(theme);
   const steps = stepViews(version);
   if (steps.length === 0) return null;
   const count = beliefCount(version);
@@ -102,16 +193,6 @@ export function HypothesisSteps({
   );
 }
 
-function pill(belief: StepBelief) {
-  const judgement = belief.judgement as JudgementName;
-  return (
-    <span className={`reader-pill ${judgementTone(judgement)}`}>
-      {JUDGEMENTS[judgement] ?? belief.judgement}
-      {judgement !== "unproven" && ` ${confidenceText(belief.confidence)}`}
-    </span>
-  );
-}
-
 function StepBeliefRow({
   belief,
   now,
@@ -123,10 +204,10 @@ function StepBeliefRow({
   return (
     <li className="reader-row" aria-label={belief.statement}>
       <div>
-        <div className="reader-row-title">
+        <div className="row-title">
           <Link href={routes.belief(belief.belief_id)}>{belief.statement}</Link>
         </div>
-        <div className="reader-row-sub">
+        <div className="reader-row-sub row-secondary">
           {belief.companies.join(", ") || "no company"} · as of{" "}
           {evidenceDay(belief.as_of)} · judged by {belief.judged_by}
         </div>
@@ -135,51 +216,26 @@ function StepBeliefRow({
             <strong>Since drafted:</strong> {changed}
           </div>
         )}
-        {belief.citations.map((citation) => (
-          <figure key={citation.ref_id} className="reader-quote">
-            {citation.statement && <p>{citation.statement}</p>}
-            <blockquote>{citation.quote}</blockquote>
-            <figcaption>
-              {citation.company_name} · {citation.source_title ?? "source"} ·
-              available {evidenceDay(citation.available_at)} ·{" "}
-              <Link
-                href={routes.span(citation.source_version_id, citation.ref_id)}
-              >
-                Source
-              </Link>
-            </figcaption>
-          </figure>
+      </div>
+      <span className="row-verdict">
+        <BeliefVerdict
+          belief={{
+            status: "active",
+            open_flags: 0,
+            open_notices: 0,
+            judgement: {
+              judgement: belief.judgement as BeliefRowData["judgement"],
+              confidence: belief.confidence,
+            },
+          }}
+        />
+      </span>
+      <div className="row-quotes">
+        {quotesOf(belief).map((quote) => (
+          <Quote key={`${quote.href}`} {...quote} />
         ))}
       </div>
-      {pill(belief)}
     </li>
-  );
-}
-
-/** Whether the thesis was checked against its Beliefs' quotes (a version of an investigation
- * has no such check and says nothing). */
-export function ThesisLine({ version }: { version: HypothesisVersion }) {
-  const check = thesisCheck(version);
-  if (check === null) return null;
-  return (
-    <p className="reader-meta" aria-label="Thesis check">
-      <span
-        className={`reader-pill ${
-          check.state === "supported"
-            ? "reader-supported"
-            : check.state === "misstated"
-              ? "reader-disputed"
-              : "reader-unknown"
-        }`}
-      >
-        {check.state === "supported"
-          ? "Checked"
-          : check.state === "misstated"
-            ? "Overreaches"
-            : "Unchecked"}
-      </span>{" "}
-      {check.text}
-    </p>
   );
 }
 
@@ -206,7 +262,7 @@ export function Counterevidence({ version }: { version: HypothesisVersion }) {
               {groups.map((group) => (
                 <li className="reader-row" key={group.id}>
                   <div>
-                    <div className="reader-row-title">
+                    <div className="row-title">
                       <Link href={routes.belief(group.id)}>
                         {group.statement}
                       </Link>
@@ -244,6 +300,9 @@ export function HypothesisCalls({
   );
 }
 
+/** Rows shown before `All`. */
+export const ISSUES_SHOWN = 7;
+
 /** The theme's Issues still open: what the Hypothesis does not yet settle. */
 export function OpenIssues({ theme }: { theme: string }) {
   const issues = useApi("issues", loadIssues);
@@ -257,13 +316,21 @@ export function OpenIssues({ theme }: { theme: string }) {
             <p className="muted">None open on this theme.</p>
           ) : (
             <>
-              <ul aria-label="Open issues">
-                {open.map((issue) => (
-                  <li key={issue.id}>{issue.title}</li>
+              <ul className="reader-rows" aria-label="Open issues">
+                {open.slice(0, ISSUES_SHOWN).map((issue) => (
+                  <li className="reader-row" key={issue.id}>
+                    <div className="row-title one-line">
+                      <Link href={routes.issue(issue.id)} title={issue.title}>
+                        {issue.title}
+                      </Link>
+                    </div>
+                  </li>
                 ))}
               </ul>
-              <p>
-                <Link href={routes.issues()}>All Issues</Link>
+              <p className="card-more">
+                <Link href={routes.issues(`theme=${encodeURIComponent(theme)}`)}>
+                  {open.length > ISSUES_SHOWN ? `All ${open.length} Issues` : "All Issues"}
+                </Link>
               </p>
             </>
           );

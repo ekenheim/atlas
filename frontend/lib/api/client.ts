@@ -420,6 +420,16 @@ export const api = {
     forgetHypotheses();
     return published;
   },
+  /** Publish although a Belief it rests on is not proven: the owner's override, with its reason. */
+  publishOverride: async (id: string, version: number, reason: string) => {
+    const published = await post(
+      "/api/v1/hypotheses/{hypothesis_id}/publish-version",
+      { path: { hypothesis_id: id } },
+      { version, override_beliefs: true, override_reason: reason },
+    );
+    forgetHypotheses();
+    return published;
+  },
   /** A lifecycle change (`reviewed` only by publishing). */
   transitionHypothesis: async (id: string, to: HypothesisStatus) => {
     const changed = await post(

@@ -8,6 +8,7 @@ import { VersionAssertions } from "../../components/assertions";
 import { SourceDocumentRows } from "../../components/source-document";
 import { Code, Load, Missing, Row, Timestamp } from "../../components/ui";
 import { api, type Assertion, type SourceVersionDetail } from "../../lib/api/client";
+import { evidenceDay } from "../../lib/format";
 import { domPosition, splitAtSpan, utf16Index } from "../../lib/offsets";
 import { formatCount, plural } from "../../lib/memory";
 import { routes } from "../../lib/routes";
@@ -59,6 +60,11 @@ function VersionLink({ id, label }: { id: string | null; label: string }) {
 
 function Provenance({ version }: { version: SourceVersionDetail }) {
   const sourceDocument = version.source_document;
+  const highlighted = useHighlightedAssertion();
+  const quoted =
+    highlighted?.state === "ready" && highlighted.data.source_version_id === version.id
+      ? highlighted.data
+      : null;
   return (
     <section aria-labelledby="provenance">
       <h2 id="provenance">Provenance</h2>
@@ -74,6 +80,11 @@ function Provenance({ version }: { version: SourceVersionDetail }) {
             </Row>
           )}
           <SourceDocumentRows sourceDocument={sourceDocument} />
+          {quoted && (
+            <Row name="Characters">
+              {quoted.span_start.toLocaleString("en-US")}–{quoted.span_end.toLocaleString("en-US")}
+            </Row>
+          )}
           <Row name="Raw SHA-256">
             <Code>{version.raw_sha256}</Code>
           </Row>
@@ -403,9 +414,9 @@ function HighlightNote({
   }
   return (
     <p id="highlighted-span-hint">
-      Highlighted: the span of the <Code>{data.predicate}</Code> Assertion, characters{" "}
-      {data.span_start}–{data.span_end}
-      {data.page_or_anchor && <> ({data.page_or_anchor})</>}.
+      Quoted passage · {version.source_document.form_type ?? version.source_document.document_type ?? "document"} · filed{" "}
+      {evidenceDay(version.available_at)}
+      {data.page_or_anchor && <> · {data.page_or_anchor}</>}
     </p>
   );
 }

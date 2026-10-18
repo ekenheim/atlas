@@ -13,6 +13,7 @@ import type { StepArgument } from "../lib/argument";
 import { STEPS } from "../lib/beliefs";
 import { activity, evidenceDay } from "../lib/format";
 import { routes } from "../lib/routes";
+import { Quote, type QuoteProps } from "./quote";
 import { BeliefVerdict } from "./status";
 
 /** A Belief as a row needs it, whether it comes from a theme's list or from a version's record. */
@@ -28,6 +29,8 @@ export interface BeliefRowData {
   asOf: string;
   /** A line under the row (what changed since a version drafted it). */
   note?: ReactNode;
+  /** The quotes it rests on, shown when the row's `Quotes` toggle is opened. */
+  quotes?: QuoteProps[];
 }
 
 export interface StepRowData {
@@ -101,6 +104,8 @@ function verdictOf(belief: BeliefRowData) {
 }
 
 export function BeliefRow({ belief }: { belief: BeliefRowData }) {
+  const [open, setOpen] = useState(false);
+  const quotes = belief.quotes ?? [];
   return (
     <li className="reader-row" aria-label={belief.statement}>
       <div>
@@ -116,6 +121,21 @@ export function BeliefRow({ belief }: { belief: BeliefRowData }) {
       <span className="row-verdict">
         <BeliefVerdict belief={verdictOf(belief)} />
       </span>
+      {quotes.length > 0 ? (
+        <div className="row-quotes">
+          <button
+            type="button"
+            className="quote-toggle"
+            aria-expanded={open}
+            onClick={() => setOpen((each) => !each)}
+          >
+            {open ? "Hide the quotes" : `Quotes (${quotes.length})`}
+          </button>
+          {open
+            ? quotes.map((quote) => <Quote key={`${quote.href}-${quote.quote}`} {...quote} />)
+            : null}
+        </div>
+      ) : null}
     </li>
   );
 }

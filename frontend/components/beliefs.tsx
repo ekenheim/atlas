@@ -15,10 +15,10 @@ import {
   groupBySteps,
   judgementTone,
   judgedBy,
-  valenceText,
 } from "../lib/beliefs";
 import { evidenceDay } from "../lib/format";
 import { routes } from "../lib/routes";
+import { Quote } from "./quote";
 
 type Citation = Belief["citations"][number];
 
@@ -82,22 +82,19 @@ export function BeliefRow({
 
 /** A citation: the quote, who said it and when, and the link that opens it at its span. */
 export function CitationQuote({ citation }: { citation: Citation }) {
-  const against = direction(citation.valence) === "against";
   return (
-    <figure className={`reader-quote${against ? " reader-against" : ""}`}>
-      {citation.statement && <p>{citation.statement}</p>}
-      <blockquote>{citation.quote}</blockquote>
-      <figcaption>
-        {citation.company_name} · {citation.source_title ?? "source"} ·
-        available {evidenceDay(citation.available_at)} · {valenceText(citation)}
-        {!citation.stands && " · no longer stands"}
-        {" · "}
-        <Link href={routes.span(citation.source_version_id, citation.ref_id)}>
-          Source
-        </Link>
-        {citation.note && <> · {citation.note}</>}
-      </figcaption>
-    </figure>
+    <Quote
+      statement={citation.statement}
+      quote={citation.quote}
+      company={citation.company_name}
+      document={citation.source_title ?? "source"}
+      availableAt={citation.available_at}
+      href={routes.span(citation.source_version_id, citation.ref_id)}
+      loadBearing={citation.weight === "load_bearing"}
+      against={direction(citation.valence) === "against"}
+      note={citation.note}
+      noLongerStands={!citation.stands}
+    />
   );
 }
 
