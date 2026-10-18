@@ -167,10 +167,17 @@ def _cited(detail: ChokepointDetail) -> tuple[list[uuid.UUID], list[uuid.UUID], 
     return list(facts), list(leads), list(issues)
 
 
-def _with_evidence(connection: Connection, detail: ChokepointDetail) -> ChokepointDetail:
+def _with_evidence(
+    connection: Connection, detail: ChokepointDetail, session: "SessionInfo | None" = None
+) -> ChokepointDetail:
     """The cited Facts, leads and Issues read out: at most one query for each kind, whatever
-    the number cited."""
+    the number cited. A session's read shows only what it could see (the rules of the board's
+    own checks: a Fact public, a lead first seen and an Issue opened by its as-of time, an Issue
+    its own session opened too); the owner's read, with no session, shows everything cited."""
     fact_ids, lead_ids, issue_ids = _cited(detail)
+    if session is not None and fact_ids:
+        seen = _visible_facts(connection, fact_ids, session)
+        fact_ids = [each for each in fact_ids if each in seen]
     facts: dict[uuid.UUID, EvidenceFact] = {}
     if fact_ids:
         for row in connection.execute(
@@ -200,8 +207,11 @@ def _with_evidence(connection: Connection, detail: ChokepointDetail) -> Chokepoi
     leads: dict[uuid.UUID, EvidenceLead] = {}
     if lead_ids:
         for row in connection.execute(
-            text("SELECT id, title, url, origin, published_date FROM lead WHERE id = ANY(:ids)"),
-            {"ids": lead_ids},
+            text(
+                "SELECT id, title, url, origin, published_date FROM lead WHERE id = ANY(:ids)"
+                " AND (CAST(:as_of AS timestamptz) IS NULL OR first_seen_at <= :as_of)"
+            ),
+            {"ids": lead_ids, "as_of": session.as_of if session else None},
         ):
             leads[row.id] = EvidenceLead(
                 id=row.id,
@@ -213,7 +223,16 @@ def _with_evidence(connection: Connection, detail: ChokepointDetail) -> Chokepoi
     issues: dict[uuid.UUID, EvidenceIssue] = {}
     if issue_ids:
         for row in connection.execute(
-            text("SELECT id, title, status FROM issue WHERE id = ANY(:ids)"), {"ids": issue_ids}
+            text(
+                "SELECT id, title, status FROM issue WHERE id = ANY(:ids)"
+                " AND (CAST(:as_of AS timestamptz) IS NULL OR created_at <= :as_of"
+                "      OR produced_by = :session)"
+            ),
+            {
+                "ids": issue_ids,
+                "as_of": session.as_of if session else None,
+                "session": session.id if session else None,
+            },
         ):
             issues[row.id] = EvidenceIssue(id=row.id, title=row.title, status=row.status)
     return detail.model_copy(
@@ -226,12 +245,17 @@ def _with_evidence(connection: Connection, detail: ChokepointDetail) -> Chokepoi
 
 
 def get_chokepoint(
-    connection: Connection, chokepoint_id: uuid.UUID, now: datetime
+    connection: Connection,
+    chokepoint_id: uuid.UUID,
+    now: datetime,
+    session: "SessionInfo | None" = None,
 ) -> ChokepointDetail | None:
+    """The chokepoint. With a reading `session` its cited Facts, leads and Issues are those the
+    session could see; without one, all of them."""
     found = _load(connection, "id = :id", {"id": chokepoint_id}, now)
     if not found:
         return None
-    return _with_evidence(connection, _with_companies(connection, found)[0])
+    return _with_evidence(connection, _with_companies(connection, found)[0], session)
 
 
 def summary(detail: ChokepointDetail) -> Chokepoint:
@@ -336,10 +360,13 @@ def _check_session(
     return SessionInfo(session_id, row.as_of, row.theme, row.actor)
 
 
-def check_read_session(engine: Engine, session_id: uuid.UUID | None, now: datetime) -> None:
-    """Refuse a read that names a session the board is closed to."""
+def check_read_session(
+    engine: Engine, session_id: uuid.UUID | None, now: datetime
+) -> SessionInfo | None:
+    """Refuse a read that names a session the board is closed to; else the session (none: the
+    owner's read)."""
     with engine.connect() as connection:
-        _check_session(connection, session_id, now)
+        return _check_session(connection, session_id, now)
 
 
 def _same_theme(session: SessionInfo | None, theme: str) -> None:
@@ -365,6 +392,41 @@ def _unknown(table: str, what: str, wanted: Sequence[uuid.UUID], held: set[uuid.
         raise ChokepointError(
             422, f"unknown_{table}", f"no such {what}: {', '.join(missing)}", ids=missing
         )
+
+
+def _visible_facts(
+    connection: Connection, ids: Sequence[uuid.UUID], session: SessionInfo
+) -> set[uuid.UUID]:
+    """The Facts (by Assertion id) the session may see. The same rule as the MCP tools'
+    (`Ctx.visible_version`) and the archive search's: a Fact of a Source Version public after
+    the session's as-of time (its effective availability) is not visible to it. A web page (W3)
+    is visible when it was public and fetched by the as-of time, or when this session fetched it
+    with its as-of time at most `PROSPECTIVE_WINDOW` before that fetch. (The session is never
+    isolated here: `_check_session` refused it.)"""
+    return {
+        row.assertion_id
+        for row in connection.execute(
+            text(
+                "SELECT s.id AS assertion_id FROM assertion s"
+                " JOIN source_version v ON v.id = s.source_version_id"
+                " JOIN source_document d ON d.id = v.source_document_id"
+                " JOIN source_version_availability a ON a.source_version_id = v.id"
+                " WHERE s.id = ANY(:ids)"
+                "   AND ((d.provider <> 'web' AND a.available_at <= :as_of)"
+                "     OR (d.provider = 'web' AND ("
+                "       (a.available_at <= :as_of AND v.fetched_at <= :as_of)"
+                "       OR EXISTS (SELECT 1 FROM fetch_observation o"
+                "         WHERE o.source_version_id = v.id AND o.session_id = :session"
+                "           AND o.fetched_at <= :fetched_by))))"
+            ),
+            {
+                "ids": list(set(ids)),
+                "as_of": session.as_of,
+                "session": session.id,
+                "fetched_by": session.as_of + PROSPECTIVE_WINDOW,
+            },
+        )
+    }
 
 
 def _check_facts(
@@ -395,35 +457,7 @@ def _check_facts(
             )
     if session is None:
         return
-    # The same rule as the MCP tools' (`Ctx.visible_version`) and the archive search's: a Fact of
-    # a Source Version public after the session's as-of time (its effective availability) is not
-    # visible to it. A web page (W3) is visible when it was public and fetched by the as-of time,
-    # or when this session fetched it with its as-of time at most `PROSPECTIVE_WINDOW` before
-    # that fetch. (The session is never isolated here: `_check_session` refused it.)
-    visible = {
-        row.assertion_id
-        for row in connection.execute(
-            text(
-                "SELECT s.id AS assertion_id FROM assertion s"
-                " JOIN source_version v ON v.id = s.source_version_id"
-                " JOIN source_document d ON d.id = v.source_document_id"
-                " JOIN source_version_availability a ON a.source_version_id = v.id"
-                " WHERE s.id = ANY(:ids)"
-                "   AND ((d.provider <> 'web' AND a.available_at <= :as_of)"
-                "     OR (d.provider = 'web' AND ("
-                "       (a.available_at <= :as_of AND v.fetched_at <= :as_of)"
-                "       OR EXISTS (SELECT 1 FROM fetch_observation o"
-                "         WHERE o.source_version_id = v.id AND o.session_id = :session"
-                "           AND o.fetched_at <= :fetched_by))))"
-            ),
-            {
-                "ids": list(set(ids)),
-                "as_of": session.as_of,
-                "session": session.id,
-                "fetched_by": session.as_of + PROSPECTIVE_WINDOW,
-            },
-        )
-    }
+    visible = _visible_facts(connection, ids, session)
     for row in found:
         if row.assertion_id not in visible:
             raise ChokepointError(

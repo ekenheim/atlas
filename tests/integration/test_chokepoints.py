@@ -1290,3 +1290,41 @@ def test_a_theme_in_the_list_carries_its_board_counts(board: Board) -> None:
     assert themes["memory-packaging"]["board"] == zero | {"lead": 1}
     mapped = board.get("/api/v1/themes/photonics/map", include="theme")["theme"]
     assert mapped["board"] == themes["photonics"]["board"]
+
+
+def test_a_sessions_read_shows_only_the_evidence_it_could_see(board: Board) -> None:
+    board.clock.now = at(BEFORE_RELEASE)
+    early = board.session()  # as of 1 August; the press release is public on 11 August
+    own = board.issue("Opened by this session", produced_by=early)
+    elsewhere = board.issue("Opened by nobody's session")  # stamped by the database's clock: later
+    old_lead = board.lead(first_seen_at="2026-07-30T00:00:00+00:00", title="Seen before")
+    new_lead = board.lead(first_seen_at="2026-08-05T00:00:00+00:00", title="Seen after")
+    fact = board.fact()
+    chokepoint = board.create()["id"]
+    # The owner's writes (no session) cite all of it.
+    board.ok(chokepoint, "step_set", board.step("primary", "a", fact_ids=[fact]))
+    board.ok(
+        chokepoint,
+        "step_set",
+        board.step("lead", "b", lead_ids=[old_lead, new_lead], issue_ids=[elsewhere]),
+    )
+    board.ok(chokepoint, "field_set", {"issue_ids": [own]})
+    owner = board.get(f"/api/v1/chokepoints/{chokepoint}")
+    seen_early = board.get(f"/api/v1/chokepoints/{chokepoint}", session_id=early)
+    board.clock.now = at(AFTER_RELEASE)  # a session reads only while its as-of time is of now
+    later = board.session()
+    seen_later = board.get(f"/api/v1/chokepoints/{chokepoint}", session_id=later)
+
+    assert [each["id"] for each in owner["facts"]] == [fact]
+    assert {each["id"] for each in owner["leads"]} == {old_lead, new_lead}
+    assert {each["id"] for each in owner["issues"]} == {elsewhere, own}
+    # As of 1 August: not the Fact of a document public on the 11th, not the lead first seen on
+    # the 5th, not an Issue opened later by someone else; the Issue the session opened is there.
+    assert seen_early["facts"] == []
+    assert [each["id"] for each in seen_early["leads"]] == [old_lead]
+    assert [each["id"] for each in seen_early["issues"]] == [own]
+    # The state itself (ids, statuses) is the chokepoint's, whoever reads it.
+    assert seen_early["steps"] == owner["steps"]
+    # As of 12 August the Fact is public (the lead of the 5th too).
+    assert [each["id"] for each in seen_later["facts"]] == [fact]
+    assert {each["id"] for each in seen_later["leads"]} == {old_lead, new_lead}

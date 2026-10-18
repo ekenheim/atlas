@@ -358,7 +358,7 @@ def gaap_gross_margin(values: Sequence[MetricValue], as_of: datetime) -> GaapGro
     margin = _margin(current)
     if margin is None:
         return GaapGrossMarginCheck.not_known(
-            "not_comparable", "revenue of the trailing four quarters is not positive"
+            "no_revenue", "revenue of the trailing four quarters is not positive"
         )
 
     prior: list[_Quarter] | None = None
@@ -513,7 +513,7 @@ def _debt(
     that cannot be told."""
     families = DEBT.get(taxonomy)
     if families is None:
-        return _NoDebt("debt_not_tagged", f"debt concepts of {taxonomy} are not read")
+        return _NoDebt("taxonomy_not_read", f"debt concepts of {taxonomy} are not read")
 
     def tagged(family: str) -> list[Observation]:
         return [

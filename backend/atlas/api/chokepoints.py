@@ -132,11 +132,11 @@ def chokepoints_router(engine: Engine, actor: Actor, clock: Clock = utc_now) -> 
         chokepoint_id: uuid.UUID, session_id: uuid.UUID | None = None
     ) -> ChokepointDetail | JSONResponse:
         try:
-            check_read_session(engine, session_id, clock().astimezone(UTC))
+            session = check_read_session(engine, session_id, clock().astimezone(UTC))
         except ChokepointError as error:
             return failed(error)
         with engine.connect() as connection:
-            found = get_chokepoint(connection, chokepoint_id, clock().astimezone(UTC))
+            found = get_chokepoint(connection, chokepoint_id, clock().astimezone(UTC), session)
         return found if found is not None else not_found("chokepoint")
 
     @router.post("", status_code=201, response_model=ChokepointDetail, responses=INVALID)

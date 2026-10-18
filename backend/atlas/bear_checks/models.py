@@ -25,6 +25,8 @@ type CheckStatus = Literal["flag", "clear", "unknown"]
 type UnknownReason = Literal[
     "form_not_collected",  # the filing the check reads is not one Atlas ingests, or holds none
     "no_xbrl",  # the XBRL figures the check needs are not there
+    "no_revenue",  # the trailing four quarters' revenue is not positive
+    "taxonomy_not_read",  # the filer's accounting taxonomy is one Atlas reads no debt from
     "not_comparable",  # there is no earlier period to compare with
     "no_statement",  # the report is read whole and says nothing the check can use
     "partial_parse",  # the report was only partly read, so silence proves nothing
@@ -53,6 +55,9 @@ type Amount = int | float
 _NOT_KNOWN: dict[UnknownReason, str] = {
     "form_not_collected": "the company's filings of this kind are not collected",
     "no_xbrl": "the company's financial data has no figure for it",
+    "no_revenue": "the company had no positive revenue over the last four quarters, so there is no"
+    " margin",
+    "taxonomy_not_read": "Atlas does not read this filer's accounting taxonomy for debt",
     "not_comparable": "there is no earlier period to compare with",
     "no_statement": "the report says nothing the check can use",
     "partial_parse": "the latest report could only be partly read, and the part read has nothing",
@@ -273,7 +278,8 @@ class GaapGrossMarginCheck(_Check):
     KEY: ClassVar[CheckKey] = "gaap_gross_margin"
     key: Literal["gaap_gross_margin"]
     value: GrossMarginValue | None = Field(
-        description="null when no quarterly figures were found; kept when only the year-earlier comparison is missing"
+        description="null when no quarterly figures were found;"
+        " kept when only the year-earlier comparison is missing"
     )
 
 

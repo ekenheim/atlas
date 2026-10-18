@@ -41,6 +41,8 @@ KEYS = [
 UNKNOWN_REASONS = {
     "form_not_collected",
     "no_xbrl",
+    "no_revenue",
+    "taxonomy_not_read",
     "not_comparable",
     "no_statement",
     "partial_parse",
@@ -442,6 +444,11 @@ def test_a_later_annual_report_replaces_the_earlier_and_a_future_one_is_not_read
     assert first["status"] == "flag"  # the 2026 report is not read before it is public
     assert second["status"] == "clear"  # 12% is below the 25% line; the old report is not read
     assert second["value"]["current_percent"] == 12.0
+    # The sentence says what the report states: a share, not a claim about every customer.
+    assert (
+        second["summary"]
+        == "The largest customer share the annual report states is 12%, below 25%."
+    )
     assert second["sources"][0]["quote"] == LOW_CONCENTRATION
 
 
@@ -654,6 +661,7 @@ def test_the_statement_that_no_customer_exceeded_ten_percent_is_clear_with_its_s
     assert source["quote"] == sentence
     assert atlas.parsed(tenk)[source["char_start"] : source["char_end"]] == sentence
     assert answer["value"]["no_customer_above"] == [10.0]
+    assert answer["summary"] == "The annual report says no customer is 25% of revenue or more."
 
 
 def test_a_partly_parsed_report_that_flags_nothing_is_unknown_and_one_that_flags_still_flags(

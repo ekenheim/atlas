@@ -13025,7 +13025,7 @@ export interface components {
             effective: boolean;
         };
         /** @enum {string} */
-        UnknownReason: "form_not_collected" | "no_xbrl" | "not_comparable" | "no_statement" | "partial_parse" | "stale_figure" | "split_suspected" | "several_share_classes" | "ambiguous_debt_tags" | "debt_not_tagged" | "no_parsed_text" | "not_english";
+        UnknownReason: "form_not_collected" | "no_xbrl" | "no_revenue" | "taxonomy_not_read" | "not_comparable" | "no_statement" | "partial_parse" | "stale_figure" | "split_suspected" | "several_share_classes" | "ambiguous_debt_tags" | "debt_not_tagged" | "no_parsed_text" | "not_english";
         /** @enum {string} */
         UnpricedReason: "no_symbol" | "tradingview_disabled";
         /** @enum {string} */
