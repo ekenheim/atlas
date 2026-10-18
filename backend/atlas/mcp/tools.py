@@ -276,21 +276,47 @@ async def close_session(ctx: Ctx, args: CloseSessionArgs) -> dict[str, Any]:
 # --- reading -------------------------------------------------------------------------------
 
 
+async def theme_company_ids(ctx: Ctx, theme: str) -> list[str]:
+    """The researched companies of a theme, from its map."""
+    found = await ctx.api.get(f"/themes/{theme}/map")
+    companies = [each for layer in rows(found.get("layers")) for each in rows(layer["companies"])]
+    companies += rows(found.get("unlayered"))
+    return [each["id"] for each in companies if each.get("seeded", True)]
+
+
 class CompaniesArgs(Maybe):
     role: Literal["researched", "counterparty"] = "researched"
+    theme: str | None = Field(
+        default=None,
+        description="a theme: only its companies. Default: the session's theme (all the"
+        " universe's companies with no session, or for a counterparty)",
+    )
 
 
 @tool(
     "companies",
-    "The companies of the universe: slug, id, name, supply-chain layer, country.",
+    "The companies of a theme (the session's, or `theme`; with neither, of the whole universe):"
+    " slug, id, name, supply-chain layer, country. A layer is the theme's own.",
     CompaniesArgs,
     session="optional",
 )
 async def companies(ctx: Ctx, args: CompaniesArgs) -> dict[str, Any]:
+    found = await ctx.companies(args.role)
+    if args.role == "researched":
+        if args.theme is not None:
+            wanted = set(await theme_company_ids(ctx, args.theme))
+        elif ctx.session is not None:
+            try:
+                wanted = set(await theme_company_ids(ctx, ctx.session.theme))
+            except Refusal:
+                wanted = {each["id"] for each in found}  # a theme outside the config: no filter
+        else:
+            wanted = {each["id"] for each in found}
+        found = [each for each in found if each["id"] in wanted]
     return {
         "companies": [
             {key: each.get(key) for key in ("slug", "id", "display_name", "layer", "country")}
-            for each in await ctx.companies(args.role)
+            for each in found
         ]
     }
 

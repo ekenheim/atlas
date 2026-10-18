@@ -4,9 +4,12 @@
 # ingest job; a company row is keyed by its slug and CIK (else its slug alone).
 #
 # Each company has:
-# - `layer`: its primary layer in the photonics supply chain: substrate, epi, chip-laser,
-#   dsp, module, contract-manufacturing or system. Vertically integrated companies span
-#   several; Relationships carry the layer of each link.
+# - `layer`: its primary layer in its theme's supply chain. Photonics' (no `layers` list on
+#   the theme): substrate, epi, chip-laser, dsp, module, contract-manufacturing or system.
+#   A theme with a supply chain of its own lists its `layers` (name and what it covers,
+#   upstream to downstream), and its companies' layers must be among them (refused at load
+#   otherwise). Vertically integrated companies span several; Relationships carry the layer
+#   of each link (photonics' taxonomy only: the Claim layer taxonomy stays photonics').
 # - `source_path`: where its primary disclosures come from. `sec` (SEC EDGAR: 10-K/10-Q/8-K
 #   by default, or the `sec_forms` listed) or `exchange:<hkex|fca-nsm|amf>`. Only `sec`
 #   companies are fetched by the SEC ingest; `exchange:hkex` ones by the HKEXnews adapter,
@@ -26,7 +29,7 @@
 # Listings (securities) need a primary-source start date, so they are added with ticket 03.
 #
 # Bump `version` on any change, so a run can record which universe it used.
-version: 6
+version: 7
 name: ai-infrastructure
 
 companies:
@@ -220,6 +223,112 @@ companies:
     source_path: sec
     tradingview_symbol: "NYSE:CIEN"
 
+  # ===== The memory-packaging theme: the seven SEC-path seeds =====
+  # Identities from docs/research/seed-list-memory-packaging.md (primary sources, read
+  # 2026-10-05). The other six of its twelve (Samsung, Kioxia, BESI, ASMPT, Ibiden,
+  # Ajinomoto) are not on the SEC path and wait for their own adapters or manual imports.
+  # TradingView symbols are the seed list's "Unverified" forms: the calendar job confirms them
+  # (a symbol its answer leaves out is no error). Layers are this theme's own (its `layers`
+  # below), a company with two taking the primary one.
+
+  # --- memory-dram ---
+
+  micron:
+    legal_name: Micron Technology, Inc.
+    display_name: Micron
+    # MU on Nasdaq (XNAS). LEI B3DXGBC8GAIYWI2Z0172 (ISSUED). FYE early September; HBM is
+    # DRAM, so the primary layer is memory-dram (it also makes NAND).
+    cik: "0000723125"
+    country: US
+    website: https://www.micron.com
+    layer: memory-dram  # DRAM and HBM (and NAND)
+    source_path: sec
+    tradingview_symbol: "NASDAQ:MU"  # unverified
+
+  sk-hynix:
+    legal_name: SK hynix Inc.
+    display_name: SK hynix
+    # 000660 on KRX KOSPI (XKRX); ADSs SKHY on Nasdaq (XNAS) since the July 2026 offering. LEI
+    # 988400XAIK6XISWQV045 (LAPSED 2025-11-17). A foreign private issuer: the F-1, the 424B4
+    # prospectus (2026-07-10) and 6-Ks carry its disclosure; the first 20-F is for FY2026.
+    cik: "0002120882"
+    country: KR
+    website: https://www.skhynix.com
+    layer: memory-dram  # HBM share leader
+    source_path: sec
+    sec_forms: [F-1, 424B4, 6-K, 20-F]
+    tradingview_symbol: "NASDAQ:SKHY"  # unverified
+
+  # --- memory-nand ---
+
+  sandisk:
+    legal_name: Sandisk Corporation
+    display_name: SanDisk
+    # SNDK on Nasdaq (XNAS); independent of Western Digital since 2025-02-21. LEI
+    # 5299007I9R9N3RO43S32 (ISSUED). FYE early July; its flash wafers come from the Kioxia JVs.
+    cik: "0002023554"
+    country: US
+    website: https://www.sandisk.com
+    layer: memory-nand
+    source_path: sec
+    tradingview_symbol: "NASDAQ:SNDK"  # unverified
+
+  # --- process-control ---
+
+  camtek:
+    legal_name: Camtek Ltd.
+    display_name: Camtek
+    # CAMT on Nasdaq (XNAS), also Tel Aviv (XTAE). LEI 5493000H80W07HCKGS43 (ISSUED). A foreign
+    # private issuer: 20-F and 6-K.
+    cik: "0001109138"
+    country: IL
+    website: https://www.camtek.com
+    layer: process-control  # inspection and metrology for HBM and advanced packaging
+    source_path: sec
+    sec_forms: [20-F, 6-K]
+    tradingview_symbol: "NASDAQ:CAMT"  # unverified
+
+  # --- test ---
+
+  formfactor:
+    legal_name: FormFactor, Inc.
+    display_name: FormFactor
+    # FORM on Nasdaq (XNAS). LEI 549300YCEEO6SZD1ZR61 (LAPSED 2017). FYE last Saturday of
+    # December; SK hynix was 22.9% of FY2025 revenue.
+    cik: "0001039399"
+    country: US
+    website: https://www.formfactor.com
+    layer: test  # probe cards, including for HBM
+    source_path: sec
+    tradingview_symbol: "NASDAQ:FORM"  # unverified
+
+  # --- osat ---
+
+  ase-technology:
+    legal_name: ASE Technology Holding Co., Ltd.
+    display_name: ASE Technology
+    # 3711 on TWSE (XTAI); ADSs ASX on NYSE (XNYS). LEI 300300GO8QHPMV87NZ73 (ISSUED). A
+    # foreign private issuer: 20-F and 6-K. It also makes substrates; the primary layer is osat.
+    cik: "0001122411"
+    country: TW
+    website: https://www.aseglobal.com
+    layer: osat  # advanced packaging, CoWoS-class
+    source_path: sec
+    sec_forms: [20-F, 6-K]
+    tradingview_symbol: "NYSE:ASX"  # unverified
+
+  amkor:
+    legal_name: Amkor Technology, Inc.
+    display_name: Amkor
+    # AMKR on Nasdaq (XNAS). LEI 529900VHLRTKPWZJBM84 (ISSUED). FYE December; Apple 29.8% of
+    # 2025 net sales, an Arizona facility under construction.
+    cik: "0001047127"
+    country: US
+    website: https://www.amkor.com
+    layer: osat
+    source_path: sec
+    tradingview_symbol: "NASDAQ:AMKR"  # unverified
+
 themes:
   photonics:
     title: Photonics for AI data centers
@@ -244,3 +353,42 @@ themes:
       - applied-optoelectronics
       - fabrinet
       - ciena
+
+  # The second theme (atlas-beliefs ticket 20): the SEC-path seeds of the memory and packaging
+  # seed list. Its layers are its own, upstream to downstream as the seed list orders them;
+  # a company's layer must be one of them. `package-substrate` is not photonics' `substrate`.
+  memory-packaging:
+    title: Memory and advanced packaging for AI
+    description: >-
+      High-bandwidth memory, NAND and the advanced packaging that joins them to AI
+      accelerators. The research traces AI demand to HBM and NAND, to the bonders, test and
+      inspection tools, OSATs, package substrates and materials that make them, and asks who
+      chokes each layer (single or sole sources, capacity, lead times, qualification, export
+      controls) and what would relieve it (second sources, new capacity, other packaging).
+    layers:
+      - name: memory-dram
+        covers: DRAM and HBM (3D-stacked DRAM) makers
+      - name: memory-nand
+        covers: NAND flash makers and the joint ventures that supply their wafers
+      - name: controller
+        covers: memory and SSD controllers (fabless)
+      - name: bond-equipment
+        covers: thermo-compression and hybrid bonders that stack HBM dies
+      - name: process-control
+        covers: inspection and metrology for wafers, stacks and packages
+      - name: test
+        covers: probe cards and memory test systems
+      - name: osat
+        covers: outsourced assembly and test, including CoWoS-class advanced packaging
+      - name: package-substrate
+        covers: IC and ABF package substrates
+      - name: package-materials
+        covers: build-up films, resins and other packaging materials
+    companies:
+      - micron
+      - sk-hynix
+      - sandisk
+      - camtek
+      - formfactor
+      - ase-technology
+      - amkor

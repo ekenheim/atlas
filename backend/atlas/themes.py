@@ -30,7 +30,7 @@ from sqlalchemy import Connection, text
 from atlas.beliefs.exposure import ThemeBelief, theme_beliefs
 from atlas.candidates import Candidate, list_candidates
 from atlas.claims.predicates import LAYERS
-from atlas.companies import Layer, SourcePath, Universe, company_id_for
+from atlas.companies import CompanyLayer, SourcePath, Universe, company_id_for
 from atlas.relationships import Relationship, list_relationships
 
 # The most edges or Candidates one read returns per company or theme (the pilot's scale).
@@ -45,7 +45,7 @@ class ThemeCompany(BaseModel):
     display_name: str
     legal_name: str
     country: str
-    layer: Layer | None
+    layer: CompanyLayer | None
     source_path: SourcePath
     seeded: bool = Field(description="the company row exists (open its dossier)")
     source_count: int = Field(description="its Source Documents")
@@ -68,7 +68,7 @@ class ThemeCounterparty(BaseModel):
 
 
 class ThemeLayer(BaseModel):
-    layer: Layer
+    layer: CompanyLayer
     covers: str = Field(description="what the layer holds")
     companies: list[ThemeCompany]
 
@@ -80,7 +80,7 @@ class ThemeSummary(BaseModel):
     universe_version: int = Field(description="the theme config's version")
     company_count: int
     companies_without_sources: int
-    empty_layers: list[Layer] = Field(description="layers with no company in the theme")
+    empty_layers: list[CompanyLayer] = Field(description="layers with no company in the theme")
     relationship_count: int
     open_candidate_count: int = Field(description="Candidates still `lead`, awaiting a decision")
 
@@ -160,14 +160,24 @@ def _build(connection: Connection, universe: Universe, theme_id: str) -> ThemeMa
         0
     ]
 
+    # The theme's own layers when its config lists them (a second theme has a supply chain of
+    # its own), else the photonics taxonomy's.
+    theme_layers: list[tuple[CompanyLayer, str]] = [
+        (layer.name, layer.covers)
+        for layer in (theme.layers if theme.layers is not None else LAYERS)
+    ]
+    known = {name for name, _ in theme_layers}
     layers = [
         ThemeLayer(
-            layer=layer.name,
-            covers=layer.covers,
-            companies=[c for c in companies if c.layer == layer.name],
+            layer=name,
+            covers=covers,
+            companies=[c for c in companies if c.layer == name],
         )
-        for layer in LAYERS
+        for name, covers in theme_layers
     ]
+    # A company whose layer the theme does not list (a committed Candidate's) is never lost
+    # from the map: it is listed where the companies with no layer are.
+    unlayered = [c for c in companies if c.layer is None or c.layer not in known]
     summary = ThemeSummary(
         id=theme_id,
         title=theme.title,
@@ -183,7 +193,7 @@ def _build(connection: Connection, universe: Universe, theme_id: str) -> ThemeMa
         theme=summary,
         beliefs=theme_beliefs(connection, theme_id),
         layers=layers,
-        unlayered=[c for c in companies if c.layer is None],
+        unlayered=unlayered,
         relationships=relationships,
         counterparties=counterparties,
         candidates=candidates,

@@ -14,7 +14,7 @@ import {
   type ThemeCompany,
   type ThemeMap,
 } from "../../lib/api/client";
-import { LAYERS } from "../../lib/relationships";
+import { COMPANY_LAYERS } from "../../lib/relationships";
 import { routes } from "../../lib/routes";
 import { layeredEdges, layerlessByCompany } from "../../lib/themes";
 import { useApi, useIdParam } from "../../lib/use-api";
@@ -70,14 +70,14 @@ function Theme() {
             <p>Upstream to downstream. A layer with no company is a coverage gap.</p>
             {map.layers.map((layer) => (
               <section key={layer.layer} aria-labelledby={`layer-${layer.layer}`}>
-                <h3 id={`layer-${layer.layer}`}>{LAYERS[layer.layer]}</h3>
+                <h3 id={`layer-${layer.layer}`}>{COMPANY_LAYERS[layer.layer]}</h3>
                 <p className="muted-small">{layer.covers}</p>
                 {layer.companies.length === 0 ? (
                   <p>
                     <strong>Coverage gap:</strong> no company in this layer.
                   </p>
                 ) : (
-                  <Companies caption={`${LAYERS[layer.layer]} companies`} companies={layer.companies} />
+                  <Companies caption={`${COMPANY_LAYERS[layer.layer]} companies`} companies={layer.companies} />
                 )}
               </section>
             ))}

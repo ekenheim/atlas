@@ -19,7 +19,7 @@ import { EXPOSURE, exposureTally } from "../../lib/beliefs";
 import { SOURCE_ROWS, filterByType, typeChips, typeName } from "../../lib/company-sources";
 import { groupDigits, period } from "../../lib/format";
 import { companyRows, formatCount, plural } from "../../lib/memory";
-import { LAYERS } from "../../lib/relationships";
+import { COMPANY_LAYERS } from "../../lib/relationships";
 import { companyQuestions, hypothesisByInvestigation } from "../../lib/research-index";
 import { routes } from "../../lib/routes";
 import { useApi, useIdParam } from "../../lib/use-api";
@@ -63,7 +63,7 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
   const { company } = dossier;
   const listing = company.securities[0];
   const kicker = [
-    company.layer ? LAYERS[company.layer] : null,
+    company.layer ? COMPANY_LAYERS[company.layer] : null,
     ...dossier.themes.map((theme) => theme.title),
     listing?.ticker ?? null,
   ].filter((part) => part !== null);
@@ -160,7 +160,7 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
                   <Missing />
                 )}
               </Row>
-              <Row name="Layer">{company.layer ? LAYERS[company.layer] : <Missing />}</Row>
+              <Row name="Layer">{company.layer ? COMPANY_LAYERS[company.layer] : <Missing />}</Row>
               <Row name="Source path">
                 {company.source_path ? <Code>{company.source_path}</Code> : <Missing />}
               </Row>

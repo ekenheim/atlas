@@ -37,7 +37,7 @@ from pydantic import AwareDatetime, Field
 
 from atlas.facts import FactStep
 from atlas.mcp.api import Refusal, obj, rows
-from atlas.mcp.tools import BeliefStep, Bound, Ctx, iso, issue_result, tool
+from atlas.mcp.tools import BeliefStep, Bound, Ctx, iso, issue_result, theme_company_ids, tool
 
 AGENT_TOOLS = (
     "newest_documents",
@@ -54,14 +54,6 @@ SCAN_LIMIT = 2_000  # rows read through to find the visible ones: more is a refu
 
 type Judgement = Literal["proven", "disproven", "unproven", "undecidable"]
 type BeliefStatus = Literal["active", "superseded", "withdrawn"]
-
-
-async def theme_company_ids(ctx: Ctx, theme: str) -> list[str]:
-    """The researched companies of a theme, from its map."""
-    found = await ctx.api.get(f"/themes/{theme}/map")
-    companies = [each for layer in rows(found.get("layers")) for each in rows(layer["companies"])]
-    companies += rows(found.get("unlayered"))
-    return [each["id"] for each in companies if each.get("seeded", True)]
 
 
 # --- documents -----------------------------------------------------------------------------

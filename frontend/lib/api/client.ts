@@ -15,6 +15,7 @@ export type AssertionReview = Schemas["AssertionReview"];
 export type AssertionRecorded = Schemas["AssertionRecorded"];
 export type ReviewState = Assertion["review_state"];
 export type Layer = Schemas["Layer"];
+export type CompanyLayer = Schemas["CompanyLayer"];
 export type Relationship = Schemas["Relationship"];
 export type RelationshipDetail = Schemas["RelationshipDetail"];
 export type RelationshipEvidence = Schemas["RelationshipEvidence"];

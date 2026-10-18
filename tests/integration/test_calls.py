@@ -26,6 +26,7 @@ from sqlalchemy.exc import DBAPIError
 from atlas.audit import Actor
 from atlas.calls.model import add_months
 from atlas.calls.settle import SettleSchedule
+from atlas.companies import load_universe, seed
 from atlas.jobs import JobQueue, Pacing, Worker, builtin_registry
 from atlas.ledger.ingest import INGEST_KIND, ingest_payload
 from tests.fakes.serve import Served, serve
@@ -42,7 +43,9 @@ SOLD_OUT = (
     "Demand for our wafers is growing too fast, we cannot keep up, and only three suppliers"
     " make it."
 )
-UNIVERSE = ("coherent", "lumentum", "innolight")
+# Photonics: the first three; memory-packaging: the last two (ticket 20a: a call is benchmarked
+# against its own theme's companies).
+UNIVERSE = ("coherent", "lumentum", "innolight", "micron", "amkor")
 OVERRIDE = (
     "TradingView terms (display-only) overridden by the owner for private non-commercial use"
     " (2026-09-30)"
@@ -50,7 +53,7 @@ OVERRIDE = (
 
 
 def small_universe(path: Path) -> Path:
-    """The photonics config cut to three companies the TradingView fake has symbols for."""
+    """The config cut to the companies the TradingView fake has symbols for."""
     document = yaml.safe_load(THEMES.read_text(encoding="utf-8"))
     document["companies"] = {k: v for k, v in document["companies"].items() if k in UNIVERSE}
     for theme in document["themes"].values():
@@ -484,6 +487,47 @@ def test_a_close_missing_on_a_day_takes_the_last_and_a_call_waits_for_a_company_
     done = record.settle(noon(day_after(one)), "unbounded")
     assert done["artifacts"]["checkpoints_appended"] == 1
     assert checkpoints_of(record.calls()[0]) == [(1, 0.25, 0.125, 0.125)]
+
+
+def test_a_second_theme_s_call_is_benchmarked_against_that_theme_s_companies_only(
+    record: Record, tradingview: tuple[FakeTradingView, Served]
+) -> None:
+    with record.engine.begin() as connection:
+        universe = load_universe(record.atlas.settings().themes_config)
+        seed(connection, Actor("record-test"), universe, ["micron", "amkor"])
+    belief = record.post(
+        "/api/v1/beliefs",
+        {
+            "statement": BELIEF,
+            "theme": "memory-packaging",
+            "step": "constraint",
+            "company_ids": [record.company("micron")],
+            "as_of": "2026-09-30T00:00:00Z",
+            "actor": "claude-session",
+            "citations": [
+                {"ref_id": record.fact(), "valence": 0.9, "weight": "load_bearing", "note": "x"}
+            ],
+        },
+        status=201,
+    )["id"]
+    record.judge(belief)
+    (call,) = record.calls(theme="memory-packaging")
+    made = day_of(call["made_at"])
+    one, before = add_months(made, 1), made - timedelta(days=1)
+    ohlcv = tradingview[0].ohlcv
+    ohlcv["NASDAQ:MU"] = bars({before: 100.0, one: 120.0})
+    ohlcv["NASDAQ:AMKR"] = bars({before: 50.0, one: 50.0})
+    ohlcv["NASDAQ:LITE"] = bars({before: 100.0, one: 300.0})  # photonics: not this call's universe
+
+    settled = record.settle(noon(day_after(one)), "second-theme")
+
+    assert settled["status"] == "succeeded", settled["failures"]
+    assert sorted(record.symbols_asked()) == ["NASDAQ:AMKR", "NASDAQ:MU"]
+    (read,) = record.calls(theme="memory-packaging")
+    assert checkpoints_of(read) == [(1, 0.2, 0.1, 0.1)]
+    (checkpoint,) = read["checkpoints"]
+    assert checkpoint["benchmark_members"] == 2
+    assert sorted(m["company"] for m in checkpoint["benchmark"]) == ["amkor", "micron"]
 
 
 def test_one_symbol_tradingview_will_not_answer_defers_only_what_needs_it(

@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { Load, Missing } from "../../components/ui";
 import { api } from "../../lib/api/client";
-import { LAYERS } from "../../lib/relationships";
+import { COMPANY_LAYERS } from "../../lib/relationships";
 import { routes } from "../../lib/routes";
 import { useApi } from "../../lib/use-api";
 
@@ -53,7 +53,7 @@ export default function ThemesPage() {
                       {theme.empty_layers.length === 0 ? (
                         <Missing />
                       ) : (
-                        theme.empty_layers.map((layer) => LAYERS[layer]).join(", ")
+                        theme.empty_layers.map((layer) => COMPANY_LAYERS[layer]).join(", ")
                       )}
                     </td>
                     <td>{theme.relationship_count}</td>

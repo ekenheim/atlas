@@ -22,6 +22,7 @@ from sqlalchemy.exc import DBAPIError
 from atlas.api.app import create_app
 from atlas.audit import Actor
 from atlas.cli import run_apply_template
+from atlas.companies import load_universe, seed
 from atlas.jobs import JobQueue, Worker, builtin_registry
 from atlas.ledger.ingest import INGEST_KIND, ingest_payload
 from tests.fakes.hindsight import RecordedHindsight
@@ -753,6 +754,30 @@ def test_refusals_and_errors_are_returned_and_counted_on_the_session(
         ("close_session", "ok", None),
     ]
     assert mcp.get(f"/api/v1/sessions/{session}")["tool_calls"] == 8
+
+
+def test_companies_answers_for_the_session_s_theme_by_its_own_companies(mcp: Mcp) -> None:
+    # Two memory-packaging companies join Lumentum in the database (ticket 20a).
+    with mcp.engine.begin() as connection:
+        seed(connection, Actor(ACTOR), load_universe(THEMES), ["micron", "amkor"])
+
+    photonics = mcp.open()
+    assert [c["slug"] for c in mcp.ok("companies", session_id=photonics)["companies"]] == [
+        "lumentum"
+    ]
+    memory = mcp.open(theme="memory-packaging")
+    assert {c["slug"]: c["layer"] for c in mcp.ok("companies", session_id=memory)["companies"]} == {
+        "micron": "memory-dram",
+        "amkor": "osat",
+    }
+    # A theme can be named; with neither a session nor a theme the whole universe answers.
+    assert [c["slug"] for c in mcp.ok("companies", theme="photonics")["companies"]] == ["lumentum"]
+    assert {c["slug"] for c in mcp.ok("companies")["companies"]} == {"lumentum", "micron", "amkor"}
+    # The theme's tools take the second theme's companies by its own map and config.
+    assert mcp.ok("newest_documents", session_id=memory)["documents"] == []
+    for theme, slugs in (("memory-packaging", ["amkor", "micron"]), ("photonics", ["lumentum"])):
+        asked = mcp.get("/api/v1/research/prior-work", theme=theme, as_of=LATER)
+        assert sorted(asked["companies"]) == slugs
 
 
 def test_tool_calls_cannot_be_changed_once_recorded(mcp: Mcp) -> None:

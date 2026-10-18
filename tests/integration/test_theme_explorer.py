@@ -251,7 +251,9 @@ def insert_candidate(atlas: ExplorerAtlas, theme: str, name: str, cik: str) -> N
 
 
 def test_themes_list_each_theme_with_its_coverage(atlas: ExplorerAtlas) -> None:
-    (unseeded,) = atlas.get("/api/v1/themes")
+    themes = {t["id"]: t for t in atlas.get("/api/v1/themes")}
+    assert sorted(themes) == ["memory-packaging", "photonics"]
+    unseeded = themes["photonics"]
     assert unseeded["id"] == "photonics"
     assert unseeded["title"] == "Photonics for AI data centers"
     assert (unseeded["company_count"], unseeded["companies_without_sources"]) == (12, 12)
@@ -261,9 +263,49 @@ def test_themes_list_each_theme_with_its_coverage(atlas: ExplorerAtlas) -> None:
     atlas.seed()
     atlas.ingest_lumentum()
     insert_candidate(atlas, "photonics", "Sivers Semiconductors", "0000000001")
-    (theme,) = atlas.get("/api/v1/themes")
+    theme = {t["id"]: t for t in atlas.get("/api/v1/themes")}["photonics"]
     assert (theme["company_count"], theme["companies_without_sources"]) == (12, 11)
     assert theme["open_candidate_count"] == 1
+
+
+MEMORY_PACKAGING = {
+    "memory-dram": ["micron", "sk-hynix"],
+    "memory-nand": ["sandisk"],
+    "controller": [],
+    "bond-equipment": [],
+    "process-control": ["camtek"],
+    "test": ["formfactor"],
+    "osat": ["amkor", "ase-technology"],
+    "package-substrate": [],
+    "package-materials": [],
+}
+
+
+def test_the_second_theme_s_map_has_its_own_layers_and_companies(atlas: ExplorerAtlas) -> None:
+    summary = {t["id"]: t for t in atlas.get("/api/v1/themes")}["memory-packaging"]
+    assert summary["title"] == "Memory and advanced packaging for AI"
+    assert (summary["company_count"], summary["companies_without_sources"]) == (7, 7)
+    assert summary["empty_layers"] == [
+        "controller",
+        "bond-equipment",
+        "package-substrate",
+        "package-materials",
+    ]
+
+    atlas.seed()
+    memory = atlas.map("memory-packaging")
+    assert [layer["layer"] for layer in memory["layers"]] == list(MEMORY_PACKAGING)
+    assert {
+        layer["layer"]: sorted(c["slug"] for c in layer["companies"]) for layer in memory["layers"]
+    } == MEMORY_PACKAGING
+    assert memory["unlayered"] == []
+    assert all(c["seeded"] for layer in memory["layers"] for c in layer["companies"])
+    assert all(layer["covers"] for layer in memory["layers"])
+    # Each theme's map holds only its own companies; photonics' layers are unchanged.
+    photonics = atlas.map()
+    assert {
+        layer["layer"]: [c["slug"] for c in layer["companies"]] for layer in photonics["layers"]
+    } == LAYERS
 
 
 def test_the_map_lists_the_theme_companies_by_layer_upstream_to_downstream(
@@ -324,7 +366,9 @@ def test_the_map_holds_the_relationships_between_theme_companies(
     companies = {c["slug"]: c for layer in researched.map()["layers"] for c in layer["companies"]}
     assert companies["lumentum"]["relationship_count"] == 4  # the NVIDIA edge too
     assert companies["fabrinet"]["relationship_count"] == 1
-    assert researched.get("/api/v1/themes")[0]["relationship_count"] == 3
+    assert {t["id"]: t for t in researched.get("/api/v1/themes")}["photonics"][
+        "relationship_count"
+    ] == 3
 
 
 def test_a_company_level_constraint_is_on_the_map_and_the_dossier_with_no_object(
