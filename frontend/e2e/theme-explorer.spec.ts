@@ -36,7 +36,7 @@ test("a theme opens by layer, a company's dossier, and an edge's source span", a
   // The assessment first: what Atlas believes, by step, then what changed and what is due, above
   // the companies. There is no Hypothesis yet; the raw records are folded away.
   await expect(page.getByRole("heading", { level: 1, name: THEME })).toBeVisible();
-  await expect(page.getByLabel("Thesis")).toContainText("No thesis yet · 1 proven Belief");
+  await expect(page.getByRole("region", { name: "Thesis", exact: true })).toContainText("No thesis yet · 1 proven Belief");
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
     "What Atlas believes",
     "Changed",

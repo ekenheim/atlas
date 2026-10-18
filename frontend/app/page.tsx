@@ -18,7 +18,7 @@ import {
 import { activity } from "../lib/format";
 import { routes } from "../lib/routes";
 import { readMark, startMarking, isUnseen } from "../lib/seen";
-import { changeHref } from "../lib/themes";
+import { changeHref, changeLabel } from "../lib/themes";
 import {
   agentsLine,
   agentsWeek,
@@ -185,7 +185,7 @@ function TodayCard({
                           <div>
                             <div className="row-title">
                               {unseen ? <span className="unseen-dot" aria-label="new" /> : null}
-                              {href ? <Link href={href}>{change.text}</Link> : change.text}
+                              {href ? <Link href={href}>{changeLabel(change)}</Link> : changeLabel(change)}
                             </div>
                             <div className="reader-row-sub">{activity(change.at, now)}</div>
                           </div>

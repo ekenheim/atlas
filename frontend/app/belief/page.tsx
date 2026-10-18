@@ -119,7 +119,7 @@ function Body({ belief, reload }: { belief: Belief; reload: () => void }) {
           <h2 className="reader-label" id="flags">
             Needs a second look
           </h2>
-          <FlagList flags={belief.flags} />
+          <FlagList flags={belief.flags} plain />
         </section>
       )}
 
@@ -128,7 +128,7 @@ function Body({ belief, reload }: { belief: Belief; reload: () => void }) {
           <h2 className="reader-label" id="notices">
             Newer evidence supports it
           </h2>
-          <NoticeList notices={belief.notices} />
+          <NoticeList notices={belief.notices} plain />
         </section>
       )}
 

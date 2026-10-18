@@ -10,7 +10,7 @@ import { activity, plainDay } from "../lib/format";
 import { routes } from "../lib/routes";
 import { isUnseen } from "../lib/seen";
 import { lifecycleWord, publishedVersion } from "../lib/status";
-import { changeHref, hypothesisThesis, themeHypotheses } from "../lib/themes";
+import { changeHref, changeLabel, hypothesisThesis, themeHypotheses } from "../lib/themes";
 import { orderChanges } from "../lib/today";
 import { useApi } from "../lib/use-api";
 import { Status } from "./status";
@@ -106,11 +106,11 @@ export function ChangedList({ theme, mark }: { theme: string; mark: Date | null 
                         <div className="row-title">
                           {isUnseen(change.at, mark) ? <span className="unseen-dot" aria-label="new" /> : null}
                           {href ? (
-                            <Link href={href} title={change.text}>
-                              {change.text}
+                            <Link href={href} title={changeLabel(change)}>
+                              {changeLabel(change)}
                             </Link>
                           ) : (
-                            change.text
+                            changeLabel(change)
                           )}
                         </div>
                         <div className="reader-row-sub">{activity(change.at, now)}</div>

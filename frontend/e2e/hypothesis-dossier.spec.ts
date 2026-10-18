@@ -224,7 +224,7 @@ test("a Hypothesis over Beliefs leads with its thesis and steps, each Belief wit
   ).toHaveText(["A qualified second laser source ships to NVIDIA"]);
   await expect(page.getByRole("heading", { level: 2, name: "Open Issues" })).toBeVisible();
   // Whether the thesis was checked against its Beliefs' quotes is said in the kicker.
-  await expect(page.getByLabel("Thesis check")).toContainText(/checked/i);
+  await expect(page.getByLabel("Thesis check", { exact: true })).toContainText(/checked/i);
   await expectRecordsClosed(page);
   await openRecords(page);
   const rests = page.getByRole("region", { name: "What it rests on" });

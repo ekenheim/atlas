@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import type { Hypothesis, ThemeChange } from "../lib/api/client";
-import { changeHref, hypothesisThesis, themeHypotheses } from "../lib/themes";
+import { changeHref, changeLabel, hypothesisThesis, themeHypotheses } from "../lib/themes";
 
 function hypothesis(
   id: string,
@@ -66,4 +66,29 @@ test("a change opens the Belief it is about, or a new Fact at its span", () => {
   );
   expect(changeHref(change({ kind: "fact", fact_id: "f1" }))).toBeNull();
   expect(changeHref(change({ kind: "judged" }))).toBeNull();
+});
+
+test("a flag or a notice reads as what happened to which Belief, with none of the backend's detail", () => {
+  const change = (fields: Partial<ThemeChange>) =>
+    ({
+      kind: "judged",
+      at: "2026-10-18T00:00:00Z",
+      text: "",
+      belief_id: null,
+      fact_id: null,
+      source_version_id: null,
+      ...fields,
+    }) as ThemeChange;
+  const text =
+    "A load-bearing citation at valence -1 stands against it (Lumentum can add laser capacity faster than demand grows.)";
+  expect(changeLabel(change({ kind: "flagged", text }))).toBe(
+    "Flagged: Lumentum can add laser capacity faster than demand grows.",
+  );
+  expect(changeLabel(change({ kind: "notice", text: "A newer 10-Q supports it (X is true.)" }))).toBe(
+    "Confirmed: X is true.",
+  );
+  expect(changeLabel(change({ kind: "flagged", text: "no statement here" }))).toBe("Flagged");
+  // A judgement and a new Fact read as the feed gives them.
+  expect(changeLabel(change({ kind: "judged", text: "proven 80%: X." }))).toBe("proven 80%: X.");
+  expect(changeLabel(change({ kind: "fact", text: "Lumentum: Y." }))).toBe("Lumentum: Y.");
 });

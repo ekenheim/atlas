@@ -99,7 +99,7 @@ export function CitationQuote({ citation }: { citation: Citation }) {
 }
 
 /** The open and cleared flags of a Belief, the open ones first. */
-export function FlagList({ flags }: { flags: Belief["flags"] }) {
+export function FlagList({ flags, plain = false }: { flags: Belief["flags"]; plain?: boolean }) {
   if (flags.length === 0) return <p className="muted">Nothing flagged.</p>;
   const ordered = [...flags].sort(
     (a, b) => Number(a.cleared_by !== null) - Number(b.cleared_by !== null),
@@ -110,10 +110,16 @@ export function FlagList({ flags }: { flags: Belief["flags"] }) {
         <li key={flag.id}>
           <strong>{flag.cleared_by === null ? "Open" : "Cleared"}</strong>{" "}
           {FLAGS[flag.kind]}
-          <br />
-          <span className="muted-small">
-            {flag.detail} Raised {evidenceDay(flag.raised_at)}.
-          </span>
+          {plain ? (
+            <span className="muted-small"> · raised {evidenceDay(flag.raised_at)}</span>
+          ) : (
+            <>
+              <br />
+              <span className="muted-small">
+                {flag.detail} Raised {evidenceDay(flag.raised_at)}.
+              </span>
+            </>
+          )}
         </li>
       ))}
     </ul>
@@ -121,7 +127,13 @@ export function FlagList({ flags }: { flags: Belief["flags"] }) {
 }
 
 /** What supports a Belief, the open notices first: no doubt, so apart from the flags. */
-export function NoticeList({ notices }: { notices: Belief["notices"] }) {
+export function NoticeList({
+  notices,
+  plain = false,
+}: {
+  notices: Belief["notices"];
+  plain?: boolean;
+}) {
   if (notices.length === 0)
     return <p className="muted">Nothing new supports it.</p>;
   const ordered = [...notices].sort(
@@ -133,10 +145,16 @@ export function NoticeList({ notices }: { notices: Belief["notices"] }) {
         <li key={notice.id}>
           <strong>{notice.cleared_by === null ? "Open" : "Cleared"}</strong>{" "}
           {NOTICES[notice.kind]}
-          <br />
-          <span className="muted-small">
-            {notice.detail} Raised {evidenceDay(notice.raised_at)}.
-          </span>
+          {plain ? (
+            <span className="muted-small"> · raised {evidenceDay(notice.raised_at)}</span>
+          ) : (
+            <>
+              <br />
+              <span className="muted-small">
+                {notice.detail} Raised {evidenceDay(notice.raised_at)}.
+              </span>
+            </>
+          )}
         </li>
       ))}
     </ul>

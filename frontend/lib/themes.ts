@@ -37,6 +37,19 @@ export const CHANGE_KINDS: Record<ThemeChange["kind"], string> = {
   fact: "New fact",
 };
 
+/** What a change row says. A judgement and a new Fact read as the feed gives them; a flag or a
+ * notice carries the backend's detail (it names offsets and valences), so the row says only what
+ * happened to which Belief: "Flagged: <statement>", "Confirmed: <statement>". */
+export function changeLabel(change: ThemeChange): string {
+  if (change.kind !== "flagged" && change.kind !== "notice") return change.text;
+  const word = change.kind === "flagged" ? "Flagged" : "Confirmed";
+  // The feed ends a flag's or a notice's line with the Belief's statement in parentheses.
+  const open = change.text.indexOf(" (");
+  const statement =
+    open >= 0 && change.text.endsWith(")") ? change.text.slice(open + 2, -1) : "";
+  return statement ? `${word}: ${statement}` : word;
+}
+
 /** Where a change opens: a Belief's page, or a new Fact at its span in the source. */
 export function changeHref(change: ThemeChange): string | null {
   if (change.kind === "fact") {
