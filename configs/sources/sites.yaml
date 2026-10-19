@@ -28,7 +28,7 @@
 # requests nothing. docs/source-licenses.md §5 is the human-readable record; keep it in step.
 #
 # Bump `version` on any change.
-version: 5
+version: 6
 
 sites:
   hkexnews:
@@ -354,9 +354,9 @@ sites:
     hosts: [www.gevernova.com, gevernova.com]
     terms_url: https://www.gevernova.com/terms
     terms_checked_on: 2026-10-19  # "Last Updated July 16, 2024"
-    automation: unchecked
+    automation: allowed
     terms_note: >-
-      Terms read; they neither permit nor forbid automated access. "You may access, copy,
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant personal, non-commercial use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Terms read; they neither permit nor forbid automated access. "You may access, copy,
       download and print the material contained on the site for your personal and
       non-commercial use, provided you do not modify or delete any copyright, trademark or
       other proprietary notice", while "the modification, distribution, transmission,
@@ -364,17 +364,16 @@ sites:
       transfer or sale of, or the creation of derivative works from, any material ... or use
       of the site for purposes competitive to GE Vernova, is expressly prohibited". No robot
       or scraping clause. robots.txt (2026-10-19) is the Drupal default plus /media/oembed
-      and software PDFs under /software/. Whether a research archive that feeds hosted LLMs is
-      "personal and non-commercial" is the lead's to decide; blocked until then.
+      and software PDFs under /software/.
 
   howmet:
     publisher: Howmet Aerospace Inc. (issuer site)
     hosts: [www.howmet.com]
     terms_url: https://www.howmet.com/legal-notices/
     terms_checked_on: 2026-10-19
-    automation: unchecked
+    automation: allowed
     terms_note: >-
-      Legal Notices read; no clause on automated access. "Unless otherwise indicated, you may
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant personal, non-commercial use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Legal Notices read; no clause on automated access. "Unless otherwise indicated, you may
       download material displayed on this website for noncommercial, personal use only,
       provided you also retain all copyright and other proprietary notices", and "You may not,
       however, distribute, modify, transmit, reuse, repost, or use the content of this website
@@ -406,9 +405,9 @@ sites:
     hosts: [www.hitachienergy.com, hitachienergy.com]
     terms_url: https://www.hitachienergy.com/us/en/provider-information
     terms_checked_on: 2026-10-19
-    automation: unchecked
+    automation: allowed
     terms_note: >-
-      Provider information (the terms page) read; no clause on automated access. Copyright:
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant personal, non-commercial use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Provider information (the terms page) read; no clause on automated access. Copyright:
       "Permission to use, copy and distribute the documentation published by Hitachi Energy
       Group on this World Wide Web server is hereby granted on the condition that each copy
       contains this copyright notice in its entirety and that no part of the documentation is
@@ -456,18 +455,16 @@ sites:
     hosts: [www.mhi.com]
     terms_url: https://www.mhi.com/conditions.html
     terms_checked_on: 2026-10-19
-    automation: unchecked
+    automation: allowed
     terms_note: >-
-      Terms of Use read; no clause on automated access. §2: "It is prohibited to use for any
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms are silent on automated access and allow use within what copyright law authorises (Japan's Copyright Act, art. 30-4, permits use for information analysis); Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Terms of Use read; no clause on automated access. §2: "It is prohibited to use for any
       private use by an individual, or to otherwise use (or copy, modify or distribute) the
       information on the Website beyond the extent that is authorized by the copyright laws
       without obtaining a prior approval by MHI." §3 prohibits, in accessing the Website,
       "Making or preparing to make any business activity or profit-making activity" and
       "Other acts as MHI determines to be inappropriate". The IR disclaimer
       (https://www.mhi.com/finance/disclaimer.html) was read and adds no automation rule.
-      robots.txt (2026-10-19) disallows only the internal search pages. What the copyright
-      law authorises (Japan's Copyright Act, art. 30-4, on information analysis) and whether
-      Atlas's use is "profit-making" are the lead's to decide; blocked until then.
+      robots.txt (2026-10-19) disallows only the internal search pages.
 
   hammond-power:
     publisher: Hammond Power Solutions Inc. (issuer site)
@@ -480,26 +477,25 @@ sites:
       - documents.hammondpowersolutions.com
     terms_url: https://emea.hammondpowersolutions.com/legal
     terms_checked_on: 2026-10-19
-    automation: unchecked
+    automation: allowed
     terms_note: >-
-      Terms of Use read (the EMEA Legal page; the asia and americas ones were not compared); no clause on
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant personal, non-commercial use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Terms of Use read (the EMEA Legal page; the asia and americas ones were not compared); no clause on
       automated access. "You may only use or reproduce the Content displayed on this site for
       your own personal, non-commercial or educational use. The Content may not be otherwise
       used, reproduced, broadcast, published or retransmitted without the prior written
       permission of HPS." robots.txt on www and asia: "User-agent: *" / "Allow: /"
-      (the other hosts' not read; 2026-10-19). Whether Atlas's use is "personal,
-      non-commercial or educational" is the lead's to decide; blocked until then.
+      (the other hosts' not read; 2026-10-19).
 
   lynas:
     publisher: Lynas Rare Earths Ltd (issuer site)
     hosts: [www.lynasrareearths.com, lynasrareearths.com]
     terms_url: https://lynasrareearths.com/disclaimer/
     terms_checked_on: 2026-10-19
-    automation: unchecked
+    automation: allowed
     terms_note: >-
-      Disclaimer read (through a page fetch; the site answers 403 to a plain HTTP client):
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the site publishes only a disclaimer, with no terms of use and nothing on automated access or reuse; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Disclaimer read (through a page fetch; the site answers 403 to a plain HTTP client):
       "This website is for information purposes only", with no clause on automated access,
       copying or reuse, and no separate terms of use found. robots.txt returned the same 403
       page (2026-10-19), which RFC 9309 reads as no restrictions, but the 403 also means the
       site may refuse Atlas's requests. Lynas's ASX announcements are on the ASX platform
-      (entry `asx-announcements`, blocked). Blocked until the lead decides.
+      (entry `asx-announcements`, blocked).
