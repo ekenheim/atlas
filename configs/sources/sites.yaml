@@ -28,7 +28,7 @@
 # requests nothing. docs/source-licenses.md §5 is the human-readable record; keep it in step.
 #
 # Bump `version` on any change.
-version: 5
+version: 7
 
 sites:
   hkexnews:
@@ -202,3 +202,319 @@ sites:
       disallows /cgi-bin, /search/ and the like.
     rate_per_s: 10
     license_class: public_regulatory
+
+  # --- Ticket W9b (2026-10-19): the sites two research runs needed. Rule used for `automation`:
+  # `allowed` only where the site states permission for programs (a documented API), an open
+  # licence or a public-domain status, and nothing in its terms or robots.txt says otherwise;
+  # `forbidden` where the terms bar robots, scraping, copying or commercial collection;
+  # `unchecked` where the terms were read (or could not be) and neither permit nor forbid
+  # automation, or are limited to personal or non-commercial use: blocked until the lead decides.
+
+  federal-register:
+    publisher: Federal Register (Office of the Federal Register, NARA, with the GPO)
+    # The documented REST API, and the public-inspection PDFs its records link to. The PDFs of
+    # published issues are on www.govinfo.gov (entry `govinfo`).
+    hosts: [www.federalregister.gov, public-inspection.federalregister.gov]
+    terms_url: https://www.federalregister.gov/reader-aids/developer-resources/rest-api
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      No terms-of-use page was found. The developer page documents a REST API "so that others
+      can access and take advantage of this data": "No API keys are needed; all you need is
+      an HTTP client or browser", JSON or CSV, paginated, only the first 2000 results of a
+      query reachable. The site's own block page (https://unblock.federalregister.gov/, which
+      a request flagged as automated is redirected to) says: "Due to aggressive automated
+      scraping of FederalRegister.gov and eCFR.gov, programmatic access to these sites is
+      limited to access to our extensive developer APIs." So the API is the one automated
+      route; Atlas uses it (and the PDF links in its records) and never crawls the site's HTML
+      pages, which the gate cannot itself prevent. Federal Register content is a work of the
+      US Government (public domain; not restated on these pages). robots.txt (2026-10-19) on
+      www.federalregister.gov disallows only /documents/current, /documents/email-a-friend,
+      the search pages, /my/ and /auth/; public-inspection.federalregister.gov serves no
+      robots.txt (403, an S3 AccessDenied), which RFC 9309 reads as no restrictions.
+      No numeric rate limit is published; the rate below is Atlas's own.
+    rate_per_s: 0.5
+    license_class: public_regulatory
+    api_client:
+      url_prefixes:
+        - https://www.federalregister.gov/api/v1/
+        - https://public-inspection.federalregister.gov/
+      documentation_url: https://www.federalregister.gov/reader-aids/developer-resources/rest-api
+      note: >-
+        The API is published for programs; robots.txt addresses crawlers and disallows
+        none of /api/v1/. Atlas requests the API's records and the public-inspection files
+        they link to, one document at a time.
+
+  govinfo:
+    publisher: GovInfo (U.S. Government Publishing Office)
+    # The PDFs and XML of the Federal Register's published issues
+    # (https://www.govinfo.gov/content/pkg/FR-.../pdf/...).
+    hosts: [www.govinfo.gov]
+    terms_url: https://www.govinfo.gov/about/policies/public-domain-copyright-notice
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      GovInfo's Public Domain & Copyright Notice: copyright "is not available for any work of
+      the United States Government", the intent being "to place in the public domain all work
+      of the United States Government" (publications of third parties on the site keep their
+      owners' rights). The policies pages set no limit on automated access (they name only a
+      permission for the LOCKSS program to crawl), and the site publishes sitemaps and a
+      developer hub for programs. robots.txt (2026-10-19): disallows only the Drupal internals
+      and /app/search/*. Conditions Atlas keeps: single documents at a low fixed rate, no
+      use of the search pages.
+    rate_per_s: 1
+    license_class: public_regulatory
+
+  whitehouse:
+    publisher: The White House (Executive Office of the President)
+    hosts: [www.whitehouse.gov]
+    terms_url: https://www.whitehouse.gov/copyright/
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      Copyright Policy: "Pursuant to federal law, government-produced materials appearing on
+      this site are not copyright protected" (the Government may hold copyrights transferred
+      to it; third-party content is "licensed under a Creative Commons Attribution 3.0
+      License" unless noted). The page says nothing about automated access, and no terms of
+      use were found; robots.txt (2026-10-19) is "User-agent: *" with only "Disallow: /*?s="
+      and "Disallow: /*&s=" (search result pages). Allowed on the strength of the
+      public-domain status and the permissive robots.txt, not an express permission for
+      programs. Conditions Atlas keeps: single pages at a low fixed rate, never the search
+      pages.
+    rate_per_s: 1
+    license_class: public_regulatory
+
+  mofcom:
+    publisher: Ministry of Commerce of the People's Republic of China (MOFCOM)
+    hosts: [www.mofcom.gov.cn, xkzj.mofcom.gov.cn]
+    automation: unchecked
+    terms_note: >-
+      Terms not found for these hosts. The www.mofcom.gov.cn home page carries no readable
+      site statement (the footer is script-rendered), and its guessed statement paths 404.
+      Statements found on MOFCOM's other sub-sites (exportcontrol.mofcom.gov.cn and
+      tradeinservices.mofcom.gov.cn, via search snippets only, not read here) say original
+      articles are MOFCOM's copyright and a reproduction must credit MOFCOM; they do not
+      address automated access and are not this site's terms. robots.txt: www.mofcom.gov.cn
+      returns 404 (2026-10-19); xkzj.mofcom.gov.cn did not connect (2026-10-19, from a
+      residential Windows host), so its terms and robots.txt could not be read at all.
+      Blocked until read. Documents needed from it (announcements, export-control
+      licensing notices) can be imported by hand with `atlas sources import`.
+
+  asx-announcements:
+    publisher: ASX (ASX Limited; company announcements platform)
+    hosts: [announcements.asx.com.au, www.asx.com.au, asx.com.au]
+    terms_url: https://www.asx.com.au/legals/terms-of-use
+    terms_checked_on: 2026-10-19  # Terms of Use "Last updated 25 May 2026"
+    automation: forbidden
+    terms_note: >-
+      The ASX Terms of Use bar users from using "any spider, screen scraper, robot, other
+      similar software or device, or other similar process, to use or access the Site in any
+      way whatsoever, including monitoring, downloading or copying any content on the Site
+      (except as otherwise permitted under these terms or with ASX's prior written consent)"
+      and from using "any manual process to monitor or copy any content on the Site"
+      without consent. Market announcements are on the Site (the announcements page says
+      their access and use is subject to these terms), and no clause permits automated
+      announcement feeds. robots.txt: www.asx.com.au disallows /search* and one data page;
+      announcements.asx.com.au serves no robots.txt (a 404 page; 2026-10-19). The listed
+      company's own site, or a licensed ASX data feed, are the routes; documents fetched by
+      hand come in through `atlas sources import`.
+    block_reason: >-
+      blocked: ASX Terms of Use prohibit spiders, screen scrapers, robots and manual
+      copying of the Site (ASX's prior written consent required)
+    rate_per_s: 1
+
+  jpx-timely-disclosure:
+    publisher: Japan Exchange Group (JPX; timely disclosure, TDnet)
+    # The terms are those of www.jpx.co.jp; www2.jpx.co.jp serves the TDnet disclosure files.
+    hosts: [www2.jpx.co.jp, www.jpx.co.jp]
+    terms_url: https://www.jpx.co.jp/english/term-of-use/
+    terms_checked_on: 2026-10-19
+    automation: forbidden
+    terms_note: >-
+      The JPX website's Terms of Use: "The collection of data or secondary use of information
+      from this website for commercial purposes is strictly prohibited, unless JPX has granted
+      prior permission or authorized such use under a paid contract", "No part of this
+      website may be modified or adapted without prior permission from JPX", and, under
+      Others: "Please refrain from automatic information retrieval and other operations which
+      may lead to high-load and/or high frequency access." The last is a request, not a bar,
+      and whether Atlas's use is "commercial" is the lead's to judge; the block is the
+      conservative reading. JPX Market Innovation & Research sells the timely-disclosure data
+      (a TDnet API under its own contract). The terms were read on www.jpx.co.jp and are
+      taken to cover www2.jpx.co.jp, the same operator's file host (not confirmed). robots.txt
+      on www2.jpx.co.jp: 404 (2026-10-19). Documents fetched by hand come in through
+      `atlas sources import`.
+    block_reason: >-
+      blocked: JPX terms prohibit commercial collection of the site's data without permission
+      or a paid contract and ask users to refrain from automatic retrieval (JPX's permission
+      or the paid TDnet API required)
+    rate_per_s: 1
+
+  nse-india:
+    publisher: National Stock Exchange of India (NSE; corporate announcement archives)
+    hosts: [nsearchives.nseindia.com, www.nseindia.com]
+    terms_url: https://www.nseindia.com/static/nse-terms-of-use
+    terms_checked_on: 2026-10-19  # "Updated on: 29/10/2025"
+    automation: forbidden
+    terms_note: >-
+      The nseindia.com Terms of Use: "User is prohibited to conduct any systematic or
+      automated data collection activities (including scraping, data mining, data extraction
+      and data harvesting) on or in relation to our Website / Mobile Application." The
+      archives host serves the documents the Website links to and is taken to be covered
+      (not stated in the terms). robots.txt on nsearchives.nseindia.com returned an HTML
+      error page rather than a robots file (2026-10-19). Documents fetched by hand come in
+      through `atlas sources import`.
+    block_reason: >-
+      blocked: NSE Terms of Use prohibit systematic or automated data collection, including
+      scraping (NSE's written consent required)
+    rate_per_s: 1
+
+  ge-vernova:
+    publisher: GE Vernova Inc. (issuer site)
+    hosts: [www.gevernova.com, gevernova.com]
+    terms_url: https://www.gevernova.com/terms
+    terms_checked_on: 2026-10-19  # "Last Updated July 16, 2024"
+    automation: allowed
+    terms_note: >-
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant personal, non-commercial use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Terms read; they neither permit nor forbid automated access. "You may access, copy,
+      download and print the material contained on the site for your personal and
+      non-commercial use, provided you do not modify or delete any copyright, trademark or
+      other proprietary notice", while "the modification, distribution, transmission,
+      performance, broadcast, publication, uploading, licensing, reverse engineering,
+      transfer or sale of, or the creation of derivative works from, any material ... or use
+      of the site for purposes competitive to GE Vernova, is expressly prohibited". No robot
+      or scraping clause. robots.txt (2026-10-19) is the Drupal default plus /media/oembed
+      and software PDFs under /software/.
+
+  howmet:
+    publisher: Howmet Aerospace Inc. (issuer site)
+    hosts: [www.howmet.com]
+    terms_url: https://www.howmet.com/legal-notices/
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant personal, non-commercial use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Legal Notices read; no clause on automated access. "Unless otherwise indicated, you may
+      download material displayed on this website for noncommercial, personal use only,
+      provided you also retain all copyright and other proprietary notices", and "You may not,
+      however, distribute, modify, transmit, reuse, repost, or use the content of this website
+      for public or commercial purposes, including any data, text, images, audio, or video
+      without the prior written permission of Howmet Aerospace." robots.txt (2026-10-19)
+      disallows only /wp-admin/ (except admin-ajax.php) and a forms upload folder. Whether
+      Atlas's use is "personal" and "noncommercial" is the lead's to decide; blocked until then.
+
+  mp-materials:
+    publisher: MP Materials Corp. (issuer site)
+    hosts: [mpmaterials.com]
+    terms_url: https://mpmaterials.com/legal
+    terms_checked_on: 2026-10-19
+    automation: forbidden
+    terms_note: >-
+      Web Site Terms of Use: "You agree not to reverse engineer any aspect of the Web Site or
+      use any robot, spider, crawler, scraper or other automated means or interface not
+      provided by us to access the Web Site or to extract data." robots.txt (2026-10-19) is
+      "User-agent: *" / "Allow: /" (with a placeholder sitemap); it does not lift the terms.
+      MP's filings come from SEC EDGAR; documents fetched by hand come in through
+      `atlas sources import`.
+    block_reason: >-
+      blocked: mpmaterials.com's terms prohibit robots, spiders, crawlers, scrapers and other
+      automated means (MP Materials' written permission required)
+    rate_per_s: 1
+
+  hitachi-energy:
+    publisher: Hitachi Energy Ltd (issuer site)
+    hosts: [www.hitachienergy.com, hitachienergy.com]
+    terms_url: https://www.hitachienergy.com/us/en/provider-information
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant personal, non-commercial use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Provider information (the terms page) read; no clause on automated access. Copyright:
+      "Permission to use, copy and distribute the documentation published by Hitachi Energy
+      Group on this World Wide Web server is hereby granted on the condition that each copy
+      contains this copyright notice in its entirety and that no part of the documentation is
+      used for commercial purposes but restricted to use for information purposes within an
+      organization." robots.txt (2026-10-19): "Allow: /", "Disallow: /search*". Whether
+      Atlas's use is within that permission is the lead's to decide; blocked until then.
+      Only the English regional paths were looked at; PDFs from the older ABB library host
+      (search.abb.com) are not covered here.
+
+  nkt:
+    publisher: NKT A/S (issuer investor-relations site)
+    hosts: [investors.nkt.com]
+    terms_url: https://www.nkt.com/terms-of-use
+    terms_checked_on: 2026-10-19
+    automation: unchecked
+    terms_note: >-
+      Terms not readable. investors.nkt.com has no terms link; the footer of nkt.com links
+      "Terms and conditions" (https://www.nkt.com/terms-of-use), but that page's body is
+      script-rendered and came back empty. Section notices on investors.nkt.com restrict
+      access by country (securities law) and say nothing on automation. robots.txt
+      (2026-10-19, served compressed): "User-agent: *" / "Disallow: /cdn-cgi/". The PDFs are
+      on investors.nkt.com (/files/Public/...). Blocked until the terms are read.
+
+  siemens-energy:
+    publisher: Siemens Energy AG (issuer site)
+    hosts: [www.siemens-energy.com]
+    terms_url: https://www.siemens-energy.com/global/en/home/general/terms-of-use.html
+    terms_checked_on: 2026-10-19
+    automation: forbidden
+    terms_note: >-
+      Terms of Use read; no clause names robots or scraping, but §5.1 says "information, brand
+      names and other contents of the Siemens Energy Web Site may not be changed, copied,
+      reproduced, sold, rented, used, supplemented or otherwise used in any other way without
+      the prior written permission of Siemens Energy", §4.2 licenses information "to the
+      extent of the purpose intended by Siemens Energy in making same available" and §4.4 bars
+      distributing it to third parties. Archiving and processing pages is copying beyond
+      that. robots.txt (2026-10-19): "Disallow: /xy/" only. Documents fetched by hand come
+      in through `atlas sources import`.
+    block_reason: >-
+      blocked: Siemens Energy's Terms of Use bar copying or reproducing the site's contents
+      without its prior written permission
+
+  mhi:
+    publisher: Mitsubishi Heavy Industries, Ltd. (issuer site)
+    hosts: [www.mhi.com]
+    terms_url: https://www.mhi.com/conditions.html
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms are silent on automated access and allow use within what copyright law authorises (Japan's Copyright Act, art. 30-4, permits use for information analysis); Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Terms of Use read; no clause on automated access. §2: "It is prohibited to use for any
+      private use by an individual, or to otherwise use (or copy, modify or distribute) the
+      information on the Website beyond the extent that is authorized by the copyright laws
+      without obtaining a prior approval by MHI." §3 prohibits, in accessing the Website,
+      "Making or preparing to make any business activity or profit-making activity" and
+      "Other acts as MHI determines to be inappropriate". The IR disclaimer
+      (https://www.mhi.com/finance/disclaimer.html) was read and adds no automation rule.
+      robots.txt (2026-10-19) disallows only the internal search pages.
+
+  hammond-power:
+    publisher: Hammond Power Solutions Inc. (issuer site)
+    # www redirects to the regional sites; the PDFs are on documents.
+    hosts:
+      - www.hammondpowersolutions.com
+      - asia.hammondpowersolutions.com
+      - emea.hammondpowersolutions.com
+      - americas.hammondpowersolutions.com
+      - documents.hammondpowersolutions.com
+    terms_url: https://emea.hammondpowersolutions.com/legal
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant personal, non-commercial use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Terms of Use read (the EMEA Legal page; the asia and americas ones were not compared); no clause on
+      automated access. "You may only use or reproduce the Content displayed on this site for
+      your own personal, non-commercial or educational use. The Content may not be otherwise
+      used, reproduced, broadcast, published or retransmitted without the prior written
+      permission of HPS." robots.txt on www and asia: "User-agent: *" / "Allow: /"
+      (the other hosts' not read; 2026-10-19).
+
+  lynas:
+    publisher: Lynas Rare Earths Ltd (issuer site)
+    hosts: [www.lynasrareearths.com, lynasrareearths.com]
+    terms_url: https://lynasrareearths.com/disclaimer/
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the site publishes only a disclaimer, with no terms of use and nothing on automated access or reuse; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Disclaimer read (through a page fetch; the site answers 403 to a plain HTTP client):
+      "This website is for information purposes only", with no clause on automated access,
+      copying or reuse, and no separate terms of use found. robots.txt returned the same 403
+      page (2026-10-19), which RFC 9309 reads as no restrictions, but the 403 also means the
+      site may refuse Atlas's requests. Lynas's ASX announcements are on the ASX platform
+      (entry `asx-announcements`, blocked).
