@@ -47,6 +47,8 @@ out="$(run -e CLAUDE_CODE_OAUTH_TOKEN=smoke-not-a-token -e ATLAS_AGENT_THEME=smo
   -e ATLAS_WATCH_DEMAND_DRIVER="a smoke driver" -e ATLAS_WATCH_MODE=architect \
   "$image" watch --dry-run)" || fail "run.sh watch --dry-run"
 grep -q "mcp__atlas__board" <<<"$out" || fail "watch dry run allows no board tool"
+grep -q -- " --tools Read,Write,Edit,Glob,WebSearch " <<<"$out" \
+  || fail "watch dry run has not the built-in tools of ticket W10"
 ! grep -q "smoke-not-a-token" <<<"$out" || fail "watch dry run printed the token"
 
 # A real run with no token stops before it calls anything.
