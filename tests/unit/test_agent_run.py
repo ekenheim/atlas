@@ -952,6 +952,8 @@ def test_the_summary_names_the_atlas_session_the_run_opened(run: Run, tmp_path: 
 AGENT_DRY_RUNS = ROOT / "tests" / "fixtures" / "agents"
 WATCH_PROMPT = ROOT / "agent" / "prompts" / "watch.md"
 WATCH_DRIVER = "Humanoid robots built at volume for factories and warehouses"
+# The watch's built-in tools: the others' and WebSearch to find pages (ticket W10), never WebFetch.
+WATCH_BUILT_IN = [*BUILT_IN, "WebSearch"]
 # AS_OF is 2026-10-20: architect mode sweeps 90 days back.
 ARCHITECT_SINCE = "2026-07-22"
 
@@ -1036,7 +1038,56 @@ def test_the_watch_dry_run_fills_its_prompt_and_asks_atlas_nothing(
         line for line in result.stdout.splitlines() if line.startswith("command: claude -p ")
     )
     assert " --max-turns 100" in command
-    assert " --strict-mcp-config" in command and " --tools Read,Write,Edit,Glob" in command
+    assert " --strict-mcp-config" in command
+    assert " --tools Read,Write,Edit,Glob,WebSearch " in command
+    assert (
+        "web search: the built-in WebSearch, for finding only; pages are read through "
+        "fetch_page, never WebFetch" in result.stdout
+    )
+
+
+def tools_in(command: str) -> list[str]:
+    """The words of `--tools` in a dry run's command line."""
+    return command.split(" --tools ", 1)[1].split(" ", 1)[0].split(",")
+
+
+def test_the_watch_finds_with_websearch_and_never_fetches_but_through_atlas(run: Run):
+    # Ticket W10: Claude Code's built-in WebSearch finds pages; reading one goes through Atlas's
+    # `fetch_page` (the fetch gate, the archive), so WebFetch is neither present nor allowed.
+    result = watch_run(run, "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    command = next(
+        line for line in result.stdout.splitlines() if line.startswith("command: claude -p ")
+    )
+    assert tools_in(command) == WATCH_BUILT_IN
+    assert "WebSearch" in allowed_in(command)
+    assert "WebFetch" not in command
+    assert "Bash" not in tools_in(command) and "Bash" not in allowed_in(command)
+
+
+@pytest.mark.parametrize("agent", ["scout", "researcher", "skeptic"])
+def test_no_other_agent_gains_a_web_tool(run: Run, agent: str):
+    result = run.call(agent, "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    command = next(
+        line for line in result.stdout.splitlines() if line.startswith("command: claude -p ")
+    )
+    assert tools_in(command) == BUILT_IN
+    assert "WebSearch" not in command and "WebFetch" not in command
+    assert "web search:" not in result.stdout
+
+
+def test_the_watch_prompt_keeps_websearch_to_finding():
+    text = WATCH_PROMPT.read_text(encoding="utf-8")
+    assert "**WebSearch is for finding.**" in text
+    assert "Its results are leads, tier L, never evidence." in text
+    assert "**To read or cite anything, `fetch_page` it,**" in text
+    assert "never routed around, and never read another way" in text
+    assert "WebFetch" not in text
+    # WebSearch is a built-in tool like Read: run.sh adds it, the Tools line names Atlas's only.
+    assert "WebSearch" not in watch_tools_line()
 
 
 def test_the_watch_driver_goes_into_the_prompt_as_text(run: Run):
@@ -1058,7 +1109,7 @@ def test_the_watch_is_allowed_exactly_the_tools_of_its_tools_line(run: Run):
     command = next(
         line for line in result.stdout.splitlines() if line.startswith("command: claude -p ")
     )
-    assert allowed_in(command) == [f"mcp__atlas__{name}" for name in tools] + BUILT_IN
+    assert allowed_in(command) == [f"mcp__atlas__{name}" for name in tools] + WATCH_BUILT_IN
     # Never the whole server.
     assert " mcp__atlas " not in command and "mcp__atlas__*" not in command
     # The prompt filled in carries the same Tools line.
@@ -1084,7 +1135,10 @@ def test_a_real_watch_run_hands_claude_the_tools_line_as_its_allow_list(
     args = run.stub_args()
     start = args.index("--allowedTools") + 1
     end = next(i for i in range(start, len(args)) if args[i].startswith("--"))
-    assert args[start:end] == [f"mcp__atlas__{name}" for name in watch_tools_line()] + BUILT_IN
+    assert (
+        args[start:end] == [f"mcp__atlas__{name}" for name in watch_tools_line()] + WATCH_BUILT_IN
+    )
+    assert args[args.index("--tools") + 1] == ",".join(WATCH_BUILT_IN)
     assert args[args.index("--max-turns") + 1] == "100"
     assert "- **Call bound:** 60 tool calls." in "\n".join(args)
 

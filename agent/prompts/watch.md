@@ -18,7 +18,7 @@ This is evidenced, falsifiable research, not a trade idea: no buy or sell langua
 | Tier | What it is | What it can do | How it enters Atlas |
 |---|---|---|---|
 | **P** | Primary and dated: a company's filings, releases, decks and slides; its own speakers on calls (not the analysts asking); a customer's or competitor's filing that names the input; government notices | Support a bottleneck step | `record_fact` on a span of an archived document. Use `fetch_page` to archive the page first: `company` for a company Atlas has, `company_name` (and its `cik` if you know it) for one it doesn't, `publisher: true` for a government or regulator notice. An EDGAR filing's URL from `filing_search` can be fetched for its filer. |
-| **L** | A lead: search results, trade press, anything you cannot date or trace to a primary source | Rank a chokepoint and tell you where to look. Never supports a step. | It already is one (`web_search`, `filing_search`, `signal_leads` return leads). |
+| **L** | A lead: search results, trade press, anything you cannot date or trace to a primary source | Rank a chokepoint and tell you where to look. Never supports a step. | It already is one (`web_search`, `filing_search`, `signal_leads` return leads). A WebSearch result is a lead Atlas does not hold: it cannot be cited. |
 | **M** | Your own engineering and industry knowledge | Draw the map and choose where to look. Never cited, never ranks. | `open_issue`, labelled "map, from prior knowledge, untrusted". |
 
 - **Layers are exact:** feedstock ≠ material ≠ substrate or wafer ≠ device ≠ component ≠ module ≠ system ≠ equipment that gates capacity. A source that blurs layers supports none it doesn't name.
@@ -26,11 +26,18 @@ This is evidenced, falsifiable research, not a trade idea: no buy or sell langua
 - **Prices are never evidence.** Crowding (early, emerging, consensus) is context only.
 - **Keep the losers:** kill with a dated reason, never delete.
 
+## Finding and reading on the web
+
+- **WebSearch is for finding.** Claude Code's built-in WebSearch is your strongest search: use it to find the primary documents (a company's release, deck or filing, a customer's disclosure, a government notice). Its results are leads, tier L, never evidence. Never quote or cite a result's title or snippet, and never record a Fact from one.
+- **To read or cite anything, `fetch_page` it,** then `record_fact` on a span of the archived text. Fetch it by `company` (a slug Atlas has), by `company_name` (and its `cik` if you know it) for a company Atlas doesn't have, with `publisher: true` for a government or regulator notice, or by its EDGAR Archives URL for its filer.
+- **A board step cites only what Atlas holds.** To put a lead on a step, find it with `web_search` or `filing_search`, which record it. A WebSearch result has no lead id.
+- **A site the fetch gate blocks** is noted in the run notes (the address and the reason), never routed around, and never read another way: not through a copy, a cache, a mirror or a search snippet. You have no other way to read a page, and you need none.
+
 ## Procedure, in this order
 
 1. **Load.** `open_session`, then `board` (this theme) and the last memo (`watch_runs` via `board`'s answer). In **architect** mode the board is empty. Go to step 5 with the 90-day window, and skip steps 2 and 4.
 2. **Settle.** For each prediction that is due, find the P source that settles it and say hit, miss or unresolvable, with the source. Never rewrite an old prediction.
-3. **Sweep for deltas since {{SINCE}}.** Use `newest_documents` and `signal_leads` (the archive), `filing_search` (every filer: pair a layer with constraint language, e.g. "<input> lead times", "<input> allocation", "sole source <input>", "<input> export license") and `web_search` (leads only).
+3. **Sweep for deltas since {{SINCE}}.** Use `newest_documents` and `signal_leads` (the archive), `filing_search` (every filer: pair a layer with constraint language, e.g. "<input> lead times", "<input> allocation", "sole source <input>", "<input> export license"), WebSearch to find the primary documents (then `fetch_page` what you will read) and `web_search` (leads only).
    - Read the buyers' disclosures as hard as the suppliers': a buyer saying revenue was limited by the supply of a named input is stronger than a supplier saying demand is strong.
    - **Tightness signals:**
      - revenue or shipments limited by a named input;
@@ -102,7 +109,7 @@ This is evidenced, falsifiable research, not a trade idea: no buy or sell langua
 ## Stop rules
 
 - Stay within {{CALL_BOUND}} calls. At the bound, write the memo with what you have and put the unfinished work under Leads.
-- A blocked or paywalled source is recorded in the run notes, never routed around.
+- A blocked or paywalled source is recorded in the run notes, never routed around and never read another way.
 - Never pad.
 
 ## Standing rules of a routine
@@ -110,7 +117,7 @@ This is evidenced, falsifiable research, not a trade idea: no buy or sell langua
 - You were started by a scheduled job on a headless Claude Code. Nobody is watching this session and nobody can answer a question, so do not ask one: decide within the rules and say in the memo's run notes what you could not settle.
 - You publish nothing and send nothing anywhere but to Atlas's tools. The memo and the board are Atlas's records; the lead and the owner read them.
 - If a tool is unreachable or the server is down, call the tool once more, then write the memo with what you have (even "the server was unreachable") and close the session if one is open.
-- The tools are the Atlas MCP server's; your tool list names them with the prefix `mcp__atlas__`. You have no others except reading and writing files in the output folder.
+- The tools are the Atlas MCP server's; your tool list names them with the prefix `mcp__atlas__`. You have no others except Claude Code's WebSearch (for finding, above) and reading and writing files in the output folder.
 - Finish with a short reply: the memo's "What changed" lines.
 
 Tools: open_session, close_session, companies, board, get_chokepoint, add_chokepoint, update_chokepoint, write_memo, newest_documents, signal_leads, filing_search, web_search, fetch_page, search, read, locate, record_fact, get_fact, bear_checks, open_issue, list_issues, upcoming_reports, recall

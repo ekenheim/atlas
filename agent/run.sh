@@ -33,7 +33,10 @@
 #                             days) or `delta`. Default: `architect` when Atlas holds no watch run
 #                             of the theme yet, else `delta` (`GET /api/v1/watch-runs?theme=&limit=1`)
 #   ATLAS_WATCH_SINCE         (watch only) the date the sweep starts, YYYY-MM-DD. Default: the last
-#                             run's `run_date`, or 90 days before the as-of time in architect mode
+#                             run's `run_date`, or 90 days before the as-of time in architect mode.
+#                             The watch alone also has Claude Code's built-in WebSearch, for
+#                             finding only (ticket W10); never WebFetch, so every page it reads
+#                             goes through Atlas's `fetch_page` and the fetch gate
 #   ATLAS_AGENT_TMP           the writable directory (default /tmp): the output folder is
 #                             $ATLAS_AGENT_TMP/out, the MCP config $ATLAS_AGENT_TMP/atlas-mcp.json
 #
@@ -300,8 +303,8 @@ fi
 mcp_json="{\"mcpServers\":{\"atlas\":{\"type\":\"http\",\"url\":\"$mcp_url\"}}}"
 
 # --tools limits the built-in tools to the four the routine needs (the MCP tools are the server's
-# and unaffected); --allowedTools lets those and every Atlas tool run without a prompt (there is
-# nobody to ask, and anything else is refused). `mcp__atlas` allows the whole server, and
+# and unaffected; the watch adds WebSearch, below); --allowedTools lets those and every Atlas
+# tool run without a prompt (there is nobody to ask, and anything else is refused). `mcp__atlas` allows the whole server, and
 # `mcp__atlas__*` is the same in the pattern form. --add-dir lets Write and Edit reach the output
 # folder, which is outside the working directory (the read-only /opt/atlas-agent).
 allowed=("mcp__atlas" "mcp__atlas__*" Read Write Edit Glob)
@@ -311,8 +314,12 @@ if [[ "$isolated" == true ]]; then
   allowed+=(Read Write Edit Glob)
 fi
 # The watch is allowed exactly the tools of its prompt's Tools line (tests/unit/test_agent_run.py
-# checks the two are the same list), never the whole server.
+# checks the two are the same list), never the whole server. It alone adds Claude Code's built-in
+# WebSearch to find pages (ticket W10), and never WebFetch: a page is read only through Atlas's
+# `fetch_page`, which passes the fetch gate and archives what it reads.
+builtin_tools="Read,Write,Edit,Glob"
 if [[ "$agent" == watch ]]; then
+  builtin_tools="Read,Write,Edit,Glob,WebSearch"
   watch_tools="$(grep '^Tools: ' "$prompt_file")"
   watch_tools="${watch_tools#Tools: }"
   allowed=()
@@ -320,14 +327,14 @@ if [[ "$agent" == watch ]]; then
     [[ "$tool" =~ ^[a-z][a-z_]*$ ]] || die "the watch prompt's Tools line has a name that is not a tool: $tool"
     allowed+=("mcp__atlas__$tool")
   done
-  allowed+=(Read Write Edit Glob)
+  allowed+=(Read Write Edit Glob WebSearch)
 fi
 # Built again once an isolated run has the session's id in its prompt.
 build_command() {
   cmd=(
     claude -p "$prompt"
     --mcp-config "$mcp_config" --strict-mcp-config
-    --tools "Read,Write,Edit,Glob"
+    --tools "$builtin_tools"
     --allowedTools "${allowed[@]}"
     --add-dir "$out_dir"
     --model "$model"
@@ -353,6 +360,7 @@ if [[ "$dry_run" == 1 ]]; then
     printf 'demand driver: %s\n' "$demand_driver"
     printf 'mode: %s\n' "${watch_mode:-$watch_ref}"
     printf 'since: %s\n' "${watch_since:-$watch_ref}"
+    printf 'web search: the built-in WebSearch, for finding only; pages are read through fetch_page, never WebFetch\n'
     if [[ "$watch_ask" == 1 ]]; then
       atlas_base="${mcp_url%/}"
       atlas_base="${atlas_base%/mcp}"
