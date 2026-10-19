@@ -29,7 +29,7 @@
 # Listings (securities) need a primary-source start date, so they are added with ticket 03.
 #
 # Bump `version` on any change, so a run can record which universe it used.
-version: 10
+version: 11
 name: ai-infrastructure
 
 companies:
@@ -545,6 +545,61 @@ themes:
         covers: rare-earth magnets (NdFeB), magnet alloys and their feedstock
       - name: equipment
         covers: machine tools, grinding and gear-cutting equipment, test that gates capacity
+    companies: []
+
+  # Two more greenfield Watch themes (the lead's choice at the owner's request, 2026-10-19), built
+  # like robotics: no companies, their own layers, upstream to downstream; the architect run maps
+  # each industry and admits holders as chokepoint candidates. Power equipment is where the parked
+  # Forgent and INNIO belong.
+  power-equipment:
+    title: Power equipment for AI and the grid
+    description: >-
+      The electrical and generating equipment that data-center campuses, utilities and
+      electrification are buying: large power and distribution transformers, switchgear and
+      breakers, high-voltage cable, gas turbines and reciprocating engines, and the steel,
+      components and test capacity beneath them. Asks where orders outrun qualified capacity,
+      who holds the scarce input and whether they capture the economics.
+    layers:
+      - name: material
+        covers: grain-oriented electrical steel, copper and aluminium conductor, insulation (pressboard, transformer oil)
+      - name: component
+        covers: bushings, tap changers, cores and windings, vacuum interrupters, turbine blades, vanes and castings
+      - name: cable
+        covers: high- and medium-voltage cable, HVDC cable and its accessories
+      - name: transformer
+        covers: large power, generator step-up and distribution transformers
+      - name: switchgear
+        covers: switchgear, circuit breakers, gas-insulated substations, power distribution units
+      - name: generation
+        covers: gas turbines, reciprocating engines and gensets, fuel cells and on-site power
+      - name: system
+        covers: substations, grid interconnection, data-center electrical integrators and EPCs
+      - name: equipment
+        covers: winding, core-cutting and test bays, and other capacity that gates production
+    companies: []
+
+  aerospace-defence:
+    title: Aerospace and defence production
+    description: >-
+      Munitions, missiles, aircraft and spacecraft and the industrial base beneath them:
+      specialty metals, energetics, castings and forgings, solid rocket motors, engines and the
+      components that gate their output. Asks where restocking and production ramps outrun
+      qualified supply, who holds the scarce input and whether they capture the economics.
+    layers:
+      - name: material
+        covers: titanium sponge and alloys, nickel superalloys, specialty and rare-earth metals, carbon fibre
+      - name: energetics
+        covers: propellants, explosives and their precursors (nitrocellulose, ammonium perchlorate, RDX, HMX)
+      - name: casting-forging
+        covers: investment castings, closed-die and ring-rolled forgings, large structural forgings
+      - name: component
+        covers: bearings, fasteners, actuators, seekers, radiation-hardened and defence electronics
+      - name: propulsion
+        covers: solid rocket motors, turbine engines and their hot sections, rocket engines
+      - name: system
+        covers: munitions, missiles, aircraft, spacecraft and launch vehicles, and their primes
+      - name: equipment
+        covers: forging presses, casting foundries, load-assemble-pack lines and test that gate capacity
     companies: []
 
   # The early-call scorecard's theme (atlas-beliefs ticket 29a; docs/decisions.md, "Isolated
