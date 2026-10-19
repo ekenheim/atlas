@@ -28,7 +28,7 @@
 # requests nothing. docs/source-licenses.md §5 is the human-readable record; keep it in step.
 #
 # Bump `version` on any change.
-version: 7
+version: 8
 
 sites:
   hkexnews:
@@ -518,3 +518,193 @@ sites:
       page (2026-10-19), which RFC 9309 reads as no restrictions, but the 403 also means the
       site may refuse Atlas's requests. Lynas's ASX announcements are on the ASX platform
       (entry `asx-announcements`, blocked).
+
+  # W10b (2026-10-19): the aerospace and defence sites a research run needed.
+
+  us-department-of-war:
+    publisher: U.S. Department of War (Department of Defense; news releases and PDFs)
+    # www.defense.gov redirects to www.war.gov (2026-10-19); media.defense.gov serves the PDFs.
+    hosts: [www.war.gov, www.defense.gov, media.defense.gov]
+    terms_url: https://dodcio.defense.gov/PublicUseNotice/
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      A U.S. Government site; no terms of use page found. The Public Use Notice of Limitations
+      (for the site's visual information): "In general, DoW VI that are works of authorship
+      prepared by U.S. Government employees as part of their official duties are not eligible
+      for copyright protection in the United States", though some items "may be subject to
+      copyright or other intellectual property rights owned by non-DoW parties". Privacy &
+      Security (https://www.war.gov/Legal-Administrative/Privacy-Security/) read: it bars only
+      "unauthorized attempts to upload information or change information"; no clause on
+      automated access or copying. Allowed on the public-domain status of Government works
+      (17 U.S.C. 105) and the permissive robots.txt, not an express permission for programs.
+      robots.txt on www.war.gov (2026-10-19) disallows only system paths, search and
+      filter-parameter URLs (e.g. `/*/Search/*/*`, `/*/Year/*`, `/*/Tag/*`, `/*Print.aspx`);
+      media.defense.gov serves no readable robots.txt. A plain HTTP client gets 403 from
+      www.war.gov, www.defense.gov and media.defense.gov (Akamai; read in a browser), so
+      Atlas's requests may be refused.
+    rate_per_s: 1
+    license_class: public_regulatory
+
+  lockheed-martin:
+    publisher: Lockheed Martin Corporation (issuer site)
+    hosts: [www.lockheedmartin.com, news.lockheedmartin.com, investors.lockheedmartin.com]
+    terms_url: https://www.lockheedmartin.com/en-us/contact/disclaimer.html
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant personal, non-commercial use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Web Site User Agreement and Disclaimers, §7, read; no clause on automated access. No content "may be copied, reproduced, republished, modified, uploaded,
+      posted, transmitted, or distributed in any way", the exceptions being written
+      permission or: "you may download one copy of the content on a single computer for
+      informational, non-commercial and personal use only, provided you keep intact all
+      copyright and other proprietary notices". The terms cover "any other Web site owned,
+      operated, licensed or controlled by us"; the news and investors sites link to this page
+      as their Terms of Use. robots.txt on www (2026-10-19): `Allow: /en-us`, but
+      `Disallow: /en-us/news/news-releases` and `/en-us/news/in-the-news` (releases are
+      fetched from news.lockheedmartin.com, whose robots.txt is a 404, read as none);
+      investors.lockheedmartin.com disallows only Drupal internals and `/search/`. A plain
+      HTTP client gets 403 from investors.lockheedmartin.com (Akamai; read in a browser), so
+      Atlas's requests there may be refused.
+    rate_per_s: 1
+
+  l3harris:
+    publisher: L3Harris Technologies, Inc. (issuer site)
+    hosts: [www.l3harris.com]
+    terms_url: https://www.l3harris.com/terms
+    terms_checked_on: 2026-10-19  # Effective Date Feb. 25, 2025
+    automation: forbidden
+    terms_note: >-
+      The Terms of Use bar users from using "any robot, spider or other automatic device,
+      process or means to access the website for any purpose, including monitoring or copying
+      any of the material on the website", and limit use to "your personal, non-commercial use
+      only". Documents fetched by hand come in through `atlas sources import`.
+    block_reason: >-
+      blocked: L3Harris's Terms of Use prohibit robots, spiders and other automatic means of
+      accessing the website (L3Harris's written permission required)
+
+  ge-aerospace:
+    publisher: GE Aerospace (General Electric Company; issuer site)
+    hosts: [www.geaerospace.com, geaerospace.com]
+    terms_url: https://www.geaerospace.com/terms-and-conditions
+    terms_checked_on: 2026-10-19  # "Last Updated April 2, 2024"
+    automation: allowed
+    terms_note: >-
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant personal, non-commercial use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Terms of Use read; no clause on automated access. "You may access, copy,
+      download and print the material contained on the site for your personal and
+      non-commercial use, provided you do not modify or delete any copyright, trademark or
+      other proprietary notice", and any other use, "including but not limited to the
+      modification, distribution, transmission ... or use of the site for purposes competitive
+      to GE Aerospace, is expressly prohibited". The only technical bar is on hardware or
+      software "intended to damage or interfere with the proper working of the site".
+      robots.txt (2026-10-19) is the Drupal default (disallows /core/, /profiles/, /admin/,
+      /search/, user pages).
+    rate_per_s: 1
+
+  safran:
+    publisher: Safran SA (issuer site)
+    hosts: [www.safran-group.com, safran-group.com]
+    terms_url: https://www.safran-group.com/legal-notice
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant private, non-commercial use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Legal notice read (in a browser; no date on the page); no clause on automated
+      access. "Any use in the form of partial or complete reproduction, modification, computer
+      loading, misrepresentation, transmission or distribution of a document or information
+      contained on the Site is subject to Safran's prior written consent, with the exception
+      of a copy for private non-commercial use", and "The following words must be placed on
+      any copy of all or part of the Site's content: ©SAFRAN, All rights reserved". robots.txt
+      (2026-10-19) disallows only Drupal internals, search, forms, job applications and vCard
+      paths, with no crawl delay. A plain HTTP client gets 403 from every page but robots.txt
+      (a browser reads them), so Atlas's requests may be refused.
+    rate_per_s: 1
+
+  rtx:
+    publisher: RTX Corporation (issuer site)
+    hosts: [www.rtx.com, rtx.com, investors.rtx.com]
+    terms_url: https://www.rtx.com/terms-of-use
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant personal use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Terms of Use ("Limited License") read; no clause on automated access.
+      "RTX grants you a non-exclusive, non-transferable, personal, limited right to access, use
+      and display this website and its contents", subject to keeping copyright notices and
+      not modifying the site or its contents "or reproduce or publicly display, perform or
+      distribute or otherwise use the site and its contents for any public or commercial
+      purpose". The investors site links to this page as its Terms of Use. robots.txt
+      (2026-10-19): www: `Allow: /`; investors: Drupal default (disallows /core/, /profiles/,
+      /admin/, /search/, user pages) and Meta's agents. A plain HTTP client gets 403 from
+      investors.rtx.com (read in a browser), so Atlas's requests there may be refused.
+    rate_per_s: 1
+
+  northrop-grumman:
+    publisher: Northrop Grumman Corporation (issuer site)
+    hosts: [www.northropgrumman.com, news.northropgrumman.com, investor.northropgrumman.com]
+    terms_url: https://www.northropgrumman.com/who-we-are/terms-of-use
+    terms_checked_on: 2026-10-19
+    automation: forbidden
+    terms_note: >-
+      The Terms of Use: users agree not to "use any robot, spider or other automatic device,
+      process or means to access this website for any purpose, including to monitor or copy
+      any of the material on this website" and not to "use any manual process to monitor or
+      copy any of the material on this website" without NGC's express prior written consent.
+      The news and investor sites link to this page as their Terms of Use. robots.txt on www
+      and news (2026-10-19) allows `*` apart from admin, search and /api/ paths and disallows
+      AI-training crawlers (GPTBot, ClaudeBot, ...). Documents fetched by hand come in through
+      `atlas sources import`.
+    block_reason: >-
+      blocked: Northrop Grumman's Terms of Use prohibit robots, spiders, automatic devices
+      and manual monitoring or copying of the website (NGC's written consent required)
+
+  general-dynamics:
+    publisher: General Dynamics Corporation (issuer site)
+    hosts: [www.gd.com, investorrelations.gd.com]
+    terms_url: https://www.gd.com/terms-use
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: >-
+      Owner override (2026-10-19; docs/decisions.md, "Owner override: sites that permit personal, non-commercial use"): the terms grant personal, non-commercial use and are silent on automated access; Atlas is the owner's private, non-commercial research tool, so it fetches single documents here, rate-limited, obeying robots.txt. The terms read: Terms of Use read; no clause on automated access. "You may download
+      content only for your personal use for non-commercial purposes, but no modification or
+      further reproduction of the content is permitted." The investor-relations site links to
+      this page as its Terms of Use. robots.txt: www.gd.com serves an empty file (read as no
+      restrictions); investorrelations.gd.com has `User-agent: *` / `Crawl-delay: 10` /
+      `Allow: /` (2026-10-19). The gate does not apply Crawl-delay, so `rate_per_s` is 0.1
+      (one request every 10 seconds) for the entry. A plain HTTP client gets 403 from
+      investorrelations.gd.com (read in a browser), so Atlas's requests there may be refused.
+    rate_per_s: 0.1
+
+  airbus:
+    publisher: Airbus SE (issuer site)
+    hosts: [www.airbus.com]
+    terms_url: https://www.airbus.com/en/terms-of-use
+    terms_checked_on: 2026-10-19  # "Last updated: June 2024"
+    automation: forbidden
+    terms_note: >-
+      The Terms of Use grant only "a personal, non-exclusive, non-transferable, free of charge
+      and revocable right of access and use of the Site" and bar users from "reproduce ... all
+      or any part of the Site and/or related content" and "extract, all or any part of the
+      Site and/or its content"; "it is strictly prohibited to extract, by permanent or
+      temporary transfer, or re-use all or part of the content of our Site to another medium,
+      by any means and in any form". There is no download or personal-copy exception, so
+      archiving pages is the extraction they bar (no clause names robots). Documents fetched
+      by hand come in through `atlas sources import`.
+    block_reason: >-
+      blocked: Airbus's Terms of Use bar extracting or reproducing any part of the site's
+      content, by any means (Airbus's written permission required)
+
+  boeing:
+    publisher: The Boeing Company (issuer site)
+    hosts: [investors.boeing.com, boeing.mediaroom.com, www.boeing.com, boeing.com]
+    terms_url: https://www.boeing.com/terms-of-submission-and-privacy-policy/site-terms
+    terms_checked_on: 2026-10-19
+    automation: forbidden
+    terms_note: >-
+      The Boeing.com Site Terms (which the investor and media-room sites link to, and which
+      cover "networked Boeing sites"): "Boeing grants you a limited license to make personal
+      use only of the Site. Such grant does not include ... use of any data mining, robots, or
+      similar data gathering and extraction methods." robots.txt on investors.boeing.com
+      (2026-10-19): `Crawl-delay: 10`, `Allow: /`; boeing.mediaroom.com: 404. Documents
+      fetched by hand come in through `atlas sources import`.
+    block_reason: >-
+      blocked: Boeing's Site Terms exclude data mining, robots and similar data gathering and
+      extraction methods from the license to use the site (Boeing's written permission
+      required)
