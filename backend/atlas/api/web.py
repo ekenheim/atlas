@@ -11,9 +11,11 @@
   (default 10-K, 10-Q, 8-K, 20-F, 6-K, 40-F), the window filing dates (default: the year to
   `end`, which defaults to today). Each hit is stored as an `edgar_fts` lead with its filing and
   returned with its lead id. No one-word rule applies: the caller asked for it.
-- `POST /sources/fetch {company, url, published_at?}`: fetch one page into the archive through
-  the fetch gate (`atlas.ledger.web_fetch`) and record it as a Source Version of provider `web`.
-  Blocked: 403 `fetch_blocked` with the gate that blocked it, and the decision is recorded.
+- `POST /sources/fetch {company | company_name (+ cik | lei) | publisher, url, published_at?}`:
+  fetch one page into the archive through the fetch gate (`atlas.ledger.web_fetch`) and record
+  it as a Source Version of provider `web`, for a company Atlas has (slug), a company by name
+  (a counterparty created if need be; W9) or the page's publisher. Blocked: 403
+  `fetch_blocked` with the gate that blocked it, and the decision is recorded.
 
 `session_id` (the MCP tools pass it) is recorded on the search and gives it the session's theme.
 """
@@ -55,7 +57,26 @@ DEFAULT_WINDOW_DAYS = 365
 class FetchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    company: str = Field(min_length=1, description="the company's slug")
+    company: str | None = Field(
+        default=None, min_length=1, description="the slug of a company Atlas has"
+    )
+    company_name: str | None = Field(
+        default=None,
+        min_length=1,
+        description="instead of `company`: a company by name, resolved through SEC and GLEIF (a"
+        " counterparty company is created for one outside the universe)",
+    )
+    cik: str | None = Field(
+        default=None, description="with `company_name`: its SEC CIK, which decides the company"
+    )
+    lei: str | None = Field(
+        default=None, description="with `company_name`: its LEI, when it has no CIK"
+    )
+    publisher: bool = Field(
+        default=False,
+        description="instead of a company: the page is no company's (a government or regulator"
+        " notice); its publisher, the site register's for the site, is its company",
+    )
     url: str = Field(min_length=1)
     published_at: AwareDatetime | None = Field(
         default=None,
@@ -176,6 +197,10 @@ def web_router(engine: Engine, settings: Settings) -> APIRouter:
             return fetch_page(
                 settings,
                 company=request.company,
+                company_name=request.company_name,
+                cik=request.cik,
+                lei=request.lei,
+                publisher=request.publisher,
                 url=request.url,
                 published_at=request.published_at,
                 session_id=request.session_id,

@@ -4689,7 +4689,7 @@ export interface components {
             id: string;
             /** Slug */
             slug: string;
-            /** @description `researched`: a universe company; `counterparty`: known only as the other end of Relationships (never ingested, never an investigation seed) */
+            /** @description `researched`: a universe company; `counterparty`: known only as the other end of Relationships or as a fetched page's company (never ingested, never an investigation seed); `publisher`: the publisher of fetched pages that are no company's, a government or regulator notice (never ingested, never a seed) */
             role: components["schemas"]["CompanyRole"];
             /** Legal Name */
             legal_name: string;
@@ -4895,7 +4895,7 @@ export interface components {
             display_name: string;
         };
         /** @enum {string} */
-        CompanyRole: "researched" | "counterparty";
+        CompanyRole: "researched" | "counterparty" | "publisher";
         /** CompanySections */
         CompanySections: {
             /** Company Id */
@@ -6446,9 +6446,30 @@ export interface components {
         FetchRequest: {
             /**
              * Company
-             * @description the company's slug
+             * @description the slug of a company Atlas has
              */
-            company: string;
+            company?: string | null;
+            /**
+             * Company Name
+             * @description instead of `company`: a company by name, resolved through SEC and GLEIF (a counterparty company is created for one outside the universe)
+             */
+            company_name?: string | null;
+            /**
+             * Cik
+             * @description with `company_name`: its SEC CIK, which decides the company
+             */
+            cik?: string | null;
+            /**
+             * Lei
+             * @description with `company_name`: its LEI, when it has no CIK
+             */
+            lei?: string | null;
+            /**
+             * Publisher
+             * @description instead of a company: the page is no company's (a government or regulator notice); its publisher, the site register's for the site, is its company
+             * @default false
+             */
+            publisher: boolean;
             /** Url */
             url: string;
             /**

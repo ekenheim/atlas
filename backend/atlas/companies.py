@@ -11,7 +11,10 @@ Candidate's), ingested and investigated. `counterparty`: a company outside the u
 an accepted quote names, kept only so the Relationship has its other end
 (`atlas.counterparties`); never ingested, never an investigation seed, in no theme. Seeding a
 company from the config makes it `researched`, which is how a counterparty the owner adds to
-the theme config (under its slug or CIK) is promoted.
+the theme config (under its slug or CIK) is promoted. `publisher`: the publisher of a page that
+is no company's (a government or regulator notice), named from the site register, so the Watch
+can archive and quote it (`atlas.ledger.web_fetch`, W9); like a counterparty, never ingested,
+never a seed, in no theme.
 """
 
 import re
@@ -76,7 +79,7 @@ type CompanyLayer = Annotated[str, StringConstraints(pattern=LAYER_SLUG)]
 # Where a company's primary disclosures come from: SEC EDGAR, or its exchange's feed.
 type SourcePath = Literal["sec", "exchange:hkex", "exchange:fca-nsm", "exchange:amf"]
 # Whether Atlas researches the company or only knows it as the other end of an edge.
-type CompanyRole = Literal["researched", "counterparty"]
+type CompanyRole = Literal["researched", "counterparty", "publisher"]
 
 _CIK = r"^[0-9]{10}$"
 
@@ -242,18 +245,18 @@ def default_slug(name: str) -> str:
 
 
 def is_counterparty(connection: Connection, slug: str) -> bool:
-    """Whether `slug` is a counterparty company: known, but not researched."""
+    """Whether `slug` is a counterparty or publisher company: known, but not researched."""
     role = connection.execute(
         text("SELECT role FROM company WHERE slug = :slug"), {"slug": slug}
     ).scalar_one_or_none()
-    return role == "counterparty"
+    return role in ("counterparty", "publisher")
 
 
 def counterparty_refusal(slug: str) -> str:
     return (
-        f"company {slug!r} is a counterparty: it is known only as the other end of"
-        " Relationships and is never ingested. To research it, add it to the theme config or"
-        " commit its Candidate"
+        f"company {slug!r} is a counterparty or a publisher: it is known only as the other end"
+        " of Relationships or as the company of fetched pages, and is never ingested. To"
+        " research it, add it to the theme config or commit its Candidate"
     )
 
 
@@ -484,7 +487,9 @@ class Company(BaseModel):
     slug: str
     role: CompanyRole = Field(
         description="`researched`: a universe company; `counterparty`: known only as the other"
-        " end of Relationships (never ingested, never an investigation seed)"
+        " end of Relationships or as a fetched page's company (never ingested, never an"
+        " investigation seed); `publisher`: the publisher of fetched pages that are no company's,"
+        " a government or regulator notice (never ingested, never a seed)"
     )
     legal_name: str
     display_name: str

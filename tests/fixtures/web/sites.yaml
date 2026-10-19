@@ -2,7 +2,7 @@
 # (ATLAS_SOURCE_SITES_CONFIG). SYNTHETIC: the hosts are under the reserved `.test` TLD and
 # resolve nowhere; the pages are the hand-written fixtures beside this file. The production
 # register (configs/sources/sites.yaml) holds none of these.
-version: 1
+version: 2
 
 sites:
   example-issuer:
@@ -36,6 +36,28 @@ sites:
     automation: allowed
     terms_note: "Synthetic: a third party's site whose register entry names its licence class."
     rate_per_s: 1
+    license_class: public_regulatory
+
+  example-regulator:
+    publisher: Example Ministry of Commerce (synthetic)
+    hosts: [www.example-regulator.test]
+    terms_url: https://www.example-regulator.test/terms
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: "Synthetic: a government site whose notices are public regulatory material (W9)."
+    rate_per_s: 1
+    license_class: public_regulatory
+
+  sec-edgar:
+    # As in the production register (configs/sources/sites.yaml), for the W9 tests of an EDGAR
+    # Archives URL fetched with `fetch_page`; the pages are the recorded EDGAR fixtures.
+    publisher: U.S. Securities and Exchange Commission (EDGAR)
+    hosts: [www.sec.gov, sec.gov]
+    terms_url: https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data
+    terms_checked_on: 2026-10-19
+    automation: allowed
+    terms_note: "SEC's fair-access policy: a declared User-Agent, at most 10 requests/s."
+    rate_per_s: 10
     license_class: public_regulatory
 
   example-forbidden:

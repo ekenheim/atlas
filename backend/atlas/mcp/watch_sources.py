@@ -18,16 +18,19 @@ prompt's list; Atlas enforces it.
   time (`atlas.ledger.web_fetch`), and a session reads it when Atlas had it by the as-of time
   or when it fetched it itself while prospective, its as-of time within 36 hours before the
   fetch (`Ctx.visible_version`). Any other page is recorded but not `readable` (`read` refuses
-  it as `available_after_as_of`).
+  it as `available_after_as_of`). Its company is a slug Atlas has, a company by name (and CIK
+  or LEI), kept as a counterparty, or none (`publisher`: a government or regulator notice); an
+  EDGAR Archives URL is fetched with the SEC client (W9, the Watch's reach).
 
 Registered by importing this module (`atlas.mcp`'s package init).
 """
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any
 
 from pydantic import Field
 
+from atlas.discovery.bounds import filing_bound, published_bound
 from atlas.mcp.api import Refusal, rows
 from atlas.mcp.tools import Bound, Ctx, tool
 
@@ -37,20 +40,6 @@ LEAD_NOTE = (
     " it there; record a Fact only from text you read in the archive."
 )
 WINDOW_DAYS = 365
-# EDGAR files by Eastern day and a day is over by 05:00 UTC the next calendar day; a date-only
-# publication can be as late as the end of that day at UTC-12 (12:00 UTC the next day).
-EDGAR_DAY_END = timedelta(hours=5)
-DATE_ONLY_END = timedelta(hours=12)
-
-
-def filing_bound(as_of: datetime) -> date:
-    """The last filing date every filing of which was accepted by `as_of`."""
-    return (as_of.astimezone(UTC) - EDGAR_DAY_END).date() - timedelta(days=1)
-
-
-def published_bound(as_of: datetime) -> date:
-    """The last publication date, given as a date alone, that was certainly over by `as_of`."""
-    return (as_of.astimezone(UTC) - DATE_ONLY_END).date() - timedelta(days=1)
 
 
 class FilingSearchArgs(Bound):
@@ -185,29 +174,53 @@ async def web_search(ctx: Ctx, args: WebSearchArgs) -> dict[str, Any]:
 
 
 class FetchPageArgs(Bound):
-    company: str = Field(min_length=1, description="the company's slug the page is about")
+    company: str | None = Field(
+        default=None, min_length=1, description="the slug of a company Atlas has"
+    )
+    company_name: str | None = Field(
+        default=None,
+        min_length=1,
+        description="instead of `company`, for a company Atlas doesn't have: its name (with"
+        " `cik` or `lei` if you know it; the registered name if you don't)",
+    )
+    cik: str | None = Field(default=None, description="with `company_name`: its SEC CIK")
+    lei: str | None = Field(default=None, description="with `company_name`: its LEI")
+    publisher: bool = Field(
+        default=False,
+        description="instead of a company: the page is no company's (a government or regulator"
+        " notice); the site's publisher is its source",
+    )
     url: str = Field(min_length=1, description="the page's URL (HTML or PDF)")
 
 
 @tool(
     "fetch_page",
-    "Fetch one web page (HTML or a PDF: a company's investor-relations or press page, a deck)"
-    " into Atlas's archive as a Source Version, so you can `read` it and record Facts from it."
-    " The site must be in Atlas's site register with terms that allow automation, and its"
-    " robots.txt must allow the path; otherwise the call is refused (`fetch_blocked`) and"
-    " nothing is requested. Tier A when the site is the company's own, else B. `available_at`"
-    " is never before Atlas had the page: the page's own date if it is within a week before"
-    " now, else now. A page public after the session's as-of time is recorded but not"
-    " `readable` by it; one fetched after the as-of time is read only by the session that"
-    " fetched it.",
+    "Fetch one web page (HTML or a PDF: a company's investor-relations or press page, a deck, an"
+    " EDGAR filing's document, a government or regulator notice) into Atlas's archive as a"
+    " Source Version, so you can `read` it and record Facts from it. Name whose page it is"
+    " exactly one way: `company` (a slug Atlas has), `company_name` (a company outside Atlas,"
+    " with its `cik` or `lei` if known: Atlas identifies it at SEC or GLEIF and keeps it as a"
+    " counterparty; refused `unresolved_company` or `ambiguous_company` when no single company"
+    " answers), or `publisher: true` (no company's page). The site must be in Atlas's site"
+    " register with terms that allow automation, and its robots.txt must allow the path;"
+    " otherwise the call is refused (`fetch_blocked`) and nothing is requested. Tier A when"
+    " the site is the company's own, an EDGAR filing is the company's own (its CIK), or a"
+    " regulator publishes it; else B. `available_at` is never before Atlas had the page: an"
+    " EDGAR filing's acceptance, else the page's own date if it is within a week before now,"
+    " else now. A page public after the session's as-of time is recorded but not `readable`"
+    " by it; one fetched after the as-of time is read only by the session that fetched it.",
     FetchPageArgs,
 )
 async def fetch_page(ctx: Ctx, args: FetchPageArgs) -> dict[str, Any]:
     ctx.refuse_isolated("fetch_page")
-    page = await ctx.api.post(
-        "/sources/fetch",
-        {"company": args.company, "url": args.url, "session_id": str(args.session_id)},
-    )
+    asked: dict[str, Any] = {"url": args.url, "session_id": str(args.session_id)}
+    for key in ("company", "company_name", "cik", "lei"):
+        value = getattr(args, key)
+        if value is not None:
+            asked[key] = value
+    if args.publisher:
+        asked["publisher"] = True
+    page = await ctx.api.post("/sources/fetch", asked)
     try:
         await ctx.visible_version(page["source_version_id"])
         readable = True
@@ -219,6 +232,7 @@ async def fetch_page(ctx: Ctx, args: FetchPageArgs) -> dict[str, Any]:
         "version_id": page.get("source_version_id"),
         "document_id": page.get("source_document_id"),
         "company": page.get("company"),
+        "company_id": page.get("company_id"),
         "url": page.get("final_url"),
         "title": page.get("title"),
         "media_type": page.get("media_type"),

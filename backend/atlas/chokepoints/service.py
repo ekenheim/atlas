@@ -5,7 +5,7 @@ import json
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, cast
 
 from pydantic import BaseModel, JsonValue, ValidationError
@@ -37,6 +37,7 @@ from atlas.chokepoints.model import (
     WatchRunCreate,
     fold,
 )
+from atlas.discovery.bounds import lead_bound
 from atlas.jobs.pacing import Clock, utc_now
 
 # --- reads ---------------------------------------------------------------------------------
@@ -206,13 +207,9 @@ def _with_evidence(
             )
     leads: dict[uuid.UUID, EvidenceLead] = {}
     if lead_ids:
-        for row in connection.execute(
-            text(
-                "SELECT id, title, url, origin, published_date FROM lead WHERE id = ANY(:ids)"
-                " AND (CAST(:as_of AS timestamptz) IS NULL OR first_seen_at <= :as_of)"
-            ),
-            {"ids": lead_ids, "as_of": session.as_of if session else None},
-        ):
+        for row in _leads(connection, lead_ids, session):
+            if session is not None and _lead_refusal(row, session) is not None:
+                continue
             leads[row.id] = EvidenceLead(
                 id=row.id,
                 title=row.title,
@@ -475,19 +472,67 @@ def _check_leads(
 ) -> None:
     if not ids:
         return
-    found = connection.execute(
-        text("SELECT id, first_seen_at FROM lead WHERE id = ANY(:ids) ORDER BY id"),
-        {"ids": list(set(ids))},
-    ).all()
+    found = _leads(connection, list(set(ids)), session)
     _unknown("lead", "lead", ids, {row.id for row in found})
+    if session is None:
+        return
     for row in found:
-        if session is not None and row.first_seen_at > session.as_of:
+        refusal = _lead_refusal(row, session)
+        if refusal == "published_after_as_of":
             raise ChokepointError(
                 422,
-                "created_after_as_of",
-                "that lead was first seen after the session's as-of time",
+                refusal,
+                "that lead dates itself after the last day certainly public by the session's"
+                " as-of time",
+                lead=str(row.id),
+                published_date=row.published_date.isoformat(),
+                as_of=session.as_of.isoformat(),
+            )
+        if refusal == "created_after_as_of":
+            raise ChokepointError(
+                422,
+                refusal,
+                "that lead was first seen after the session's as-of time, and not by this"
+                " session's own search",
                 lead=str(row.id),
             )
+
+
+def _leads(
+    connection: Connection, ids: Sequence[uuid.UUID], session: "SessionInfo | None"
+) -> list[Any]:
+    """The leads, each with whether the session's own searches (`web_search`, `filing_search`:
+    a `discovery_query` of the session) found or saw it again (`found_by_session`)."""
+    return list(
+        connection.execute(
+            text(
+                "SELECT l.id, l.title, l.url, l.origin, l.published_date, l.first_seen_at,"
+                " EXISTS (SELECT 1 FROM lead_sighting s"
+                "  JOIN discovery_query q ON q.id = s.discovery_query_id"
+                "  WHERE s.lead_id = l.id AND q.session_id = :session) AS found_by_session"
+                " FROM lead l WHERE l.id = ANY(:ids) ORDER BY l.id"
+            ),
+            {"ids": list(ids), "session": session.id if session else None},
+        ).all()
+    )
+
+
+def _lead_refusal(row: Any, session: "SessionInfo") -> str | None:
+    """Why a session may not cite a lead, or None (W9; docs/decisions.md, "The Watch's reach").
+    A lead first seen by the as-of time was public by then. One first seen after it counts only
+    when the session's own search found it, and then only if it does not date itself after the
+    last day certainly public by the as-of time (`lead_bound`, the searches' own rule). A lead
+    dated after the as-of day is refused whoever found it."""
+    published: date | None = row.published_date
+    if published is not None and published > session.as_of.astimezone(UTC).date():
+        return "published_after_as_of"
+    if row.first_seen_at <= session.as_of:
+        return None
+    if not row.found_by_session:
+        return "created_after_as_of"
+    if published is not None and published > lead_bound(row.origin, session.as_of):
+        return "published_after_as_of"
+    return None
 
 
 def _check_issues(

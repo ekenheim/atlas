@@ -28,7 +28,7 @@
 # requests nothing. docs/source-licenses.md §5 is the human-readable record; keep it in step.
 #
 # Bump `version` on any change.
-version: 4
+version: 5
 
 sites:
   hkexnews:
@@ -183,3 +183,22 @@ sites:
       blocked: soitec.com's terms forbid reuse of the site's elements (Soitec's prior
       written permission required)
     rate_per_s: 1
+
+  sec-edgar:
+    publisher: U.S. Securities and Exchange Commission (EDGAR)
+    # `fetch_page` of an EDGAR Archives URL (W9); the SEC ingest's own requests are not gated.
+    # Asked with the SEC client: ATLAS_SEC_USER_AGENT and the shared SEC rate limit.
+    hosts: [www.sec.gov, sec.gov]
+    terms_url: https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data
+    terms_checked_on: 2026-10-19  # the page was last reviewed or updated 26 June 2024
+    automation: allowed
+    terms_note: >-
+      SEC's fair-access policy: "Current max request rate: 10 requests/second"; automated
+      clients must declare a User-Agent naming the company and an admin contact email;
+      efficient scripts are acceptable, download only what is needed, and "The SEC does not
+      allow botnets or automated tools to crawl the site" (see also
+      https://www.sec.gov/privacy#security). Atlas fetches single documents it was asked
+      for, never crawls. robots.txt (read 2026-10-19) has "Allow: /Archives/edgar/data" and
+      disallows /cgi-bin, /search/ and the like.
+    rate_per_s: 10
+    license_class: public_regulatory

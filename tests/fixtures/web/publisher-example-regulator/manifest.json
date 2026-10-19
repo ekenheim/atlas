@@ -1,0 +1,17 @@
+{
+  "note": "Hand-written for the W9 tests of a publisher-only `fetch_page`, not recorded: a synthetic government notice on the register's synthetic regulator site (license_class public_regulatory). The directory is named after the publisher company's slug, `publisher-<site>`. Its robots.txt is a 404, which allows everything.",
+  "responses": [
+    {
+      "url": "https://www.example-regulator.test/robots.txt",
+      "file": "../lumentum/press/robots-404.html",
+      "status": 404,
+      "headers": {"Content-Type": "text/html; charset=utf-8"}
+    },
+    {
+      "url": "https://www.example-regulator.test/notices/magnet-export-licences.html",
+      "file": "magnet-export-licences.html",
+      "status": 200,
+      "headers": {"Content-Type": "text/html; charset=utf-8"}
+    }
+  ]
+}

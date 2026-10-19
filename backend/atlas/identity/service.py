@@ -76,7 +76,8 @@ def find_in_universe(
         for row in connection.execute(
             text(
                 "SELECT id, slug, legal_name, display_name, cik, lei FROM company"
-                " WHERE role = 'researched' OR NOT CAST(:researched_only AS boolean)"
+                " WHERE role = 'researched'"
+                " OR (role = 'counterparty' AND NOT CAST(:researched_only AS boolean))"
             ),
             {"researched_only": researched_only},
         ).mappings()

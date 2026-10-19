@@ -148,7 +148,9 @@ function Dossier({ dossier }: { dossier: CompanyDossier }) {
               <Row name="Role">
                 {company.role === "counterparty"
                   ? "Counterparty: known only as the other end of Relationships, not researched"
-                  : "Researched"}
+                  : company.role === "publisher"
+                    ? "Publisher: the source of fetched notices, not researched"
+                    : "Researched"}
               </Row>
               <Row name="CIK">{company.cik ? <Code>{company.cik}</Code> : <Missing />}</Row>
               <Row name="LEI">{company.lei ? <Code>{company.lei}</Code> : <Missing />}</Row>
