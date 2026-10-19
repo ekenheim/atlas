@@ -18,11 +18,15 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 
 from atlas.api.app import create_app
+from atlas.audit import Actor
+from atlas.jobs import JobQueue, Worker, builtin_registry
+from atlas.ledger.ingest import INGEST_KIND, ingest_payload
 from tests.fakes.edgar_fts import FakeEdgarFullTextSearch, FilingReply
+from tests.fakes.identity import FakeIdentitySources
 from tests.fakes.searxng import FakeSearXNG, SearchReply
 from tests.fakes.serve import serve
 from tests.fakes.web import IR, WEB_SITES, recent_web
-from tests.harness import THEMES, make_settings
+from tests.harness import EDGAR_FIXTURES, THEMES, make_settings
 
 Q4 = f"{IR}/news/q4-results.html"  # public 2026-08-11T20:05Z
 QUESTION = "Is indium phosphide laser capacity the constraint?"
@@ -34,7 +38,13 @@ EML_QUERY = "Coherent EML laser chip capacity 200G per lane 800G transceiver"
 
 class Mcp:
     def __init__(
-        self, database_url: str, tmp_path: Path, web: Path, searxng_url: str, edgar_url: str
+        self,
+        database_url: str,
+        tmp_path: Path,
+        web: Path,
+        searxng_url: str,
+        edgar_url: str,
+        identity_url: str,
     ):
         archive = tmp_path / "archive"
         archive.mkdir(exist_ok=True)
@@ -46,9 +56,15 @@ class Mcp:
             themes_config=THEMES,
             source_sites_config=WEB_SITES,
             exchange_fixtures_dir=web,
+            sec_fixtures_dir=EDGAR_FIXTURES,  # an EDGAR Archives URL is fetched with SEC's client
             searxng_url=searxng_url,
             sec_user_agent="Atlas Research watch-test@example.com",
             sec_efts_url=f"{edgar_url}/LATEST",
+            # Entity resolution of a company by name (W9): the identity fake, never SEC itself.
+            sec_files_url=f"{identity_url}/files",
+            sec_data_url=identity_url,
+            gleif_url=f"{identity_url}/api/v1",
+            openfigi_url=identity_url,
             retention_triage="off",
         )
         self.api = TestClient(create_app(self.settings))
@@ -121,6 +137,14 @@ def edgar() -> Iterator[tuple[FakeEdgarFullTextSearch, str]]:
 
 
 @pytest.fixture
+def identity() -> Iterator[tuple[FakeIdentitySources, str]]:
+    fake = FakeIdentitySources()
+    with serve(fake.handle) as served:
+        yield fake, served.url
+        served.raise_errors()
+
+
+@pytest.fixture
 def moment() -> datetime:
     return datetime.now(UTC)
 
@@ -132,8 +156,16 @@ def mcp(
     moment: datetime,
     searxng: tuple[FakeSearXNG, str],
     edgar: tuple[FakeEdgarFullTextSearch, str],
+    identity: tuple[FakeIdentitySources, str],
 ) -> Iterator[Mcp]:
-    harness = Mcp(database_url, tmp_path, recent_web(tmp_path, moment), searxng[1], edgar[1])
+    harness = Mcp(
+        database_url,
+        tmp_path,
+        recent_web(tmp_path, moment),
+        searxng[1],
+        edgar[1],
+        identity[1],
+    )
     yield harness
     harness.engine.dispose()
 
@@ -787,6 +819,295 @@ def test_fetch_page_is_refused_by_the_gate_and_nothing_is_recorded(mcp: Mcp) -> 
     )
 
 
+# --- W9: the Watch's reach ----------------------------------------------------------------------
+
+TRADE = "https://news.example-trade.test/2026/10/nvidia-optics-allocation.html"
+TRADE_QUOTE = (
+    "NVIDIA said its supply of co-packaged optical engines will remain allocated through next year."
+)
+NOTICE = "https://www.example-regulator.test/notices/magnet-export-licences.html"
+NOTICE_QUOTE = (
+    "Exports of rare earth permanent magnets will require an individual export licence from"
+    " 1 December 2026."
+)
+NVIDIA_CIK = "0001045810"  # SEC's ticker file and submissions in tests/fixtures/identity
+# Lumentum's FY2026 10-K in the recorded EDGAR fixtures: accepted 2026-08-17T20:03:17Z.
+TEN_K = "https://www.sec.gov/Archives/edgar/data/1633978/000162828026057358/lite-20260627.htm"
+TEN_K_QUOTE = (
+    "We operate within global markets characterized by robust, long-term growth trends that are"
+    " increasing demand for our products and technologies."
+)
+
+
+def step_with_lead(lead: str) -> dict[str, Any]:
+    return {"step": "a", "status": "lead", "evidence": {"lead_ids": [lead]}}
+
+
+def test_a_step_cites_a_lead_its_own_search_found_after_its_as_of_time(
+    mcp: Mcp, searxng: tuple[FakeSearXNG, str], moment: datetime
+) -> None:
+    # The Watch's as-of time is its start, so every lead its searches find is first seen after
+    # it. A lead the session's own search found counts; one another session found does not.
+    fake, _ = searxng
+    fake.script(
+        EML_QUERY, SearchReply.of("coherent-eml-capacity"), SearchReply.of("coherent-eml-capacity")
+    )
+    as_of = zulu(moment - timedelta(hours=1))
+    watch, other = mcp.open(as_of), mcp.open(as_of)
+    found = mcp.ok("web_search", session_id=watch, query=EML_QUERY)
+    lead = next(each["lead_id"] for each in found["results"] if "eml-capacity-race" in each["url"])
+    mine = mcp.ok("add_chokepoint", session_id=watch, constraint="EML chips", layer="l")["id"]
+    theirs = mcp.ok("add_chokepoint", session_id=other, constraint="EML chips", layer="m")["id"]
+
+    mcp.ok(
+        "update_chokepoint",
+        session_id=watch,
+        id=mine,
+        kind="step_set",
+        payload=step_with_lead(lead),
+    )
+    refused = mcp.refused(
+        "update_chokepoint",
+        "created_after_as_of",
+        session_id=other,
+        id=theirs,
+        kind="step_set",
+        payload=step_with_lead(lead),
+    )
+
+    assert refused["lead"] == lead
+    # The board's reads follow the same rule: the finder sees its lead, the other session not.
+    seen = mcp.get(f"/api/v1/chokepoints/{mine}", session_id=watch)
+    assert [each["id"] for each in seen["leads"]] == [lead]
+    assert mcp.get(f"/api/v1/chokepoints/{mine}", session_id=other)["leads"] == []
+    # Seeing it again in its own search makes it the other session's find too.
+    mcp.ok("web_search", session_id=other, query=EML_QUERY)
+    mcp.ok(
+        "update_chokepoint",
+        session_id=other,
+        id=theirs,
+        kind="step_set",
+        payload=step_with_lead(lead),
+    )
+
+
+def test_a_lead_dated_after_the_as_of_time_is_refused_even_to_the_session_that_found_it(
+    mcp: Mcp, searxng: tuple[FakeSearXNG, str], moment: datetime
+) -> None:
+    fake, _ = searxng
+    fake.script(EML_QUERY, SearchReply.of("coherent-eml-capacity"))
+    as_of = moment - timedelta(hours=1)
+    watch = mcp.open(zulu(as_of))
+    found = mcp.ok("web_search", session_id=watch, query=EML_QUERY)
+    late, today = (
+        next(each["lead_id"] for each in found["results"] if part in each["url"])
+        for part in ("eml-capacity-race", "wikipedia")
+    )
+    # Stored by another process with a later day than the session's search would have kept
+    # (the first sighting's date is the lead's): two days on, and the as-of day itself, which a
+    # date alone does not show was over by the as-of instant.
+    with mcp.engine.begin() as connection:
+        for lead, day in ((late, moment + timedelta(days=2)), (today, as_of)):
+            connection.execute(
+                text("UPDATE lead SET published_date = :day WHERE id = :id"),
+                {"day": day.astimezone(UTC).date(), "id": lead},
+            )
+    chokepoint = mcp.ok("add_chokepoint", session_id=watch, constraint="c", layer="l")["id"]
+
+    for lead in (late, today):
+        refused = mcp.refused(
+            "update_chokepoint",
+            "published_after_as_of",
+            session_id=watch,
+            id=chokepoint,
+            kind="step_set",
+            payload=step_with_lead(lead),
+        )
+        assert refused["lead"] == lead
+
+
+def test_fetch_page_by_name_and_cik_keeps_a_counterparty_and_its_page_is_quoted(
+    mcp: Mcp, moment: datetime, identity: tuple[FakeIdentitySources, str]
+) -> None:
+    session = mcp.open(zulu(moment - timedelta(hours=1)))
+
+    page = mcp.ok("fetch_page", session_id=session, company_name="NVIDIA", cik="1045810", url=TRADE)
+
+    assert (page["outcome"], page["company"], page["tier"]) == ("new_version", "nvidia", "B")
+    assert page["readable"] is True
+    company = mcp.get(f"/api/v1/companies/{page['company_id']}")
+    assert (company["role"], company["cik"], company["lei"]) == ("counterparty", NVIDIA_CIK, None)
+    assert (company["legal_name"], company["display_name"]) == ("NVIDIA CORP", "NVIDIA")
+    assert company["counterparty"]["source"] == "sec"
+    assert company["source_path"] is None
+    assert any(path.endswith(f"/submissions/CIK{NVIDIA_CIK}.json") for path in identity[0].paths())
+    fact = mcp.ok(
+        "record_fact",
+        session_id=session,
+        version_id=page["version_id"],
+        quote=TRADE_QUOTE,
+        step="constraint",
+        status="in_effect",
+        statement="A trade report says NVIDIA's optical engine supply stays allocated next year.",
+    )
+    assert fact["recorded"] is True
+    recorded = mcp.get(f"/api/v1/facts/{fact['fact_id']}")
+    assert recorded["assertion"]["subject_company_id"] == page["company_id"]
+    # By its name alone it is now the company Atlas has: no second counterparty.
+    again = mcp.ok("fetch_page", session_id=session, company_name="NVIDIA", url=TRADE)
+    assert (again["company_id"], again["outcome"]) == (page["company_id"], "unchanged")
+    assert [c["slug"] for c in mcp.get("/api/v1/companies", role="counterparty")["items"]] == [
+        "nvidia"
+    ]
+    # A counterparty is never a theme's company nor a session's seed.
+    theme = mcp.get("/api/v1/themes/photonics/map")
+    members = [c["slug"] for layer in theme["layers"] for c in layer["companies"]]
+    assert "nvidia" not in members + [c["slug"] for c in theme["unlayered"]]
+    mcp.refused(
+        "open_session", "unknown_company", question=QUESTION, as_of=SEPTEMBER, seeds=["nvidia"]
+    )
+
+
+def test_fetch_page_refuses_a_name_its_identifier_does_not_have_and_asks_for_one_company(
+    mcp: Mcp,
+) -> None:
+    session = mcp.open(SEPTEMBER)
+
+    wrong = mcp.refused(
+        "fetch_page",
+        "unresolved_company",
+        session_id=session,
+        company_name="Huawei",
+        cik=NVIDIA_CIK,
+        url=TRADE,
+    )
+    assert "none of the names" in wrong["message"]
+    for arguments in (
+        {"company": "lumentum", "company_name": "NVIDIA"},
+        {"company": "lumentum", "publisher": True},
+        {},
+        {"company": "lumentum", "cik": NVIDIA_CIK},
+    ):
+        mcp.refused("fetch_page", "invalid_company", session_id=session, url=TRADE, **arguments)
+    assert mcp.scalar("SELECT count(*) FROM company WHERE role <> 'researched'") == 0
+    assert mcp.scalar("SELECT count(*) FROM source_document") == 0
+
+
+def test_a_publisher_only_fetch_archives_a_government_notice_quoted_as_a_fact(
+    mcp: Mcp, moment: datetime
+) -> None:
+    session = mcp.open(zulu(moment - timedelta(hours=1)))
+
+    page = mcp.ok("fetch_page", session_id=session, publisher=True, url=NOTICE)
+
+    # The register gives the site `public_regulatory`: the regulator's own notice, Tier A.
+    assert (page["company"], page["tier"], page["readable"]) == (
+        "publisher-example-regulator",
+        "A",
+        True,
+    )
+    publisher = mcp.get(f"/api/v1/companies/{page['company_id']}")
+    assert publisher["role"] == "publisher"
+    assert publisher["display_name"] == "Example Ministry of Commerce (synthetic)"
+    assert (publisher["cik"], publisher["source_path"], publisher["counterparty"]) == (
+        None,
+        None,
+        None,
+    )
+    version = mcp.get(f"/api/v1/source-versions/{page['version_id']}")
+    assert version["source_document"]["license_class"] == "public_regulatory"
+    fact = mcp.ok(
+        "record_fact",
+        session_id=session,
+        version_id=page["version_id"],
+        quote=NOTICE_QUOTE,
+        step="constraint",
+        status="regulatory",
+        statement="Rare earth magnet exports need an export licence from 1 December 2026.",
+    )
+    assert fact["recorded"] is True
+    # The same publisher again: one company per site.
+    again = mcp.ok("fetch_page", session_id=session, publisher=True, url=NOTICE)
+    assert again["company_id"] == page["company_id"]
+    assert mcp.scalar("SELECT count(*) FROM company WHERE role = 'publisher'") == 1
+    # A publisher is never in a theme, never a seed and never ingested.
+    theme = mcp.get("/api/v1/themes/photonics/map")
+    members = [c["slug"] for layer in theme["layers"] for c in layer["companies"]]
+    assert page["company"] not in members + [c["slug"] for c in theme["unlayered"]]
+    assert page["company"] not in [c["slug"] for c in theme["counterparties"]]
+    mcp.refused(
+        "open_session",
+        "unknown_company",
+        question=QUESTION,
+        as_of=SEPTEMBER,
+        seeds=[page["company"]],
+    )
+    seeded = mcp.api.post(
+        "/api/v1/sessions",
+        json={
+            "question": QUESTION,
+            "theme": "photonics",
+            "seed_company_ids": [page["company_id"]],
+            "as_of": SEPTEMBER,
+        },
+    )
+    assert seeded.status_code == 422 and seeded.json()["error"]["code"] == "unknown_company"
+    queue = JobQueue(mcp.engine, actor=Actor("watch-test"))
+    job = queue.enqueue(
+        INGEST_KIND, "publisher", ingest_payload(page["company"], None, None), max_attempts=1
+    )
+    assert Worker(queue, builtin_registry(mcp.settings)).run_once() == 1
+    failed = mcp.get(f"/api/v1/jobs/{job.job.id}")
+    assert failed["status"] == "failed" and "publisher" in failed["failures"][-1]["error"]
+
+
+def test_a_publisher_only_fetch_of_an_unregistered_site_is_blocked_and_creates_nothing(
+    mcp: Mcp,
+) -> None:
+    session = mcp.open(SEPTEMBER)
+
+    blocked = mcp.refused(
+        "fetch_page",
+        "fetch_blocked",
+        session_id=session,
+        publisher=True,
+        url="https://unknown.example-offsite.test/notice",
+    )
+
+    assert blocked["blocked_by"] == "register"
+    assert mcp.scalar("SELECT count(*) FROM company WHERE role = 'publisher'") == 0
+
+
+def test_an_edgar_filing_fetched_for_its_filer_is_tier_a_from_its_acceptance(
+    mcp: Mcp, moment: datetime
+) -> None:
+    session = mcp.open(zulu(moment - timedelta(hours=1)))
+
+    page = mcp.ok("fetch_page", session_id=session, company="lumentum", url=TEN_K)
+
+    # Asked with SEC's client: the page and the submissions index replay from Lumentum's
+    # recorded EDGAR fixtures (the web fixtures hold no sec.gov URL).
+    assert (page["outcome"], page["tier"], page["readable"]) == ("new_version", "A", True)
+    assert (page["available_at_basis"], page["date_source"]) == (
+        "sec_acceptance",
+        "sec_submissions",
+    )
+    assert when(page["available_at"]) == when("2026-08-17T20:03:17Z")
+    version = mcp.get(f"/api/v1/source-versions/{page['version_id']}")
+    assert version["source_document"]["license_class"] == "public_issuer"
+    assert version["metadata"]["web"]["site"] == "sec-edgar"
+    fact = mcp.ok(
+        "record_fact",
+        session_id=session,
+        version_id=page["version_id"],
+        quote=TEN_K_QUOTE,
+        step="demand_vs_supply",
+        status="in_effect",
+        statement="Lumentum says long-term growth trends are increasing demand for its products.",
+    )
+    assert fact["recorded"] is True
+
+
 # --- an isolated session ------------------------------------------------------------------------
 
 
@@ -794,6 +1115,7 @@ def test_an_isolated_session_is_refused_all_three_tools_before_anything_happens(
     mcp: Mcp,
     searxng: tuple[FakeSearXNG, str],
     edgar: tuple[FakeEdgarFullTextSearch, str],
+    identity: tuple[FakeIdentitySources, str],
 ) -> None:
     isolated = mcp.open(SEPTEMBER, isolated=True)
 
@@ -801,17 +1123,25 @@ def test_an_isolated_session_is_refused_all_three_tools_before_anything_happens(
         ("filing_search", {"query": "InP substrates"}),
         ("web_search", {"query": "InP"}),
         ("fetch_page", {"company": "lumentum", "url": Q4}),
+        # W9's new ways (a company by name and CIK, a publisher, an EDGAR filing) too.
+        ("fetch_page", {"company_name": "NVIDIA", "cik": NVIDIA_CIK, "url": TRADE}),
+        ("fetch_page", {"publisher": True, "url": NOTICE}),
+        ("fetch_page", {"company": "lumentum", "url": TEN_K}),
     ):
         refused = mcp.refused(tool, "isolated_session", session_id=isolated, **arguments)
         assert tool in refused["message"]
 
-    # Nothing was searched, requested or recorded.
-    assert searxng[0].calls == [] and edgar[0].calls == []
+    # Nothing was searched, resolved, requested or recorded.
+    assert searxng[0].calls == [] and edgar[0].calls == [] and identity[0].calls == []
     assert mcp.scalar("SELECT count(*) FROM source_document") == 0
     assert mcp.scalar("SELECT count(*) FROM discovery_query") == 0
     assert mcp.scalar("SELECT count(*) FROM fetch_gate_decision") == 0
-    assert mcp.calls(isolated)[1:] == [
-        ("filing_search", "refused", "isolated_session"),
-        ("web_search", "refused", "isolated_session"),
-        ("fetch_page", "refused", "isolated_session"),
-    ]
+    assert mcp.scalar("SELECT count(*) FROM company WHERE role <> 'researched'") == 0
+    assert (
+        mcp.calls(isolated)[1:]
+        == [
+            ("filing_search", "refused", "isolated_session"),
+            ("web_search", "refused", "isolated_session"),
+        ]
+        + [("fetch_page", "refused", "isolated_session")] * 4
+    )

@@ -136,7 +136,9 @@ class TradingViewTranscript(_Frozen):
     owner_override: str  # the override every stored TradingView item records
 
 
-type WebDateSource = Literal["argument", "article_published_time", "json_ld", "fetch_time"]
+type WebDateSource = Literal[
+    "argument", "article_published_time", "json_ld", "fetch_time", "sec_submissions"
+]
 
 
 class WebPage(_Frozen):
@@ -153,7 +155,8 @@ class WebPage(_Frozen):
     license_class: str = "public_issuer"
     # Where `available_at` came from: `argument` (the fetch was told), `article_published_time`
     # or `json_ld` (the page's own date, when within a week before the fetch), or `fetch_time`
-    # (any other page: a page's older or later date is kept in `date_as_written`, not believed).
+    # (any other page: a page's older or later date is kept in `date_as_written`, not believed),
+    # or `sec_submissions` (an EDGAR filing's document: its filing's acceptance, W9).
     date_source: WebDateSource
     date_as_written: str | None = None  # the date exactly as given or found, if any
     page_date_tag: str | None = None  # the tag the page's own date was found in, if it had one

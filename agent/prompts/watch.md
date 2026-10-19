@@ -17,7 +17,7 @@ This is evidenced, falsifiable research, not a trade idea: no buy or sell langua
 
 | Tier | What it is | What it can do | How it enters Atlas |
 |---|---|---|---|
-| **P** | Primary and dated: a company's filings, releases, decks and slides; its own speakers on calls (not the analysts asking); a customer's or competitor's filing that names the input; government notices | Support a bottleneck step | `record_fact` on a span of an archived document. Use `fetch_page` to archive a company's own page first. |
+| **P** | Primary and dated: a company's filings, releases, decks and slides; its own speakers on calls (not the analysts asking); a customer's or competitor's filing that names the input; government notices | Support a bottleneck step | `record_fact` on a span of an archived document. Use `fetch_page` to archive the page first: `company` for a company Atlas has, `company_name` (and its `cik` if you know it) for one it doesn't, `publisher: true` for a government or regulator notice. An EDGAR filing's URL from `filing_search` can be fetched for its filer. |
 | **L** | A lead: search results, trade press, anything you cannot date or trace to a primary source | Rank a chokepoint and tell you where to look. Never supports a step. | It already is one (`web_search`, `filing_search`, `signal_leads` return leads). |
 | **M** | Your own engineering and industry knowledge | Draw the map and choose where to look. Never cited, never ranks. | `open_issue`, labelled "map, from prior knowledge, untrusted". |
 
@@ -53,7 +53,7 @@ This is evidenced, falsifiable research, not a trade idea: no buy or sell langua
 4. **Update the board.** Each chokepoint touched by new evidence gets `update_chokepoint`: the steps it moves, its kill criteria checked, its status moved up, down or to killed with a reason.
 5. **Discover**, at most 3 new chokepoints.
    - In architect mode, first decompose {{THEME}} from the demand driver down: system → subsystem → component → process step → material → feedstock, plus the equipment and test that gate capacity. Each layer is one `open_issue` (map, untrusted). At each layer ask: if this stopped shipping, what breaks downstream, and is a qualified second source available within the horizon? Stop descending at a layer with several qualified suppliers and spare capacity.
-   - A new chokepoint (`add_chokepoint`) needs at least an L item on every hop. A chain whose hops are all M is a map, not a chokepoint.
+   - A new chokepoint (`add_chokepoint`) needs at least an L item on every hop. A chain whose hops are all M is a map, not a chokepoint. The leads your own searches found this run count.
    - Each chokepoint gets its kill criteria when it is created.
 6. **Deep-dive**, at most 2: the chokepoints whose evidence this week could change their status most. **Look for disconfirming evidence first.**
    - **The six steps,** each `unexamined`, `lead`, `primary` (a Fact) or `contradicted` (a Fact):

@@ -386,7 +386,9 @@ class Sessions:
         with self._engine.begin() as connection:
             if request.seed_company_ids:
                 known = connection.execute(
-                    text("SELECT count(*) FROM company WHERE id = ANY(:ids)"),
+                    text(
+                        "SELECT count(*) FROM company WHERE id = ANY(:ids) AND role = 'researched'"
+                    ),
                     {"ids": list(set(request.seed_company_ids))},
                 ).scalar_one()
                 if known != len(set(request.seed_company_ids)):

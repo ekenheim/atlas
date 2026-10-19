@@ -16877,7 +16877,7 @@
           },
           "role": {
             "$ref": "#/components/schemas/CompanyRole",
-            "description": "`researched`: a universe company; `counterparty`: known only as the other end of Relationships (never ingested, never an investigation seed)"
+            "description": "`researched`: a universe company; `counterparty`: known only as the other end of Relationships or as a fetched page's company (never ingested, never an investigation seed); `publisher`: the publisher of fetched pages that are no company's, a government or regulator notice (never ingested, never a seed)"
           },
           "legal_name": {
             "type": "string",
@@ -17440,7 +17440,8 @@
         "type": "string",
         "enum": [
           "researched",
-          "counterparty"
+          "counterparty",
+          "publisher"
         ]
       },
       "CompanySections": {
@@ -21480,10 +21481,60 @@
       "FetchRequest": {
         "properties": {
           "company": {
-            "type": "string",
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Company",
-            "description": "the company's slug"
+            "description": "the slug of a company Atlas has"
+          },
+          "company_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Name",
+            "description": "instead of `company`: a company by name, resolved through SEC and GLEIF (a counterparty company is created for one outside the universe)"
+          },
+          "cik": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cik",
+            "description": "with `company_name`: its SEC CIK, which decides the company"
+          },
+          "lei": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lei",
+            "description": "with `company_name`: its LEI, when it has no CIK"
+          },
+          "publisher": {
+            "type": "boolean",
+            "title": "Publisher",
+            "description": "instead of a company: the page is no company's (a government or regulator notice); its publisher, the site register's for the site, is its company",
+            "default": false
           },
           "url": {
             "type": "string",
@@ -21520,7 +21571,6 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "company",
           "url"
         ],
         "title": "FetchRequest"

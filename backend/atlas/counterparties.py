@@ -37,7 +37,7 @@ from sqlalchemy.sql.expression import bindparam
 from atlas.audit import Actor, content_hash, record
 from atlas.companies import company_id_from, default_slug
 from atlas.identity import Entity, EntityResolver, IdentitySourceError, Mention, Resolution
-from atlas.identity.normalize import US_STATES, normalize_name
+from atlas.identity.normalize import US_STATES, normalize_cik, normalize_name
 from atlas.identity.service import find_in_universe, resolve_mention
 
 UNRESOLVED = "unresolved_company"
@@ -74,10 +74,14 @@ def resolve_named_company(
     resolver: EntityResolver | None,
     name: str,
     *,
+    cik: str | None = None,
+    lei: str | None = None,
     ignored_ciks: frozenset[str] = frozenset(),
 ) -> NamedCompany:
-    """Resolve `name` (see the module). Calls SEC and GLEIF unless Atlas has the company."""
-    mention = Mention(name=name)
+    """Resolve `name` (see the module). Calls SEC and GLEIF unless Atlas has the company.
+    With a `cik` (or an `lei`) the identifier decides which entity it is, and `name` must be one
+    of that entity's names at its registry (`_by_identifier`)."""
+    mention = Mention(name=name, cik=cik, lei=lei)
     if resolver is None:
         local = find_in_universe(connection, mention)
         if local is not None and local.company_id is not None:
@@ -93,6 +97,8 @@ def resolve_named_company(
         return _refused(UNRESOLVED, f"entity resolution of {name!r} failed: {error}")
     if resolution.company_id is not None:
         return NamedCompany(company_id=uuid.UUID(resolution.company_id))
+    if cik or lei:
+        return _by_identifier(connection, name, resolution, cik, lei)
     wanted = normalize_name(name)
     source: Literal["sec", "gleif"] = "sec"
     matches = [e for e in resolution.candidates if e.cik and normalize_name(e.name) == wanted]
@@ -127,6 +133,48 @@ def resolve_named_company(
             lei=None if entity.cik else entity.lei,
             country=_country(entity),
             source=source,
+            source_url=proposal.url,
+            observed_at=proposal.observed_at,
+            resolution=resolution,
+        )
+    )
+
+
+def _by_identifier(
+    connection: Connection, name: str, resolution: Resolution, cik: str | None, lei: str | None
+) -> NamedCompany:
+    """The one entity a CIK (else an LEI) identifies at its registry, when `name` is one of its
+    names there (the resolver's proposal for the identifier is not a mere `candidate`). A
+    registry that doesn't know the identifier, a name it doesn't give the entity, or two
+    registries that disagree are `unresolved_company`: nothing is guessed."""
+    kind: Literal["cik", "lei"] = "cik" if cik else "lei"
+    value = (normalize_cik(cik) or cik.strip()) if cik else (lei or "").strip().upper()
+    entity = resolution.entity
+    if resolution.tier == "conflict" or entity is None:
+        reasons = (
+            "; ".join(resolution.review_reasons) or f"no registry knows {kind.upper()} {value}"
+        )
+        return _refused(UNRESOLVED, f"{kind.upper()} {value} identifies no one company: {reasons}")
+    proposal = next((p for p in resolution.proposals if p.kind == kind and p.value == value), None)
+    if proposal is None:
+        return _refused(UNRESOLVED, f"no registry identifies {kind.upper()} {value}")
+    if proposal.tier == "candidate":
+        return _refused(
+            UNRESOLVED,
+            f"{name!r} is none of the names {kind.upper()} {value} has at its registry"
+            f" ({entity.name}): give the company's registered name or check the identifier",
+        )
+    known = find_in_universe(connection, Mention(cik=entity.cik, lei=entity.lei))
+    if known is not None and known.company_id is not None:
+        return NamedCompany(company_id=uuid.UUID(known.company_id))
+    return NamedCompany(
+        new=NewCounterparty(
+            named_as=name,
+            legal_name=entity.name or name,
+            cik=value if kind == "cik" else None,
+            lei=value if kind == "lei" else None,
+            country=_country(entity),
+            source="sec" if kind == "cik" else "gleif",
             source_url=proposal.url,
             observed_at=proposal.observed_at,
             resolution=resolution,

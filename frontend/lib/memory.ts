@@ -88,7 +88,7 @@ export function medianFacts(health: MemoryHealth): number {
 }
 
 function researched(health: MemoryHealth): CompanySections[] {
-  return (health.companies ?? []).filter((c) => c.role !== "counterparty");
+  return (health.companies ?? []).filter((c) => c.role !== "counterparty" && c.role !== "publisher");
 }
 
 function statusOf(v: Versions, s: SectionCounts, notInMemory: number, failing: number, median: number): CompanyStatus {

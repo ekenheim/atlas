@@ -1,0 +1,17 @@
+{
+  "note": "Hand-written for the W9 tests of `fetch_page` by company name and CIK, not recorded: a synthetic trade-press page about NVIDIA (a company outside the test universe, a counterparty once resolved through the identity fake) on the register's synthetic trade-press site. Its robots.txt is a 404, which allows everything.",
+  "responses": [
+    {
+      "url": "https://news.example-trade.test/robots.txt",
+      "file": "../lumentum/press/robots-404.html",
+      "status": 404,
+      "headers": {"Content-Type": "text/html; charset=utf-8"}
+    },
+    {
+      "url": "https://news.example-trade.test/2026/10/nvidia-optics-allocation.html",
+      "file": "nvidia-optics-allocation.html",
+      "status": 200,
+      "headers": {"Content-Type": "text/html; charset=utf-8"}
+    }
+  ]
+}
