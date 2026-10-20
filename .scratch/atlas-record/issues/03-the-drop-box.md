@@ -19,7 +19,7 @@ Connectors run outside the sandbox, so a private GitHub repository can serve as 
    1. reads the eight artifacts (URLs in the spec) with the Artifact tool;
    2. commits each page as `<theme>/<as_of>.html`;
    3. commits each page's ledger, extracted as in ticket 01, as `<theme>/<as_of>.json`;
-   4. commits `<as_of>/MANIFEST.md`, listing each artifact's URL, version and page sha256, and any artifact it could not read, with the reason;
+   4. commits `runs/<date>.md`, listing each artifact's URL, version, size, `as_of` and edition, and any artifact it could not read, with the reason;
    5. never edits a file already in the repository;
    6. then stops.
 3. **The owner** creates the task in claude.ai with only the GitHub connector attached, scheduled for Mondays 10:00 Stockholm, and runs it once by hand.
