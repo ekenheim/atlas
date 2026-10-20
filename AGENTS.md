@@ -2,7 +2,7 @@
 
 Evidence-driven investment research platform built around Hindsight. Start with `START_HERE.md`; the authoritative spec is `hindsight_investment_research_build_plan.md` (v1.1).
 
-**Current effort:** the pilot review. Orient at its map, `.scratch/atlas-pilot-review/map.md`, before choosing work: take the first open, unblocked ticket, and put new work in the map, not in a log entry's "Next" line.
+**Current effort:** Atlas as the record of the scheduled research (ADR 0004, 2026-10-20): the owner's claude.ai scheduled tasks research, Atlas keeps their editions, finds rewrites, checks quotes and settles predictions. Orient at `.scratch/atlas-record/map.md` and take the first open, unblocked ticket. The research pipeline below is frozen and will be deleted (ticket 07); don't extend it.
 
 **Roadmap planning:** when revisiting priorities or specifying the post-pilot effort, read [the 4 October roadmap proposal](docs/research/proposed-roadmap-2026-10-04.md), preserved at the owner's request. It proposes sequencing changes; the pilot map remains the execution authority until accepted changes are recorded there.
 

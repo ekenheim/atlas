@@ -1900,3 +1900,15 @@ Two bake-offs (robotics, power equipment) against an open session with web tools
 - **The bounds.** Single documents fetched on a researcher's behalf, at the site's rate, with robots.txt obeyed. Nothing is redistributed: the archive and the owner's pages are private.
 - **What stays blocked.** A site whose terms forbid robots, scraping or copying keeps `forbidden`: ASX, JPX, NSE, MP Materials, Siemens Energy and HKEX. A site whose terms could not be read keeps `unchecked`: MOFCOM and NKT. Documents from these come in by hand (`atlas sources import`).
 - **Adding a site under this override:** read its terms; if they grant personal or non-commercial use and say nothing on automation, add it `allowed` with the same note. Otherwise follow the register's usual rule.
+
+## 2026-10-20: The scheduled tasks research; Atlas keeps the record
+
+- **Context.** Three bake-offs (2026-10-19, `.scratch/bakeoff/`) showed an open Claude session out-reaching the Chokepoint Watch: 15 primary documents to its 3 in aerospace, with 56 of 57 quotes verbatim across the three. The owner set up seven claude.ai scheduled tasks (one per theme) and a weekly council. Each publishes an artifact with a JSON ledger.
+- **Decision (the owner, 2026-10-20).** The tasks research. Atlas keeps the record:
+  - each edition stored insert-only;
+  - rewrites between editions found;
+  - each quote located in its archived source, with the source's tier;
+  - each prediction recorded once and settled.
+
+  The pipeline is frozen by configuration now and deleted after two Mondays and a proven backup. The scorecard (ticket 29a) is retired; the prospective record replaces it as the measure. ADR 0004; spec `.scratch/atlas-record/spec.md`.
+- **Transport.** Atlas stays LAN-only (its one route is `envoy-internal`). A collector task writes the pages and ledgers to a private GitHub repository through its connector, and Atlas pulls from it outbound. Until the collector exists, the lead snapshots the artifacts by hand after each Monday's council. The first snapshot is `tests/fixtures/artifacts/2026-10-19/`.
