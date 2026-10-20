@@ -1,7 +1,7 @@
 # The rewrite check
 
 Type: task
-Status: ready-for-agent
+Status: ready-for-human
 Blocked by: 01
 
 ## What to build
@@ -34,5 +34,5 @@ Expose:
 
 ## Done when
 
-- [ ] A test finds each kind.
+- [x] A test finds each kind.
 - [ ] The 2026-10-26 editions are checked on production.

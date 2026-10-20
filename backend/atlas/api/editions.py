@@ -10,6 +10,8 @@
 - `GET /editions?theme=`: newest first, without the ledger.
 - `GET /editions/{id}`: the parsed ledger, the parse error, `same_as_of_differs` and the page's
   archive URI.
+- `GET /editions/{id}/rewrites`: what the edition rewrote of the theme's previous parsed edition
+  (the rewrite check, ticket 02; `GET /rewrites` lists them across editions).
 - `GET /editions/{id}/page`: the page as stored, as a download under a sandboxing
   Content-Security-Policy (it is another party's HTML: never rendered on this origin).
 
@@ -49,6 +51,7 @@ from atlas.record.editions import (
     list_editions,
     read_page,
 )
+from atlas.record.rewrite_store import RewriteRecord, list_rewrites
 
 Paged = Annotated[Pagination, Depends(pagination)]
 
@@ -117,6 +120,17 @@ def editions_router(
     def edition(edition_id: uuid.UUID) -> Edition | JSONResponse:  # pyright: ignore[reportUnusedFunction]
         found = get_edition(engine, edition_id)
         return found if found is not None else not_found("edition")
+
+    @router.get("/{edition_id}/rewrites", response_model=Page[RewriteRecord], responses=NOT_FOUND)
+    def edition_rewrites(  # pyright: ignore[reportUnusedFunction]
+        edition_id: uuid.UUID, page: Paged
+    ) -> Page[RewriteRecord] | JSONResponse:
+        if get_edition(engine, edition_id) is None:
+            return not_found("edition")
+        items, total = list_rewrites(
+            engine, edition_id=edition_id, limit=page.limit, offset=page.offset
+        )
+        return Page(items=items, total=total, limit=page.limit, offset=page.offset)
 
     @router.get(
         "/{edition_id}/page",
