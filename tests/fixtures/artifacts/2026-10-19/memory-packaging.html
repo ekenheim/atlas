@@ -1,0 +1,387 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Chokepoint Watch: Memory and Packaging</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column, a research ledger. Chokepoints are bordered "die" blocks; step states are chips. */
+:root{
+  --bg:#f3f5f7; --paper:#ffffff; --fg:#17202a; --muted:#56636f; --rule:#d5dce3;
+  --accent:#a8572a; /* copper, as in substrate traces */
+  --p:#1d6b4f; --l:#8a6a12; --map:#5b6878; --x:#a3322b; --un:#7b8794;
+  --chip-p:#e2f1ea; --chip-l:#f6edd4; --chip-map:#e7ebf0; --chip-x:#f6e1df;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11161c; --paper:#182029; --fg:#e4e9ee; --muted:#9aa7b4; --rule:#2c3743;
+  --accent:#e08a57; --p:#5fc79c; --l:#d9b552; --map:#9aa7b4; --x:#ef7f76; --un:#8793a0;
+  --chip-p:#173a2d; --chip-l:#3b3115; --chip-map:#24303c; --chip-x:#432220; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161c; --paper:#182029; --fg:#e4e9ee; --muted:#9aa7b4; --rule:#2c3743;
+  --accent:#e08a57; --p:#5fc79c; --l:#d9b552; --map:#9aa7b4; --x:#ef7f76; --un:#8793a0;
+  --chip-p:#173a2d; --chip-l:#3b3115; --chip-map:#24303c; --chip-x:#432220; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16.5px;line-height:1.55}
+.wrap{max-width:860px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:40px}
+h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:2.1rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.35rem;font-weight:700;padding-bottom:6px;border-bottom:2px solid var(--fg)}
+h3{font-size:1.15rem;font-weight:700}
+h4{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+p{margin:0;max-width:68ch}
+section{display:flex;flex-direction:column;gap:16px}
+.eyebrow{font-family:var(--mono);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.meta{display:flex;flex-wrap:wrap;gap:8px 24px;font-family:var(--mono);font-size:.85rem;color:var(--muted)}
+.meta b{color:var(--fg);font-weight:500}
+.summary{display:grid;gap:10px;background:var(--paper);border:1px solid var(--rule);padding:16px 18px}
+.summary div{display:grid;grid-template-columns:7.5rem 1fr;gap:12px}
+.summary dt,.k{font-family:var(--mono);font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-top:3px}
+@media (max-width:560px){.summary div{grid-template-columns:1fr;gap:2px}}
+.cp{background:var(--paper);border:1px solid var(--rule);display:flex;flex-direction:column;gap:18px;padding:20px 20px 24px}
+.cp-head{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+.id{font-family:var(--mono);font-size:.85rem;color:var(--accent);font-weight:500}
+.tag{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border:1px solid var(--rule);color:var(--muted)}
+.chain{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:.85rem;display:flex;flex-direction:column;gap:4px}
+.chain li{display:grid;grid-template-columns:3.2rem 1fr;gap:8px}
+.chain li::before{content:"↓";color:var(--muted);grid-column:1;display:none}
+.chip{display:inline-block;font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;padding:1px 7px;border-radius:2px;white-space:nowrap;height:fit-content}
+.c-p{background:var(--chip-p);color:var(--p)} .c-l{background:var(--chip-l);color:var(--l)} .c-map{background:var(--chip-map);color:var(--map)} .c-x{background:var(--chip-x);color:var(--x)} .c-un{border:1px dashed var(--un);color:var(--un)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;vertical-align:top;padding:8px 10px 8px 0;border-top:1px solid var(--rule)}
+th{font-family:var(--mono);font-size:.74rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500}
+td:first-child{font-family:var(--display);font-weight:700;font-size:.9rem;white-space:nowrap;padding-right:14px}
+blockquote{margin:6px 0 0;padding-left:12px;border-left:2px solid var(--accent);font-style:italic;color:var(--fg)}
+.src{font-family:var(--mono);font-size:.76rem;color:var(--muted);font-style:normal;display:block;margin-top:2px;word-break:break-word}
+a{color:var(--accent)} a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.verdicts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.verdicts>div{border-top:3px solid var(--fg);padding-top:8px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.verdicts strong{font-family:var(--display);font-size:1rem}
+@media (max-width:640px){.verdicts{grid-template-columns:1fr}}
+ul.plain{margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:6px}
+.pred{font-family:var(--mono);font-size:.86rem;background:var(--bg);padding:10px 12px;border:1px solid var(--rule)}
+pre{font-family:var(--mono);font-size:.76rem;line-height:1.45;background:var(--paper);border:1px solid var(--rule);padding:14px;overflow-x:auto;margin:0;white-space:pre}
+.note{font-size:.92rem;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.85rem;color:var(--muted)}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:14px">
+  <span class="eyebrow">Supply-chain research · weekly · evidence, not a trade</span>
+  <h1>Chokepoint Watch: Memory and Packaging</h1>
+  <div class="meta">
+    <span>As of <b>2026-10-19</b></span>
+    <span>Edition <b>1</b></span>
+    <span>Previous edition <b>first edition</b></span>
+  </div>
+  <dl class="summary" style="margin:0">
+    <div><dt>Changed</dt><dd style="margin:0">First edition. No earlier edition was found among the user's artifacts. The board opens with 3 chokepoints (2 deep-dived) and 6 rejected candidates.</dd></div>
+    <div><dt>Top</dt><dd style="margin:0"><b>mem-1, DRAM wafer capacity behind HBM.</b> Micron says the industry will "remain supply constrained" in both 2027 and 2028, and new cleanroom space is the binding term.</dd></div>
+    <div><dt>Next dated</dt><dd style="margin:0">Besi Q3 (22 Oct), Advantest and FormFactor (28 Oct), Samsung 3Q call (29 Oct), SK hynix 3Q (late Oct; date not confirmed).</dd></div>
+  </dl>
+  <div class="legend">Evidence marks:
+    <span class="chip c-p">primary</span><span class="chip c-l">lead</span><span class="chip c-map">map</span><span class="chip c-x">contradicted</span><span class="chip c-un">unexamined</span>
+  </div>
+</header>
+
+<section>
+  <h2>Predictions settled this week</h2>
+  <p>None. This is the first edition, so no predictions have come due.</p>
+</section>
+
+<section>
+  <h2>The board</h2>
+
+  <!-- mem-1 -->
+  <article class="cp">
+    <div class="cp-head"><span class="id">mem-1</span><h3>DRAM wafer capacity (cleanroom-bound) feeding HBM</h3><span class="tag">layer: wafer</span><span class="tag">deep-dive</span><span class="tag">status: new</span></div>
+
+    <div><h4>Chain</h4>
+    <ul class="chain">
+      <li><span class="chip c-map">map</span><span>AI accelerators need HBM3E/HBM4 stacks beside the GPU or ASIC</span></li>
+      <li><span class="chip c-map">map</span><span>Each HBM stack is built from DRAM core dies cut from DRAM wafers, which use more wafer area per bit than conventional DRAM</span></li>
+      <li><span class="chip c-p">P</span><span>DRAM wafer output is limited by cleanroom space. Micron says cleanroom additions are needed to close the gap.</span></li>
+      <li><span class="chip c-p">P</span><span>Constrained layer: DRAM wafer starts at the three makers. Micron and Samsung both say supply is short.</span></li>
+    </ul></div>
+
+    <div class="tbl"><h4>Six steps</h4>
+    <table>
+      <tr><th>Step</th><th>State</th><th>Evidence</th></tr>
+      <tr><td>Constraint</td><td><span class="chip c-p">primary</span></td><td>Industry DRAM bits, at the wafer layer. Unit: bits; Micron gives growth rates, not wafer counts.
+        <blockquote>"For calendar 2027 and 2028, we expect industry DRAM bit shipments to grow approximately in the low-20s percentage range and the industry to remain supply constrained in both years."<span class="src">Micron, FQ4 2026 prepared remarks, 2026-09-30</span></blockquote></td></tr>
+      <tr><td>Demand vs supply</td><td><span class="chip c-p">primary</span></td><td>
+        <blockquote>"Even with additional industry DRAM cleanroom space plans, with robust demand trends including new upside requests from customers, we do not have line of sight to when supply and demand will return to balance."<span class="src">Micron, 2026-09-30</span></blockquote>
+        <blockquote>"서버향 DRAM, Enterprise SSD 및 HBM 수요 성장가속화로 인해 공급 부족 현상은 지속될 전망" [Supply shortage expected to continue as server DRAM, enterprise SSD and HBM demand growth accelerates.]<span class="src">Samsung Electronics, 2Q 2026 earnings presentation, July 2026</span></blockquote></td></tr>
+      <tr><td>Relief</td><td><span class="chip c-p">primary</span></td><td>New cleanroom space, which arrives from mid-2027 and mostly in late 2028. Output also ramps a few quarters after first wafers.
+        <blockquote>"Our ID1 fab is on track to commence wafer output in mid-calendar 2027, and ID2 is on track to commence wafer output in late calendar 2028."<span class="src">Micron, 2026-09-30</span></blockquote>
+        <blockquote>"The structural gap between DRAM supply and demand growth rates is resulting in ongoing supply tightness, and cleanroom additions are required to augment node-transition supply growth and help narrow the gap."<span class="src">Micron, 2026-09-30</span></blockquote></td></tr>
+      <tr><td>Control</td><td><span class="chip c-map">map</span></td><td>SK hynix, Samsung and Micron hold almost all HBM-qualified DRAM capacity. Shares were not verified from primary sources this week, and SK hynix documents could not be reached.</td></tr>
+      <tr><td>Capture</td><td><span class="chip c-p">primary</span></td><td>The makers book the economics through price, and HBM is now repriced toward conventional DRAM.
+        <blockquote>"We have completed agreements for the vast majority of our calendar 2027 HBM bit supply with significant price increases year over year, narrowing the gross margin gap with conventional DRAM."<span class="src">Micron, 2026-09-30</span></blockquote>
+        <blockquote>"Consolidated gross margin for fiscal Q4 was 87.0%, up 210 basis points sequentially."<span class="src">Micron, 2026-09-30 (non-GAAP; GAAP 86.8% per press-release table)</span></blockquote></td></tr>
+      <tr><td>Invalidation</td><td><span class="chip c-l">lead</span></td><td>Micron guides a slower price rise. No maker has said the shortage is easing.
+        <blockquote>"We expect higher gross margins beyond fiscal Q1 for the remainder of fiscal 2027, with a more moderate rate of price increases."<span class="src">Micron, 2026-09-30</span></blockquote></td></tr>
+    </table></div>
+
+    <div class="verdicts">
+      <div><h4>Physical scarcity</h4><strong>Supported</strong><span class="note">Two makers' primary documents. The horizon runs through 2028.</span></div>
+      <div><h4>Economic capture</h4><strong>Supported (Micron)</strong><span class="note">87% gross margin; 2027 HBM contracted at higher prices. Samsung and SK hynix capture was not examined.</span></div>
+      <div><h4>Investability</h4><strong>Listed, unexamined</strong><span class="note">All three holders are listed. Dilution and the export-control exposure of China fabs were not examined.</span></div>
+    </div>
+
+    <div class="tbl"><h4>Bear checks</h4>
+    <table>
+      <tr><td>Dilution</td><td><span class="chip c-un">unexamined</span> No equity raise seen. Capex rises in FY2027 ("approximately $25 billion" in 1H FY27), so funding was not checked.</td></tr>
+      <tr><td>GAAP margins</td><td><span class="chip c-p">primary</span> Micron GAAP gross margin was 86.8% in FQ4 2026.</td></tr>
+      <tr><td>Customer concentration</td><td><span class="chip c-un">unexamined</span> HBM sells to a few accelerator vendors. Micron cites 26 long-term agreements (SCAs) and about $150B RPO, which cuts both ways.</td></tr>
+      <tr><td>Cash vs debt</td><td><span class="chip c-un">unexamined</span></td></tr>
+      <tr><td>Second source</td><td><span class="chip c-map">map</span> There are already three sources. The risk is a fourth entrant (China's CXMT), which would mainly serve domestic demand. Not checked.</td></tr>
+      <tr><td>Bypass architecture</td><td><span class="chip c-map">map</span> No HBM substitute exists within 24 months. Custom base dies move the logic die to foundries (Samsung Foundry sells "HBM Base Die", P), but the DRAM core dies stay.</td></tr>
+      <tr><td>Pull-forward / inventory</td><td><span class="chip c-l">lead</span> "New upside requests from customers" could include double ordering. No inventory data was checked.</td></tr>
+      <tr><td>Memory-cycle reversal</td><td><span class="chip c-p">primary</span> Price increases are slowing ("more moderate rate"), and this is the main watch item.</td></tr>
+      <tr><td>Policy reversal</td><td><span class="chip c-un">unexamined</span></td></tr>
+      <tr><td>Layer error</td><td><span class="chip c-l">lead</span> Micron's statements cover DRAM bits overall (wafer layer), not HBM stacking. Only the contract statement is HBM-specific, and being contracted is not the same as being short.</td></tr>
+    </table></div>
+
+    <div><h4>Kill criteria</h4>
+    <ul class="plain">
+      <li>Any of the three makers says in an earnings release or call that DRAM supply and demand have returned to balance, or that it expects them to before end-2027.</li>
+      <li>A maker reports a quarter-on-quarter fall in DRAM average selling price, or reports customer inventory builds, in its own results.</li>
+      <li>Micron's FQ1 2027 results (Dec 2026) withdraw the "supply constrained in both years" language.</li>
+    </ul></div>
+
+    <div><h4>Predictions</h4>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="pred"><b>mem-p1</b> · By 2027-04-15, Micron's fiscal Q2 2027 earnings prepared remarks will still describe the industry DRAM market as supply-constrained in calendar 2027 and will not say supply and demand have returned to balance, as shown by Micron's earnings prepared remarks.</div>
+      <div class="pred"><b>mem-p2</b> · By 2027-01-15, Micron's fiscal Q1 2027 results will report a non-GAAP consolidated gross margin of at least 84%, as shown by Micron's earnings press release.</div>
+    </div></div>
+    <p class="note"><b>Status since last edition:</b> new.</p>
+  </article>
+
+  <!-- mem-2 -->
+  <article class="cp">
+    <div class="cp-head"><span class="id">mem-2</span><h3>CoWoS-class 2.5D back-end and silicon interposer at TSMC</h3><span class="tag">layer: interposer / package</span><span class="tag">deep-dive</span><span class="tag">status: new</span></div>
+
+    <div><h4>Chain</h4>
+    <ul class="chain">
+      <li><span class="chip c-map">map</span><span>Accelerator logic die and HBM stacks sit side by side on a 2.5D package</span></li>
+      <li><span class="chip c-p">P</span><span>CoWoS is the leading 2.5D option, and TSMC alone ships 5x-reticle packages</span></li>
+      <li><span class="chip c-p">P</span><span>TSMC admits a back-end shortage and has contracted GlobalFoundries for silicon interposers</span></li>
+      <li><span class="chip c-p">P</span><span>Constrained layer: silicon interposer and CoWoS back-end at TSMC. The interposer is named by GF; "back end" is TSMC's own coarse term.</span></li>
+    </ul></div>
+
+    <div class="tbl"><h4>Six steps</h4>
+    <table>
+      <tr><th>Step</th><th>State</th><th>Evidence</th></tr>
+      <tr><td>Constraint</td><td><span class="chip c-p">primary</span></td><td>TSMC says there is a back-end shortage and ties GF to it. No unit (wafers per month) was given.
+        <blockquote>"Definitely, we have a little bit shortage on the back end, and we'd like to work with our so-called partner with GlobalFoundries so that both TSMC and GlobalFoundries can support TSMC's customers for their product to be introduced with enough support and the capacity."<span class="src">C.C. Wei, TSMC 3Q26 earnings call, 2026-10-15</span></blockquote></td></tr>
+      <tr><td>Demand vs supply</td><td><span class="chip c-l">lead</span></td><td>Wei's demand-gap statement is not specific to packaging, so it supports no packaging step on its own.
+        <blockquote>"And I want to emphasize again - in our judgment, we consider all the parameters, and the demand actually is still far above our capability today to supply."<span class="src">C.C. Wei, 2026-10-15</span></blockquote></td></tr>
+      <tr><td>Relief</td><td><span class="chip c-p">primary</span></td><td>A second US interposer source at GF Malta arrives in 1H 2028, outside most of the horizon. CoPoS (panel) is in development.
+        <blockquote>"Volume production is expected to begin ramping at GF's Malta site during the first half of 2028."<span class="src">GlobalFoundries press release, 2026-10-08</span></blockquote>
+        <blockquote>"Of course, we are also working on the CoPoS part and to make sure that in the future, we can offer a reasonable cost reduction."<span class="src">C.C. Wei, 2026-10-15</span></blockquote></td></tr>
+      <tr><td>Control</td><td><span class="chip c-p">primary</span></td><td>TSMC claims it is the only producer at 5x reticle. No share figure was given.
+        <blockquote>"Still, I want to say that today's situation, we are the only one that makes sure that the advanced packaging is a 5x reticle size."<span class="src">C.C. Wei, 2026-10-15</span></blockquote></td></tr>
+      <tr><td>Capture</td><td><span class="chip c-un">unexamined</span></td><td>TSMC gave no packaging revenue share or margin on the call. GF earns a manufacturing fee under a "Multi-year $2 billion agreement" (GF, 2026-10-08).</td></tr>
+      <tr><td>Invalidation</td><td><span class="chip c-p">primary</span></td><td>TSMC calls the shortage "a little bit", and says rivals are competitive.
+        <blockquote>"As time goes by, yes, our competitors offer a very competitive solution."<span class="src">C.C. Wei, 2026-10-15</span></blockquote></td></tr>
+    </table></div>
+
+    <div class="verdicts">
+      <div><h4>Physical scarcity</h4><strong>Supported, mild wording</strong><span class="note">The holder admits it, but calls it "a little bit". No capacity unit was given.</span></div>
+      <div><h4>Economic capture</h4><strong>Unproven</strong><span class="note">TSMC does not report packaging economics separately.</span></div>
+      <div><h4>Investability</h4><strong>Listed holder</strong><span class="note">TSMC is listed. The relief entrant, GF, is listed. Export-control exposure was not examined.</span></div>
+    </div>
+
+    <div class="tbl"><h4>Bear checks</h4>
+    <table>
+      <tr><td>Dilution</td><td><span class="chip c-un">unexamined</span> CapEx 2026–28 "significantly higher than the past three years" (Huang).</td></tr>
+      <tr><td>GAAP margins</td><td><span class="chip c-un">unexamined</span> Packaging margin is not disclosed.</td></tr>
+      <tr><td>Customer concentration</td><td><span class="chip c-map">map</span> A few AI accelerator vendors take most CoWoS.</td></tr>
+      <tr><td>Cash vs debt</td><td><span class="chip c-un">unexamined</span></td></tr>
+      <tr><td>Second source</td><td><span class="chip c-p">primary</span> GF Malta interposers from 1H 2028. Rivals are "very competitive" (Wei). Intel EMIB-class and OSAT 2.5D were not checked.</td></tr>
+      <tr><td>Bypass architecture</td><td><span class="chip c-p">primary</span> CoPoS (panel-level) is in TSMC's own pipeline. No date was given.</td></tr>
+      <tr><td>Pull-forward / inventory</td><td><span class="chip c-un">unexamined</span></td></tr>
+      <tr><td>Memory-cycle reversal</td><td><span class="chip c-map">map</span> Not directly linked. A slip in HBM supply would idle CoWoS slots.</td></tr>
+      <tr><td>Policy reversal</td><td><span class="chip c-un">unexamined</span></td></tr>
+      <tr><td>Layer error</td><td><span class="chip c-l">lead</span> "Back end" could mean interposer, CoW bonding, or substrate attach. Only the GF release names the interposer layer.</td></tr>
+    </table></div>
+
+    <div><h4>Kill criteria</h4>
+    <ul class="plain">
+      <li>A TSMC earnings call (next: 4Q26, mid-January 2027) says advanced packaging or back-end capacity now meets demand.</li>
+      <li>An accelerator vendor's 10-Q/10-K drops packaging capacity as a named supply constraint.</li>
+      <li>A non-TSMC 2.5D line at 5x reticle or larger enters volume for a top-3 accelerator before mid-2027, per that company's own release.</li>
+    </ul></div>
+
+    <div><h4>Prediction</h4>
+    <div class="pred"><b>mem-p3</b> · By 2027-01-31, TSMC's 4Q26 earnings call transcript will contain an executive statement that advanced-packaging or back-end supply is still short of, or tight against, customer demand, as shown by TSMC's earnings call transcript.</div></div>
+    <p class="note"><b>Status since last edition:</b> new.</p>
+  </article>
+
+  <!-- mem-3 -->
+  <article class="cp">
+    <div class="cp-head"><span class="id">mem-3</span><h3>Low-CTE glass cloth (T-glass) for ABF/BT substrate cores</h3><span class="tag">layer: material</span><span class="tag">lead-ranked, not deep-dived</span><span class="tag">status: new</span></div>
+    <div><h4>Chain</h4>
+    <ul class="chain">
+      <li><span class="chip c-map">map</span><span>Large CoWoS-class packages sit on large ABF substrates that must not warp</span></li>
+      <li><span class="chip c-map">map</span><span>Substrate cores use low-thermal-expansion glass cloth to control warpage</span></li>
+      <li><span class="chip c-l">L</span><span>Nittobo is said to supply most low-CTE cloth, and trade press calls it short</span></li>
+      <li><span class="chip c-p">P</span><span>Nittobo's mid-term plan pushes further special-glass capacity investment (undated page; T-glass is not named)</span></li>
+    </ul></div>
+    <div class="tbl"><h4>Six steps</h4>
+    <table>
+      <tr><th>Step</th><th>State</th><th>Evidence</th></tr>
+      <tr><td>Constraint</td><td><span class="chip c-l">lead</span></td><td>TrendForce and others describe a T-glass shortage. No primary text was read.</td></tr>
+      <tr><td>Demand vs supply</td><td><span class="chip c-l">lead</span></td><td>Postation (2026-09-21) says Nittobo plans to double T-glass capacity by FY2027 and start a Fukushima building in FY2026 Q4. Not verified in a Nittobo document.</td></tr>
+      <tr><td>Relief</td><td><span class="chip c-p">primary</span></td><td>Nittobo is investing in capacity; timing came from leads only.
+        <blockquote>"将来を見据え、国内外でスペシャルガラスの更なる増産投資を推進" [Looking ahead, push further capacity investment in special glass in Japan and abroad.]<span class="src">Nittobo, Medium-term Management Plan page (undated), nittobo.co.jp/ir/keiei/chukei.htm</span></blockquote></td></tr>
+      <tr><td>Control</td><td><span class="chip c-l">lead</span></td><td>Trade press says Nittobo holds roughly 90% share. Taiwanese competitors are in customer qualification (lead).</td></tr>
+      <tr><td>Capture</td><td><span class="chip c-l">lead</span></td><td>Postation reports earlier price rises, then no further hikes (attributed to a 2026-05-12 Q&amp;A).</td></tr>
+      <tr><td>Invalidation</td><td><span class="chip c-l">lead</span></td><td>Customers are reported to be evaluating other low-CTE glass. A no-more-price-hikes stance weakens capture.</td></tr>
+    </table></div>
+    <div class="verdicts">
+      <div><h4>Physical scarcity</h4><strong>Lead only</strong><span class="note">Ranked high by trade press. No primary support this week.</span></div>
+      <div><h4>Economic capture</h4><strong>Lead only</strong><span class="note">The holder reportedly chose share over price.</span></div>
+      <div><h4>Investability</h4><strong>Listed (TSE 3110)</strong><span class="note">Not examined further.</span></div>
+    </div>
+    <div><h4>Kill criteria</h4>
+    <ul class="plain">
+      <li>Nittobo's own results materials say low-CTE supply now meets demand.</li>
+      <li>A substrate maker (Ibiden, Unimicron and others) or a rival weaver announces volume qualification of a second low-CTE cloth for AI substrates.</li>
+      <li>No primary support is found within two more editions. Move it to Rejected.</li>
+    </ul></div>
+    <div><h4>Prediction</h4>
+    <div class="pred"><b>mem-p4</b> · By 2027-02-28, Nittobo's 3Q FY2026 results materials will state that its new special-glass capacity at Fukushima is on schedule to start production by end-March 2027, as shown by Nittobo's results presentation or Q&amp;A summary.</div></div>
+    <p class="note"><b>Status since last edition:</b> new.</p>
+  </article>
+</section>
+
+<section>
+  <h2>Rejected</h2>
+  <div class="tbl"><table>
+    <tr><th>Candidate</th><th>Reason</th></tr>
+    <tr><td>HBM TC bonders</td><td>Several vendors, and orders are timed to customer launches, not tool supply. <blockquote>"In memory, even as the Group continued to secure repeat orders from HBM manufacturers, the timing of customers' new tool purchase decisions remains dependent on HBM4 product rollout schedules."<span class="src">ASMPT, 2026 interim results, 2026-07-29</span></blockquote></td></tr>
+    <tr><td>Hybrid bonders for HBM</td><td>Not yet qualified for HBM volume, so not binding inside the horizon. <blockquote>"Active collaboration with key logic and memory customers has progressed to the sampling stage, an important step toward potential qualification."<span class="src">ASMPT, 2026-07-29</span></blockquote> Besi cites hybrid-bonding order strength (2026-07-23) but names no HBM qualification. Reopen when HBM4E or HBM5 adopts it.</td></tr>
+    <tr><td>Memory / HBM testers</td><td>Capacity is expanding, and the leader expects to lose memory share, so alternatives exist. <blockquote>"On the memory tester side, expansion plans are progressing in parallel with SoC tester capacity expansion."<span class="src">Advantest, Q1 FY2026 Q&amp;A, 2026-07-29</span></blockquote> Reopen after the 28 Oct results.</td></tr>
+    <tr><td>NAND / enterprise SSD</td><td>Short (Micron: "the industry to remain supply constrained in both years", 2026-09-30), but five or more qualified suppliers share it. This is industry-wide tightness, not a single-control chokepoint. Held on watch.</td></tr>
+    <tr><td>HBM logic base die</td><td>At least two foundry sources. Samsung Foundry cites "HBM Base Die" demand (Samsung 2Q26 presentation, July 2026); TSMC is the other (map).</td></tr>
+    <tr><td>ABF substrate capacity</td><td>Not ranked. Ibiden and Unimicron primary pages could not be read (JavaScript lists, robots block). Reopen when they can be.</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>Cross-theme hooks</h2>
+  <ul class="plain">
+    <li><b>Low-CTE glass cloth</b> is shared by IC substrates and high-layer-count AI server PCBs (lead). Both themes compete for one weaver's output.</li>
+    <li><b>Test capacity</b>: Advantest now plans on 18-month forecasts "because of the scale of the industry and the constraints in advanced packaging and wafer starts" (P, 2026-07-29). The same SoC testers serve all AI logic.</li>
+    <li><b>Power</b>: TSMC's CEO named "power supply situation" as a factor in his demand assessment (P, 2026-10-15). Data-center power caps how much accelerator and HBM demand turns into shipments.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Next questions</h2>
+  <ul class="plain">
+    <li>Does SK hynix's 3Q26 release say 2027 HBM is sold out, and when does M15X add wafers? Look at the SK hynix IR PDF or a call transcript; the newsroom refused fetches this week.</li>
+    <li>Does Samsung's 3Q26 call (29 Oct) give an end date for the DRAM shortage, or base-die volumes? Look at the Samsung IR conference-call materials.</li>
+    <li>Do Advantest's and FormFactor's results (28 Oct) report HBM test or probe-card lead times? Look at their earnings releases and Q&amp;A.</li>
+    <li>Does Besi's Q3 (22 Oct) name an HBM hybrid-bonding qualification? Look at the Besi press release.</li>
+    <li>Do Nittobo's 2Q FY2026 results (early Nov) confirm T-glass capacity doubling and Fukushima timing in its own words? Look at the Nittobo IR PDF; this needs a direct PDF link.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Run notes</h2>
+  <ul class="plain note">
+    <li><b>Step 0:</b> The artifact list (64 items) held no "Chokepoint Watch" artifact. No past-chat search tool was available. This is edition 1, and no prior content was assumed.</li>
+    <li><b>Unreachable:</b> SK hynix newsroom and IR (fetch errors), Unimicron (robots), the Ibiden and Nittobo IR document lists (rendered by JavaScript), the Besi half-year PDF (robots) and FormFactor's Q2 release.</li>
+    <li><b>Unverified:</b> all Nittobo capacity and price claims (trade press only), vendor shares, and Unimicron's September revenue.</li>
+    <li><b>Method:</b> Primary quotes were read verbatim in this run by fetch sub-agents from the URLs listed in the ledger. Samsung quotes are Korean originals with my translations.</li>
+    <li><b>Tool calls:</b> about 25 top-level calls and about 53 page fetches inside sub-agents, roughly 78 in total.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Ledger</h2>
+<pre id="ledger">```json
+{
+  "theme": "memory-packaging",
+  "as_of": "2026-10-19",
+  "edition": 1,
+  "chokepoints": [
+    {"id": "mem-1", "name": "DRAM wafer capacity (cleanroom-bound) feeding HBM", "layer": "wafer", "status": "new",
+     "verdicts": {"scarcity": "supported (primary: Micron, Samsung)", "capture": "supported for Micron; others unexamined", "investability": "listed holders; dilution and export-control exposure unexamined"},
+     "holders": ["SK hynix", "Samsung Electronics", "Micron"],
+     "kill_criteria": ["A maker states DRAM supply-demand has returned to balance or will before end-2027", "A maker reports QoQ DRAM ASP decline or customer inventory build", "Micron FQ1 2027 withdraws 'supply constrained in both years' language"],
+     "first_seen": "2026-10-19"},
+    {"id": "mem-2", "name": "CoWoS-class 2.5D back-end and silicon interposer at TSMC", "layer": "interposer/package", "status": "new",
+     "verdicts": {"scarcity": "supported, mild wording ('a little bit shortage on the back end')", "capture": "unproven", "investability": "listed holder (TSMC); export-control exposure unexamined"},
+     "holders": ["TSMC"],
+     "kill_criteria": ["TSMC states advanced-packaging/back-end capacity meets demand", "Accelerator vendor filings drop packaging as a named constraint", "Non-TSMC >=5x-reticle 2.5D line enters volume for a top-3 accelerator before mid-2027"],
+     "first_seen": "2026-10-19"},
+    {"id": "mem-3", "name": "Low-CTE glass cloth (T-glass) for ABF/BT substrate cores", "layer": "material", "status": "new",
+     "verdicts": {"scarcity": "lead only", "capture": "lead only", "investability": "listed (Nittobo, TSE 3110); unexamined"},
+     "holders": ["Nitto Boseki (Nittobo)"],
+     "kill_criteria": ["Nittobo states low-CTE supply meets demand", "Volume qualification of a second low-CTE cloth announced by a substrate maker or weaver", "No primary support within two more editions"],
+     "first_seen": "2026-10-19"}
+  ],
+  "predictions": [
+    {"id": "mem-p1", "chokepoint": "mem-1", "made": "2026-10-19", "deadline": "2027-04-15",
+     "text": "Micron's fiscal Q2 2027 earnings prepared remarks will still describe the industry DRAM market as supply-constrained in calendar 2027 and will not state that supply and demand have returned to balance.",
+     "source_type": "company earnings prepared remarks", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "mem-p2", "chokepoint": "mem-1", "made": "2026-10-19", "deadline": "2027-01-15",
+     "text": "Micron's fiscal Q1 2027 results will report non-GAAP consolidated gross margin of at least 84%.",
+     "source_type": "company earnings press release", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "mem-p3", "chokepoint": "mem-2", "made": "2026-10-19", "deadline": "2027-01-31",
+     "text": "TSMC's 4Q26 earnings call transcript will contain an executive statement that advanced-packaging or back-end supply remains short of, or tight against, customer demand.",
+     "source_type": "company earnings call transcript", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "mem-p4", "chokepoint": "mem-3", "made": "2026-10-19", "deadline": "2027-02-28",
+     "text": "Nittobo's 3Q FY2026 results materials will state that new special-glass capacity at Fukushima is on schedule to start production by end-March 2027.",
+     "source_type": "company results presentation or Q&A summary", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null}
+  ],
+  "rejected": [
+    {"name": "HBM TC bonders", "reason": "Multiple vendors; tool timing set by customers' HBM4 rollouts, not tool supply (ASMPT 2026-07-29)", "date": "2026-10-19"},
+    {"name": "Hybrid bonders for HBM", "reason": "Still at sampling toward potential qualification (ASMPT 2026-07-29); not binding within horizon", "date": "2026-10-19"},
+    {"name": "Memory/HBM testers", "reason": "Capacity expansion progressing; leader expects memory share loss, so alternatives exist (Advantest 2026-07-29)", "date": "2026-10-19"},
+    {"name": "NAND / enterprise SSD", "reason": "Supply-constrained (Micron 2026-09-30) but 5+ qualified suppliers; industry-wide tightness, not single-control", "date": "2026-10-19"},
+    {"name": "HBM logic base die", "reason": "At least two foundry sources (Samsung Foundry cites HBM Base Die demand, 2Q26 deck; TSMC map)", "date": "2026-10-19"},
+    {"name": "ABF substrate capacity", "reason": "No primary source readable this run; not ranked", "date": "2026-10-19"}
+  ],
+  "cross_theme_hooks": [
+    "Low-CTE glass cloth shared by IC substrates and high-layer AI server PCBs",
+    "SoC/memory test capacity planned on 18-month forecasts due to packaging and wafer-start constraints (Advantest)",
+    "Data-center power supply named by TSMC as a demand-assessment factor"
+  ],
+  "primary_sources": [
+    {"who": "Micron Technology", "doc": "FQ4 2026 earnings call prepared remarks", "date": "2026-09-30", "url": "https://investors.micron.com/files/doc_financials/2026/q4/Q4-FY26-Prepared-Remarks.pdf", "quote": "For calendar 2027 and 2028, we expect industry DRAM bit shipments to grow approximately in the low-20s percentage range and the industry to remain supply constrained in both years."},
+    {"who": "Micron Technology", "doc": "FQ4 2026 earnings call prepared remarks", "date": "2026-09-30", "url": "https://investors.micron.com/files/doc_financials/2026/q4/Q4-FY26-Prepared-Remarks.pdf", "quote": "Even with additional industry DRAM cleanroom space plans, with robust demand trends including new upside requests from customers, we do not have line of sight to when supply and demand will return to balance."},
+    {"who": "Micron Technology", "doc": "FQ4 2026 earnings call prepared remarks", "date": "2026-09-30", "url": "https://investors.micron.com/files/doc_financials/2026/q4/Q4-FY26-Prepared-Remarks.pdf", "quote": "The structural gap between DRAM supply and demand growth rates is resulting in ongoing supply tightness, and cleanroom additions are required to augment node-transition supply growth and help narrow the gap."},
+    {"who": "Micron Technology", "doc": "FQ4 2026 earnings call prepared remarks", "date": "2026-09-30", "url": "https://investors.micron.com/files/doc_financials/2026/q4/Q4-FY26-Prepared-Remarks.pdf", "quote": "We have completed agreements for the vast majority of our calendar 2027 HBM bit supply with significant price increases year over year, narrowing the gross margin gap with conventional DRAM."},
+    {"who": "Micron Technology", "doc": "FQ4 2026 earnings call prepared remarks", "date": "2026-09-30", "url": "https://investors.micron.com/files/doc_financials/2026/q4/Q4-FY26-Prepared-Remarks.pdf", "quote": "Our ID1 fab is on track to commence wafer output in mid-calendar 2027, and ID2 is on track to commence wafer output in late calendar 2028."},
+    {"who": "Micron Technology", "doc": "FQ4 2026 earnings call prepared remarks", "date": "2026-09-30", "url": "https://investors.micron.com/files/doc_financials/2026/q4/Q4-FY26-Prepared-Remarks.pdf", "quote": "Consolidated gross margin for fiscal Q4 was 87.0%, up 210 basis points sequentially."},
+    {"who": "Micron Technology", "doc": "FQ4 2026 earnings call prepared remarks", "date": "2026-09-30", "url": "https://investors.micron.com/files/doc_financials/2026/q4/Q4-FY26-Prepared-Remarks.pdf", "quote": "We expect higher gross margins beyond fiscal Q1 for the remainder of fiscal 2027, with a more moderate rate of price increases."},
+    {"who": "Micron Technology", "doc": "FQ4 2026 earnings call prepared remarks", "date": "2026-09-30", "url": "https://investors.micron.com/files/doc_financials/2026/q4/Q4-FY26-Prepared-Remarks.pdf", "quote": "For calendar 2027 and 2028, we expect industry NAND bit shipments to grow approximately in the mid-20s percentage range and the industry to remain supply constrained in both years."},
+    {"who": "Samsung Electronics", "doc": "2Q 2026 earnings presentation (Korean)", "date": "2026-07", "url": "https://images.samsung.com/kdp/ir/events/2026/2026_2Q_conference_kor.pdf", "quote": "서버향 DRAM, Enterprise SSD 및 HBM 수요 성장가속화로 인해 공급 부족 현상은 지속될 전망"},
+    {"who": "Samsung Electronics", "doc": "2Q 2026 earnings presentation (Korean)", "date": "2026-07", "url": "https://images.samsung.com/kdp/ir/events/2026/2026_2Q_conference_kor.pdf", "quote": "HBM Base Die 및 미주 고객 제품 수요 증가"},
+    {"who": "TSMC (C.C. Wei)", "doc": "3Q26 earnings call transcript", "date": "2026-10-15", "url": "https://investor.tsmc.com/english/encrypt/files/encrypt_file/reports/2026-10/eba4fac72873bf546b669bd2b5d973df5c93215d/TSMC%203Q26%20Transcript.pdf", "quote": "Definitely, we have a little bit shortage on the back end, and we'd like to work with our so-called partner with GlobalFoundries so that both TSMC and GlobalFoundries can support TSMC's customers for their product to be introduced with enough support and the capacity."},
+    {"who": "TSMC (C.C. Wei)", "doc": "3Q26 earnings call transcript", "date": "2026-10-15", "url": "https://investor.tsmc.com/english/encrypt/files/encrypt_file/reports/2026-10/eba4fac72873bf546b669bd2b5d973df5c93215d/TSMC%203Q26%20Transcript.pdf", "quote": "Still, I want to say that today's situation, we are the only one that makes sure that the advanced packaging is a 5x reticle size."},
+    {"who": "TSMC (C.C. Wei)", "doc": "3Q26 earnings call transcript", "date": "2026-10-15", "url": "https://investor.tsmc.com/english/encrypt/files/encrypt_file/reports/2026-10/eba4fac72873bf546b669bd2b5d973df5c93215d/TSMC%203Q26%20Transcript.pdf", "quote": "As time goes by, yes, our competitors offer a very competitive solution."},
+    {"who": "TSMC (C.C. Wei)", "doc": "3Q26 earnings call transcript", "date": "2026-10-15", "url": "https://investor.tsmc.com/english/encrypt/files/encrypt_file/reports/2026-10/eba4fac72873bf546b669bd2b5d973df5c93215d/TSMC%203Q26%20Transcript.pdf", "quote": "Of course, we are also working on the CoPoS part and to make sure that in the future, we can offer a reasonable cost reduction."},
+    {"who": "TSMC (C.C. Wei)", "doc": "3Q26 earnings call transcript", "date": "2026-10-15", "url": "https://investor.tsmc.com/english/encrypt/files/encrypt_file/reports/2026-10/eba4fac72873bf546b669bd2b5d973df5c93215d/TSMC%203Q26%20Transcript.pdf", "quote": "And I want to emphasize again - in our judgment, we consider all the parameters, and the demand actually is still far above our capability today to supply."},
+    {"who": "GlobalFoundries", "doc": "Press release: U.S.-based supply of silicon interposers for advanced AI packaging", "date": "2026-10-08", "url": "https://investors.gf.com/news-releases/news-release-details/globalfoundries-reaches-agreement-establish-us-based-supply", "quote": "GlobalFoundries (Nasdaq: GFS) (GF) today announced a manufacturing agreement with TSMC to establish a U.S.-based supply of silicon interposers for TSMC's CoWoS® advanced packaging ecosystem."},
+    {"who": "GlobalFoundries", "doc": "Press release: U.S.-based supply of silicon interposers for advanced AI packaging", "date": "2026-10-08", "url": "https://investors.gf.com/news-releases/news-release-details/globalfoundries-reaches-agreement-establish-us-based-supply", "quote": "Volume production is expected to begin ramping at GF's Malta site during the first half of 2028."},
+    {"who": "ASMPT", "doc": "2026 Interim Results announcement", "date": "2026-07-29", "url": "https://www.asmpt.com/en/investor-relations/news-events/asmpt-announces-2026-interim-results/", "quote": "In memory, even as the Group continued to secure repeat orders from HBM manufacturers, the timing of customers' new tool purchase decisions remains dependent on HBM4 product rollout schedules."},
+    {"who": "ASMPT", "doc": "2026 Interim Results announcement", "date": "2026-07-29", "url": "https://www.asmpt.com/en/investor-relations/news-events/asmpt-announces-2026-interim-results/", "quote": "Active collaboration with key logic and memory customers has progressed to the sampling stage, an important step toward potential qualification."},
+    {"who": "Advantest", "doc": "Q1 FY2026 results Q&A summary", "date": "2026-07-29", "url": "https://www.advantest.com/document/en/investors/ir-library/result/JE_BIZ_260729_QA.pdf", "quote": "On the memory tester side, expansion plans are progressing in parallel with SoC tester capacity expansion."},
+    {"who": "Advantest", "doc": "Q1 FY2026 results Q&A summary", "date": "2026-07-29", "url": "https://www.advantest.com/document/en/investors/ir-library/result/JE_BIZ_260729_QA.pdf", "quote": "because of the scale of the industry and the constraints in advanced packaging and wafer starts, we now have conversations with our close customers and supply chain partners based on an 18-month forecast."},
+    {"who": "Nitto Boseki (Nittobo)", "doc": "Medium-term Management Plan web page (undated)", "date": "undated", "url": "https://www.nittobo.co.jp/ir/keiei/chukei.htm", "quote": "将来を見据え、国内外でスペシャルガラスの更なる増産投資を推進"}
+  ]
+}
+```</pre>
+  <p class="note">Samsung's 2Q26 deck carries no exact date ("2026-07"). The Nittobo page is undated. Both are marked as such rather than given an invented day.</p>
+</section>
+
+</div>
+
+</body></html>

@@ -1,0 +1,505 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Chokepoint Watch: Nuclear Fuel and Reactors</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a fuel-cycle strip up top locates each chokepoint on its layer; below, one reading column of case files, each with a six-step evidence grid. */
+:root{
+  --bg:#eef2f1; --surface:#ffffff; --ink:#132020; --muted:#536463; --rule:#cad6d4;
+  --accent:#0f6f74; --accent-soft:#dcecec;
+  --ok:#1d6b45; --ok-bg:#e0f0e6; --lead:#8a5a00; --lead-bg:#f7ecd3; --bad:#a3352c; --bad-bg:#f6e0dd; --none:#6c7776; --none-bg:#e7ebea;
+  --f-display:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1515; --surface:#152020; --ink:#e1ebea; --muted:#97a9a7; --rule:#29393a;
+  --accent:#6cc9cc; --accent-soft:#17302f;
+  --ok:#7fd3a5; --ok-bg:#163126; --lead:#e8bf62; --lead-bg:#372b12; --bad:#f09b90; --bad-bg:#3b1e1b; --none:#9aa6a5; --none-bg:#1f2a2a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1515; --surface:#152020; --ink:#e1ebea; --muted:#97a9a7; --rule:#29393a;
+  --accent:#6cc9cc; --accent-soft:#17302f;
+  --ok:#7fd3a5; --ok-bg:#163126; --lead:#e8bf62; --lead-bg:#372b12; --bad:#f09b90; --bad-bg:#3b1e1b; --none:#9aa6a5; --none-bg:#1f2a2a; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--f-body)}
+.wrap{max-width:900px;margin:0 auto;padding-block:36px 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:44px}
+h1,h2,h3{font-family:var(--f-display);margin:0;line-height:1.2;text-wrap:balance}
+h1{font-size:clamp(1.9rem,5vw,2.6rem);font-weight:700}
+h2{font-size:1.4rem;font-weight:700;display:flex;gap:12px;align-items:baseline;border-bottom:1px solid var(--ink);padding-bottom:6px}
+h2 .n{font-family:var(--f-mono);font-size:.8rem;color:var(--accent);font-weight:600}
+h3{font-size:1.15rem;font-weight:700}
+h4{margin:0;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+p{margin:0;max-width:72ch}
+section{display:flex;flex-direction:column;gap:16px;min-width:0}
+a{color:var(--accent);overflow-wrap:anywhere}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.eyebrow{font:600 .74rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 24px;font:.85rem var(--f-mono);color:var(--muted)}
+.meta b{color:var(--ink);font-weight:600}
+.summary{background:var(--accent-soft);padding:14px 18px;display:grid;gap:8px}
+.summary div{display:grid;grid-template-columns:8rem 1fr;gap:12px}
+.summary b{font:600 .72rem var(--f-mono);text-transform:uppercase;letter-spacing:.07em;color:var(--accent);padding-top:3px}
+@media (max-width:560px){.summary div{grid-template-columns:1fr;gap:2px}}
+/* fuel-cycle strip */
+.cycle{overflow-x:auto}
+.cycle ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(7,minmax(104px,1fr));gap:4px;min-width:740px}
+.cycle li{background:var(--surface);border:1px solid var(--rule);padding:8px 10px;display:flex;flex-direction:column;gap:4px;font-size:.8rem;position:relative}
+.cycle li .ly{font:600 .7rem var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.cycle li.hit{border-color:var(--accent);border-width:2px}
+.cycle li.hit .ly{color:var(--accent)}
+.cycle li.watch{border-color:var(--lead);border-style:dashed}
+.cycle .unit{font:.72rem var(--f-mono);color:var(--muted)}
+.chip{display:inline-block;font:600 .68rem/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;padding:3px 7px;border-radius:2px;white-space:nowrap;vertical-align:1px}
+.c-p{background:var(--ok-bg);color:var(--ok)} .c-l{background:var(--lead-bg);color:var(--lead)} .c-x{background:var(--bad-bg);color:var(--bad)} .c-u{background:var(--none-bg);color:var(--none)} .c-m{background:var(--accent-soft);color:var(--accent)}
+.case{background:var(--surface);border:1px solid var(--rule);padding:22px 22px 24px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.case > header{display:flex;flex-direction:column;gap:6px}
+.ids{font:.8rem var(--f-mono);color:var(--muted)}
+.vd{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;font-size:.9rem}
+.vd div{border-top:2px solid var(--rule);padding-top:6px;min-width:0;display:flex;flex-direction:column;gap:4px}
+@media (max-width:640px){.vd{grid-template-columns:1fr}}
+ol.chain{margin:0;padding-left:1.4rem;display:flex;flex-direction:column;gap:4px;font-size:.92rem}
+dl.kv{display:grid;grid-template-columns:9rem 1fr;gap:12px 16px;margin:0;font-size:.93rem}
+dl.kv dt{font-weight:600;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+dl.kv dd{margin:0;min-width:0;display:flex;flex-direction:column;gap:8px}
+@media (max-width:600px){dl.kv{grid-template-columns:1fr;gap:4px}dl.kv dd{margin-bottom:10px}}
+blockquote{margin:0;padding:4px 0 4px 12px;border-left:3px solid var(--ok);font-size:.92rem}
+blockquote.l{border-left-color:var(--lead)}
+blockquote.x{border-left-color:var(--bad)}
+cite{display:block;font:normal .74rem var(--f-mono);color:var(--muted);margin-top:3px}
+ul.plain{margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:6px}
+.pred{border:1px dashed var(--accent);padding:12px 14px;display:flex;flex-direction:column;gap:4px;font-size:.93rem}
+.pred .id{font:600 .76rem var(--f-mono);color:var(--accent)}
+.note{color:var(--muted);font-size:.9rem}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--rule)}
+th{font:600 .7rem var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+pre{background:var(--surface);border:1px solid var(--rule);padding:14px;overflow-x:auto;font:.74rem/1.5 var(--f-mono);margin:0;white-space:pre}
+.copy{align-self:flex-start;font:600 .82rem var(--f-body);background:var(--surface);color:var(--ink);border:1px solid var(--rule);padding:6px 12px;cursor:pointer}
+.copy:hover{border-color:var(--accent)}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:16px">
+  <span class="eyebrow">Weekly theme watch · civil nuclear · evidence, not a trade</span>
+  <h1>Chokepoint Watch: Nuclear Fuel and Reactors</h1>
+  <div class="meta"><span>As of <b>2026-10-19</b></span><span>Edition <b>1</b></span><span>Previous edition: <b>first edition</b></span></div>
+  <div class="summary">
+    <div><b>Changed</b><span>First edition. Two fuel-cycle chokepoints stand on primary evidence: enrichment (SWU) and conversion (UF6). Large forgings are carried as a lead.</span></div>
+    <div><b>Top</b><span>nuc-1, Western enrichment capacity without Russian supply. Centrus says that without Russia "the global market would be undersupplied", and US waivers for Russian LEU end by 2028-01-01.</span></div>
+    <div><b>Next dated</b><span>Centrus Q3 2026 results (early November): whether DOE ruled on its 2026–27 Russian LEU waiver request. Then the CNSC hearing on Cameco's Port Hope licence (Q4 2026), which expires February 2027.</span></div>
+  </div>
+  <p class="note">Marks: <span class="chip c-p">P</span> primary, <span class="chip c-l">L</span> lead, <span class="chip c-m">map</span> analyst's map (not evidence). Step grades: <span class="chip c-p">primary</span> <span class="chip c-l">lead</span> <span class="chip c-u">unexamined</span> <span class="chip c-x">contradicted</span>. <b>All primary quotes are excerpts.</b> They came back in quote marks from the fetch tool, which caps each at about 125 characters. The egress proxy blocked raw-page fetches, so no quote could be string-matched against its source (see Run notes). Paraphrased items are graded as leads.</p>
+</header>
+
+<section aria-label="Where the chokepoints sit">
+  <h2><span class="n">·</span>The chain at a glance</h2>
+  <div class="cycle"><ol>
+    <li><span class="ly">Uranium</span><span>Mining, U3O8</span><span class="unit">lb U3O8</span><span class="note">not examined</span></li>
+    <li class="hit"><span class="ly">Conversion</span><span>U3O8 → UF6</span><span class="unit">tU as UF6</span><span><span class="chip c-p">nuc-2</span></span></li>
+    <li class="hit"><span class="ly">Enrichment</span><span>LEU, HALEU</span><span class="unit">SWU</span><span><span class="chip c-p">nuc-1</span></span></li>
+    <li><span class="ly">Fabrication</span><span>Assemblies, TRISO</span><span class="unit">tHM</span><span class="note">not examined</span></li>
+    <li class="watch"><span class="ly">Component</span><span>RPV and SG forgings</span><span class="unit">sets/yr</span><span><span class="chip c-l">nuc-3</span></span></li>
+    <li><span class="ly">Reactor</span><span>Orders, uprates, restarts</span><span class="unit">units, GWe</span><span class="note">demand side</span></li>
+    <li><span class="ly">Plant</span><span>PPAs, licences</span><span class="unit">MWh</span><span class="note">demand side</span></li>
+  </ol></div>
+</section>
+
+<section>
+  <h2><span class="n">2</span>Predictions settled this week</h2>
+  <p>None. This is the first edition, so no earlier predictions exist.</p>
+</section>
+
+<section>
+  <h2><span class="n">3</span>The board</h2>
+  <p class="note">Three chokepoints, two deep-dived. Ranked by strength of primary evidence, then by how early the evidence is.</p>
+
+  <!-- nuc-1 -->
+  <article class="case" id="nuc-1">
+    <header>
+      <span class="ids">nuc-1 · layer: enrichment · unit: SWU · status: <b>new</b> · deep-dive</span>
+      <h3>Western enrichment capacity (SWU) without Russian supply, 2026–2030</h3>
+    </header>
+    <div class="vd">
+      <div><h4>Physical scarcity</h4><span><span class="chip c-p">supported</span> Holder and government documents. The binding period is 2028–2031, after US waivers end and before new Western capacity runs.</span></div>
+      <div><h4>Economic capture</h4><span><span class="chip c-p">supported</span> on spot ($200/SWU, Urenco). Contract prices lag well behind (EIA, $108.70 average paid in 2025).</span></div>
+      <div><h4>Investability</h4><span><span class="chip c-x">weak</span> The two Western holders, Urenco and Orano, are unlisted and mainly state-owned. Centrus is listed, but mostly resells TENEX supply today.</span></div>
+    </div>
+
+    <div><h4>The chain</h4>
+    <ol class="chain">
+      <li>Life extensions, new builds and data-center PPAs raise long-run LEU demand <span class="chip c-l">L</span> (Urenco: "new customer orders from nuclear power generators", P, but this is demand, not shortage)</li>
+      <li>US ban on Russian LEU imports, with waivers ending no later than 2028-01-01 <span class="chip c-p">P</span></li>
+      <li>Russia supplied 26% of foreign-origin SWU bought by US reactor owners in 2025 <span class="chip c-p">P</span></li>
+      <li>Remaining Western SWU (Urenco, Orano) is booked into the 2040s, and expansions arrive 2027–2036 <span class="chip c-p">P</span></li>
+      <li>Constrained layer: enrichment, in SWU per year <span class="chip c-m">map</span></li>
+    </ol></div>
+
+    <dl class="kv">
+      <dt>Constraint <span class="chip c-p">primary</span></dt>
+      <dd><p>Non-Russian SWU cannot cover Western demand once Russian imports stop. The US ban bites by the start of 2028, and Russia's own export decree runs to 2027-12-31.</p>
+        <blockquote>"without Russian supply, the global market would be undersupplied for uranium enrichment."<cite>Centrus Energy · Form 10-K FY2025 · 2026-02 · <a href="https://www.sec.gov/Archives/edgar/data/1065059/000162828026007117/leu-20251231.htm">sec.gov</a> · excerpt</cite></blockquote>
+        <blockquote>"While we have other sources of supply, they are not sufficient to replace the TENEX supply."<cite>Centrus · same 10-K · excerpt</cite></blockquote>
+        <blockquote>"Any waiver by the Secretary of Energy under this provision will terminate not later than January 1, 2028."<cite>US DOE · Instructions for Requesting a Waiver… Russian LEU · 2024-05-20 · <a href="https://www.energy.gov/sites/default/files/2024-05/FINAL%20DOE%20Waiver%20Request%20Procedures%205.20.24.digital%20sig.KMG_.pdf">energy.gov PDF</a> · excerpt</cite></blockquote>
+        <blockquote>"HALEU is not currently available from domestic suppliers."<cite>DOE Office of Nuclear Energy · Third round of HALEU to NASA and Radiant · 2026-07-23 · <a href="https://www.energy.gov/ne/articles/energy-department-distribute-third-round-haleu-nasa-and-radiant">energy.gov</a> · excerpt</cite></blockquote>
+      </dd>
+
+      <dt>Demand against supply <span class="chip c-p">primary</span></dt>
+      <dd><p><b>Kind: committed money.</b> Long-term contract order books grew sharply in six months, and DOE has awarded $2.7bn for new US capacity. This is booked demand, though booked is not the same as short.</p>
+        <blockquote>"Significant Order Book growth to €27.3 billion, up from €21.3 billion at the end of 2025"<cite>Urenco · Half Year 2026 Unaudited Financial Results · 2026-08-13 · <a href="https://www.urenco.com/news/global/2026/half-year-2026-unaudited-financial-results">urenco.com</a> · excerpt</cite></blockquote>
+        <blockquote>"The Company's backlog across both segments is $4.5 billion as of June 30, 2026 and extends to 2040."<cite>Centrus · Q2 2026 earnings release (8-K Ex. 99.1) · 2026-08-05 · <a href="https://www.sec.gov/Archives/edgar/data/0001065059/000162828026053433/ex991-10q2026_08x05.htm">sec.gov</a> · excerpt. Backlog was $2.9bn at 2025-12-31 (10-K).</cite></blockquote>
+        <blockquote>"Foreign-origin SWU included 26% from Russia, 18% from France, 14% from the United Kingdom, and 8% from the Netherlands"<cite>US EIA · Uranium Marketing Annual Report 2025 · 2026-07-29 · <a href="https://www.eia.gov/uranium/marketing/index.php">eia.gov</a> · excerpt</cite></blockquote>
+        <blockquote>"we continue to see healthy demand momentum with consistent constrained supply"<cite>Centrus · Q2 2026 earnings release · 2026-08-05 · excerpt</cite></blockquote>
+      </dd>
+
+      <dt>Relief <span class="chip c-p">primary</span></dt>
+      <dd><p>Real, but slow. Licensing and construction set the pace:</p>
+        <ul class="plain">
+          <li><b>Urenco USA:</b> the current expansion completes in 2027 (P), adding 700k SWU (L, ANS). A further expansion of "nearly 50%" was announced in June 2026 (P). ANS reports first cascades in 2032 and full build-out by 2036, backed by utility long-term contracts (L).</li>
+          <li><b>Orano:</b> €400M is financing the Georges Besse II extension (P). The NRC accepted the licence application for the Oak Ridge plant (filed 2026-03-27) with a 12-month accelerated review, and a $900M DOE financing agreement took effect 2026-05-01 (P, Orano H1 2026).</li>
+          <li><b>DOE $2.7bn task orders</b> (2026-01-05, P): $900M each to Centrus (HALEU), General Matter (HALEU) and Orano Federal Services (LEU), plus $28M to GLE.</li>
+          <li><b>GLE Paducah:</b> the NRC docketed the application (Federal Register 2026-03-06, P). The final safety evaluation report is expected January 2027 (summary, L).</li>
+        </ul>
+        <blockquote>"the existing expansion project at our US site is on course for completion in 2027"<cite>Urenco · Half Year 2026 results · 2026-08-13 · excerpt</cite></blockquote>
+        <blockquote>"confirmed a schedule for an accelerated review of the application in 12 months"<cite>Orano · 2026 half-year results (Business Wire) · 2026-07-30 · <a href="https://www.businesswire.com/news/home/20260730285238/en/">businesswire.com</a> · excerpt</cite></blockquote>
+      </dd>
+
+      <dt>Control <span class="chip c-l">lead</span></dt>
+      <dd><p>In the US market, 13 million SWU were bought from four sellers in 2025 (EIA, P). In the EU, Russia's share was 22.6% in 2025 (S&amp;P citing ESA, L). No primary source for 2026 global capacity shares was found. The analyst's map: Rosatom, Urenco, Orano and CNNC hold nearly all capacity.</p>
+        <blockquote>"Thirteen million separative work units (SWU) were purchased under enrichment services contracts from four sellers in 2025"<cite>US EIA · UMAR 2025 · 2026-07-29 · excerpt</cite></blockquote>
+      </dd>
+
+      <dt>Capture <span class="chip c-p">primary</span></dt>
+      <dd><p>Spot prices are high. The contract-weighted price paid in 2025 was about half of spot, so long-term contracts will reprice upward only as old contracts roll off. Capture goes mostly to states: Urenco's indirect shareholders include the UK government (DESNZ), E.ON and RWE (P, Urenco interim note 16). The Dutch state's third is from the analyst's map, as is the French state's majority of Orano. <b>Cost share (estimate):</b> enrichment is a meaningful slice of fuel cost, but fuel is a small part of the cost of nuclear power, so utilities pay rather than redesign.</p>
+        <blockquote>"SWU spot prices were at an average of $200/SWU at the end of June 2026"<cite>Urenco · Half Year 2026 results · 2026-08-13 · excerpt</cite></blockquote>
+        <blockquote>"The average price paid by the COOs for the 13 million SWU was $108.70 per SWU in 2025"<cite>US EIA · UMAR 2025 · 2026-07-29 · excerpt</cite></blockquote>
+      </dd>
+
+      <dt>Invalidation <span class="chip c-l">lead</span></dt>
+      <dd><ul class="plain">
+        <li>Urenco, the largest Western holder, calls the market "positive" and does not describe supply as tight or mention Russia in its H1 2026 materials (P, excerpt).</li>
+        <li>The EU has not banned Russian enriched uranium, and Russian-origin deliveries into the EU rose in 2025 (S&amp;P citing ESA, L).</li>
+        <li>DOE has granted Centrus waivers for deliveries already committed (10-K, P). A waiver policy loosening before 2028 would ease the cliff.</li>
+        <li>DOE "does not currently intend to exercise further options" under the Centrus HALEU operation contract (Centrus Q2 release, P). This weakens the HALEU demand signal.</li>
+      </ul></dd>
+    </dl>
+
+    <div><h4>Bear checks</h4>
+    <div class="tbl"><table>
+      <thead><tr><th>Check</th><th>Finding</th></tr></thead>
+      <tbody>
+        <tr><td>Dilution</td><td>Unexamined for Centrus. Not applicable to Urenco or Orano, which are unlisted.</td></tr>
+        <tr><td>GAAP margins</td><td>Unexamined this week.</td></tr>
+        <tr><td>Customer concentration</td><td>Centrus's supply side is concentrated: it depends on TENEX through 2028 (P). Customer side unexamined.</td></tr>
+        <tr><td>Cash against debt</td><td>Unexamined.</td></tr>
+        <tr><td>Second source qualifying</td><td>Yes, but slowly. DOE-funded entrants (General Matter, Orano Oak Ridge, GLE) are in licensing. None produces commercial SWU before about 2030 on the dates found.</td></tr>
+        <tr><td>Bypass design</td><td>No LEU bypass for light-water reactors. HALEU-free advanced designs exist (map), but no primary source was checked.</td></tr>
+        <tr><td>Projects delayed</td><td>Lowers demand only at the margin. The installed fleet sets the demand.</td></tr>
+        <tr><td>Policy reversal</td><td>The main risk. A waiver extension past 2027, or Russian supply resuming under a sanctions deal, would relieve the 2028 cliff. The Senate "Sanctioning Russia Act of 2026" would tighten instead (Cameco Q2 MD&amp;A, P; not enacted).</td></tr>
+        <tr><td>Layer error</td><td>Guarded. Order-book growth proves contracted enrichment demand, not uranium or conversion demand. HALEU is a separate product at the same layer.</td></tr>
+      </tbody>
+    </table></div></div>
+
+    <div><h4>Kill criteria</h4>
+    <ul class="plain">
+      <li>Congress or DOE extends Russian LEU waivers beyond 2027-12-31 (Federal Register, DOE notice).</li>
+      <li>Urenco or Orano reports a falling order book or SWU spot below $150 in a results release (next: Urenco FY2026, about March 2027).</li>
+      <li>Centrus states in a filing that non-Russian sources are sufficient to replace TENEX supply.</li>
+    </ul></div>
+
+    <div><h4>Predictions</h4>
+    <div class="pred"><span class="id">nuc-p1 · made 2026-10-19 · deadline 2027-03-31 · open</span>By 2027-03-31, Urenco's full-year 2026 results will report an order book of at least €27.3 billion, as shown by Urenco's annual results release.</div>
+    <div class="pred"><span class="id">nuc-p2 · made 2026-10-19 · deadline 2027-03-31 · open</span>By 2027-03-31, Centrus's FY2026 Form 10-K will report backlog of at least $4.5 billion and will not report any DOE waiver for Russian LEU imports after 2027, as shown by Centrus's Form 10-K.</div></div>
+
+    <p><b>Status since last edition:</b> new.</p>
+    <p><b>Consensus check:</b> earliest primary evidence found in this run is Centrus's 10-K FY2025 (2026-02). Earlier Centrus filings probably carry the same language but were not checked. <span class="chip c-u">consensus</span> The Russian-supply gap in enrichment has been widely covered in financial press since 2022.</p>
+  </article>
+
+  <!-- nuc-2 -->
+  <article class="case" id="nuc-2">
+    <header>
+      <span class="ids">nuc-2 · layer: conversion · unit: tU as UF6 · status: <b>new</b> · deep-dive</span>
+      <h3>Western uranium conversion capacity (UF6)</h3>
+    </header>
+    <div class="vd">
+      <div><h4>Physical scarcity</h4><span><span class="chip c-p">supported</span> but contested. Holders cite a small supplier base and record term prices. Spot has fallen from its 2024 peak, and Solstice expects long-run balance.</span></div>
+      <div><h4>Economic capture</h4><span><span class="chip c-p">supported</span> Record term prices, and Solstice's nuclear revenue grew 27% on price and volume.</span></div>
+      <div><h4>Investability</h4><span><span class="chip c-l">mixed</span> Two holders are listed (Cameco, Solstice), but conversion is a small part of each. Orano is mainly state-owned.</span></div>
+    </div>
+
+    <div><h4>The chain</h4>
+    <ol class="chain">
+      <li>Utilities lock in long-term fuel-cycle supply <span class="chip c-p">P</span> (Cameco: buyers "focus on securing their long-term requirements for conversion and enrichment services")</li>
+      <li>Russian conversion is being displaced. Cameco says Russia provides about 21% of conversion supply (the region is cut off in the excerpt) <span class="chip c-p">P</span></li>
+      <li>Few Western primary converters: Cameco Port Hope, Orano Philippe Coste, Solstice/ConverDyn Metropolis <span class="chip c-p">P</span></li>
+      <li>One of them, Orano Malvési, stopped for nearly four months in H1 2026 <span class="chip c-p">P</span></li>
+      <li>Constrained layer: conversion, in tU as UF6 per year <span class="chip c-m">map</span></li>
+    </ol></div>
+
+    <dl class="kv">
+      <dt>Constraint <span class="chip c-p">primary</span></dt>
+      <dd><p>Primary UF6 conversion outside Russia and China comes from a few plants, and one of them had a long outage in 2026. Nameplate figures found: Orano Philippe Coste 14,000 t a year (P); Metropolis projects over 10 kt UF6 in 2026 (P). Port Hope's tU figure was not reached.</p>
+        <blockquote>"For conversion services, we compete with a small number of primary commercial suppliers to meet global demand."<cite>Cameco · 2025 Annual Information Form (40-F Ex. 99.1) · 2026-03-19 · <a href="https://www.sec.gov/Archives/edgar/data/1009001/000119312526116229/d34605dex991.htm">sec.gov</a> · excerpt</cite></blockquote>
+        <blockquote>"Limited spare capacity and long lead times continued to make the fuel-cycle market vulnerable to supply shocks"<cite>Euratom Supply Agency · Annual Report 2025 · 2026-07-09 · <a href="https://euratom-supply.ec.europa.eu/document/download/f5fd9141-e7ae-4074-8c83-9a57f55446a7_en?filename=ESA_Annual_Report_2025.pdf">ESA PDF</a> · excerpt, about p. 25</cite></blockquote>
+        <blockquote>"the shutdown of factories for nearly four months due to exceptional climatic events at the Malvési site"<cite>Orano · 2026 half-year results (AMF filing) · 2026-07-31 · <a href="https://echanges.dila.gouv.fr/OPENDATA/AMF/BWR/2026/07/FCBWR168965_20260731.pdf">dila.gouv.fr PDF</a> · excerpt</cite></blockquote>
+      </dd>
+
+      <dt>Demand against supply <span class="chip c-l">lead</span></dt>
+      <dd><p><b>Kind: committed money, but not measured against capacity.</b> There are backlogs (Solstice about $2.2bn; Orano's backlog rose with "a Conversion impact of +€0.5 bn") and Cameco has long-term commitments for Port Hope. No source puts tU of demand next to tU of qualified capacity, so this step stays a lead.</p>
+        <blockquote>"with approximately $2.2 billion in backlog orders as of December 31, 2025"<cite>Solstice Advanced Materials · FY2025 Form 10-K · 2026-02 · <a href="https://www.sec.gov/Archives/edgar/data/2064953/000206495326000008/sols-20251231.htm">sec.gov</a> · excerpt</cite></blockquote>
+        <blockquote>"With consistent demand for western conversion services, pricing in both North America and Europe continues to be strong."<cite>Cameco · MD&amp;A Q2 2026 (6-K Ex. 99.2) · 2026-07-31 · <a href="https://www.sec.gov/Archives/edgar/data/0001009001/000119312526326768/d125942dex992.htm">sec.gov</a> · excerpt</cite></blockquote>
+      </dd>
+
+      <dt>Relief <span class="chip c-p">primary</span></dt>
+      <dd><ul class="plain">
+        <li><b>Metropolis:</b> over 10 kt UF6 in 2026, about 20% above planned 2024 output, with DOE cost-sharing an expansion (Solstice release 2026-02-10 and 10-K, P).</li>
+        <li><b>Philippe Coste:</b> still ramping toward 14,000 t (Orano report, P). Orano had 10,625 t UF6 output in 2024. No Orano conversion expansion beyond nameplate was found.</li>
+        <li><b>Port Hope:</b> licence renewal "underway and on track", hearings in Q4 2026. The current licence expires February 2027 (Cameco Q2 MD&amp;A, P). This is a relicensing risk, not new capacity.</li>
+      </ul>
+        <blockquote>"projected to produce over 10 kilotonnes (10 kt) of uranium hexafluoride (UF6) in 2026"<cite>Solstice · press release on conversion expansion · 2026-02-10 · <a href="https://www.chemicalonline.com/doc/solstice-advanced-materials-announces-expansion-uranium-conversion-production-support-strong-nuclear-industry-0001">reprint (chemicalonline)</a> · excerpt; issuer's own release, reprinted</cite></blockquote>
+      </dd>
+
+      <dt>Control <span class="chip c-p">primary</span></dt>
+      <dd><p>Cameco holds about 18% of world primary conversion capacity (P). In the EU, Orano was the largest supplier in 2025, delivering 3,292 tU, a 24.85% share (ESA, P). Solstice runs the only US plant through ConverDyn, its joint venture with General Atomics (P).</p>
+        <blockquote>"We have about 18% of world UF 6primary conversion capacity"<cite>Cameco · 2025 AIF · 2026-03-19 · excerpt, spacing as returned</cite></blockquote>
+        <blockquote>"Metropolis Works is the only UF6 conversion facility in the United States."<cite>Solstice · release · 2026-02-10 · excerpt</cite></blockquote>
+      </dd>
+
+      <dt>Capture <span class="chip c-p">primary</span></dt>
+      <dd><p>Term prices are at records and still rising. Spot has fallen since its 2024 peak. Solstice books price and volume gains; Cameco and Orano book the rest. <b>Cost share (estimate):</b> conversion is the smallest slice of front-end fuel cost, so buyers absorb price rises.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Indicator</th><th>Value</th><th>Source</th></tr></thead>
+          <tbody>
+            <tr><td>Long-term conversion, end 2023 → end 2024</td><td class="num">$34.3 → $49.8 /kgU</td><td>Orano Annual Activity Report 2024 (P, excerpt)</td></tr>
+            <tr><td>Spot conversion, end 2023 → end 2024</td><td class="num">$46 → $96.5 /kgU</td><td>same</td></tr>
+            <tr><td>EU and North America average price paid, 2025</td><td class="num">$69.83 /kgU</td><td>ESA Annual Report 2025 (P, excerpt)</td></tr>
+            <tr><td>Spot conversion, Q2 2026 average</td><td class="num">$64.50 /kgU</td><td>Cameco Q2 2026 MD&amp;A (P, excerpt; third-party indicator printed by Cameco)</td></tr>
+            <tr><td>NA long-term conversion, end Q2 2026</td><td class="num">$55.50 /kgU</td><td>same</td></tr>
+          </tbody>
+        </table></div>
+        <blockquote>"Nuclear revenues increased 27% in the second quarter of 2026 compared to the second quarter of 2025"<cite>Solstice · Q2 2026 earnings release (8-K Ex. 99.1) · 2026-07-30 · <a href="https://www.sec.gov/Archives/edgar/data/0002064953/000206495326000085/exhibit991-earningsrelease.htm">sec.gov</a> · excerpt, continues "reflecting both favorable pricing and increased volumes"</cite></blockquote>
+      </dd>
+
+      <dt>Invalidation <span class="chip c-x">contradicted, in part</span></dt>
+      <dd>
+        <blockquote class="x">"the Company currently expects supply and demand in this area to be balanced in the long term"<cite>Solstice · FY2025 10-K · 2026-02 · excerpt; a holder's own view, the strongest counterpoint</cite></blockquote>
+        <blockquote class="x">"In 2025, the EU uranium conversion market saw relatively stable supply."<cite>ESA · Annual Report 2025 · 2026-07-09 · excerpt, about p. 23</cite></blockquote>
+        <p>Spot fell from $96.5 at end 2024 to $64.50 in Q2 2026. Cameco's Q2 2026 MD&amp;A calls pricing "strong" but does not call supply tight or constrained.</p>
+      </dd>
+    </dl>
+
+    <div><h4>Bear checks</h4>
+    <div class="tbl"><table>
+      <thead><tr><th>Check</th><th>Finding</th></tr></thead>
+      <tbody>
+        <tr><td>Dilution</td><td>Unexamined.</td></tr>
+        <tr><td>GAAP margins</td><td>Unexamined. Cameco's fuel-services segment margin is the next place to look.</td></tr>
+        <tr><td>Customer concentration</td><td>Unexamined.</td></tr>
+        <tr><td>Cash against debt</td><td>Unexamined.</td></tr>
+        <tr><td>Second source qualifying</td><td>Brownfield gains only: Metropolis +20% and the Philippe Coste ramp. No greenfield Western converter was found.</td></tr>
+        <tr><td>Bypass design</td><td>None. Every LEU and HALEU route passes through UF6.</td></tr>
+        <tr><td>Projects delayed</td><td>Low effect. Demand comes from the installed fleet.</td></tr>
+        <tr><td>Policy reversal</td><td>The US import ban covers LEU, not conversion (DOE waiver instructions, P). Conversion restrictions are indirect. No EU legal text on Russian conversion was found.</td></tr>
+        <tr><td>Layer error</td><td>Guarded. Cameco's fuel-services guidance of 13–14 million kgU mixes UF6, UO2 and fuel bundles and is not used as conversion capacity. Orano's 14,000 t may be tonnes of UF6, not tU; the unit is unconfirmed.</td></tr>
+      </tbody>
+    </table></div></div>
+
+    <div><h4>Kill criteria</h4>
+    <ul class="plain">
+      <li>A holder (Cameco, Orano or Solstice) says in a filing that Western conversion capacity is sufficient for demand over the next five years.</li>
+      <li>The NA long-term conversion price printed in Cameco's MD&amp;A falls below $45/kgU.</li>
+      <li>A new Western converter announces a final investment decision with a start date before 2030.</li>
+    </ul></div>
+
+    <div><h4>Predictions</h4>
+    <div class="pred"><span class="id">nuc-p3 · made 2026-10-19 · deadline 2027-02-28 · open</span>By 2027-02-28, Cameco's Q4 2026 MD&amp;A will report the North American long-term UF6 conversion price at or above US$55.50 per kgU, as shown by Cameco's MD&amp;A.</div>
+    <div class="pred"><span class="id">nuc-p4 · made 2026-10-19 · deadline 2027-02-28 · open</span>By 2027-02-28, the Canadian Nuclear Safety Commission will renew the Port Hope conversion facility's operating licence, as shown by a CNSC decision or Cameco filing.</div></div>
+
+    <p><b>Status since last edition:</b> new.</p>
+    <p><b>Consensus check:</b> earliest primary evidence is Cameco's 2022 MD&amp;A (2023-02-09): "conversion prices are at historic highs", with Russia supplying about 27% of conversion. <span class="chip c-u">consensus</span> Conversion pricing has been widely reported since 2023.</p>
+  </article>
+
+  <!-- nuc-3 -->
+  <article class="case" id="nuc-3">
+    <header>
+      <span class="ids">nuc-3 · layer: reactor component · unit: forging sets/yr · status: <b>new</b> · lead only, not deep-dived</span>
+      <h3>Large nuclear forgings (pressure vessel and steam generator)</h3>
+    </header>
+    <div class="vd">
+      <div><h4>Physical scarcity</h4><span><span class="chip c-l">lead</span> Holders are investing to double capacity, but none states a shortfall in units.</span></div>
+      <div><h4>Economic capture</h4><span><span class="chip c-u">unexamined</span></span></div>
+      <div><h4>Investability</h4><span><span class="chip c-l">mixed</span> JSW and Doosan Enerbility are listed. Framatome is state-owned via EDF; Sheffield Forgemasters is UK government-owned.</span></div>
+    </div>
+    <div><h4>The chain</h4>
+    <ol class="chain">
+      <li>Large builds: Dukovany EPC signed 2025-06-04 (L, WNN); US–Westinghouse framework for "at least $80 billion" of reactors (P, Cameco 6-K 2025-10-28); Poland's EPC not yet signed (L)</li>
+      <li>Each large unit needs one set of the largest forgings <span class="chip c-m">map</span></li>
+      <li>Few presses make the largest parts: Framatome says only foreign suppliers can make them today <span class="chip c-p">P</span></li>
+      <li>Constrained layer: reactor component, forging sets per year <span class="chip c-m">map</span></li>
+    </ol></div>
+    <dl class="kv">
+      <dt>Constraint <span class="chip c-l">lead</span></dt>
+      <dd>
+        <blockquote>"Double production capacity for nuclear power products by FY2028."<cite>Japan Steel Works · Medium-Term Management Plan JGP2028, Update 2026 (TSE notice) · 2026-07-13 · <a href="https://finance-frontend-pc-dist.west.edge.storage-yahoo.jp/disclosure/20260713/20260710591715.pdf">TSE disclosure PDF</a> · excerpt</cite></blockquote>
+        <blockquote>The largest forged parts come from "fournisseurs étrangers seuls en mesure de les réaliser"<cite>Framatome · contribution to the CNDP public debate, no. 6 · 2025-11 · <a href="https://www.debatpublic.fr/sites/default/files/2025-11/SDDR-CA06-Framatome.pdf">debatpublic.fr PDF</a> · excerpt. Its Forge+ project at Le Creusot would double capacity and make 100% of EPR/EPR2 primary-circuit forgings.</cite></blockquote>
+      </dd>
+      <dt>Invalidation <span class="chip c-l">lead</span></dt>
+      <dd><p>Doosan says that supplying the major equipment for an eight-reactor US build "should be feasible" (fnnews, 2026-09-10, L). This is a holder implying sufficiency. SMR designs use smaller forgings, and Sheffield Forgemasters has forge-formed an SMR pressure-vessel head (P, flyer).</p></dd>
+      <dt>Kill criteria</dt>
+      <dd><ul class="plain"><li>Doosan or JSW states in its own IR materials that nuclear forging capacity exceeds order intake through 2030.</li><li>Poland's or the US AP1000 projects slip past 2027 without a firm EPC.</li></ul></dd>
+    </dl>
+    <div class="pred"><span class="id">nuc-p5 · made 2026-10-19 · deadline 2027-03-31 · open</span>By 2027-03-31, Polskie Elektrownie Jądrowe and the Westinghouse–Bechtel consortium will sign the engineering, procurement and construction contract for Poland's first AP1000 plant, as shown by a PEJ, Polish government or Westinghouse release.</div>
+    <p><b>Status since last edition:</b> new. <b>Consensus check:</b> earliest primary evidence is Framatome, 2025-11. <span class="chip c-u">emerging</span></p>
+  </article>
+</section>
+
+<section>
+  <h2><span class="n">4</span>Rejected</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Candidate</th><th>Reason</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>HALEU as a separate chokepoint</td><td>Supply is absent, but demand is mostly allocated and funded by DOE rather than committed by buyers. DOE also declined further Centrus HALEU options. It is tracked inside nuc-1.</td><td>DOE 2026-07-23 (P); Centrus Q2 2026 release (P)</td></tr>
+      <tr><td>ASME nuclear (N-stamp) qualification capacity</td><td>No primary source quantifies a shortage. Sandia reports that US vendors consistently obtain the most N-stamps worldwide.</td><td>Sandia SAND2020-14254, 2021-08-17 (P, abstract excerpt)</td></tr>
+      <tr><td>A Russian enrichment ban in the EU as a demand driver</td><td>There is no EU ban, and Russian-origin SWU deliveries to the EU rose in 2025.</td><td>S&amp;P Global citing ESA, 2026-06-26 (L)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="n">5</span>Cross-theme hooks</h2>
+  <ul class="plain">
+    <li><b>Large forgings and rotor shafts</b> (nuc-3 ↔ power equipment): JSW's plan also expands rotor-shaft capacity 1.5 times for heat-resistant turbine rotors at Muroran, the same plant as its nuclear forgings (P, excerpt).</li>
+    <li><b>Data-center power demand</b> (nuclear PPAs ↔ gas turbine slots, pwr-1): both draw on the same buyers. This is a demand driver, not a shared input, so it is a double-counting check only.</li>
+    <li><b>Customer-funded capacity</b> (nuc-1 ↔ council's prepaid-demand watch): utility long-term contracts underwrite Urenco's US expansion (L, ANS), and DOE task orders fund new entrants. This is the same pattern as Lumentum's LTAs, Micron's SCAs and turbine slot reservations.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">6</span>Council questions</h2>
+  <p>The latest Chokepoint Council (edition 1, 2026-10-19) assigns no questions to this theme, which was not on its roll. Nothing to answer this week.</p>
+</section>
+
+<section>
+  <h2><span class="n">7</span>Next questions</h2>
+  <ol class="chain">
+    <li>Has DOE ruled on Centrus's waiver request for Russian LEU in 2026–27? <span class="note">Centrus Q3 2026 10-Q and release (early November); DOE notices.</span></li>
+    <li>What is Port Hope's licensed capacity in tU, and when is the CNSC hearing? <span class="note">Cameco 2025 AIF (about p. 86); CNSC hearing schedule; Cameco Q3 2026 MD&amp;A.</span></li>
+    <li>Has Malvési restarted, and what is Orano's 2026 conversion output? <span class="note">Orano Q3 2026 revenue release (late October); Orano press releases.</span></li>
+    <li>What SWU and dates does Urenco itself give for the June 2026 US expansion, and which utilities signed? <span class="note">Urenco's own June 2026 release; US utility resource plans.</span></li>
+    <li>Do Doosan or JSW give forging capacity or nuclear backlog in units? <span class="note">Doosan Enerbility Q3 2026 IR deck; JSW H1 FY2026 results (early November).</span></li>
+  </ol>
+</section>
+
+<section>
+  <h2><span class="n">8</span>Run notes</h2>
+  <ul class="plain">
+    <li><b>Edition 1.</b> No earlier "Chokepoint Watch: Nuclear Fuel and Reactors" exists among the user's 69 artifacts. Nothing was carried forward.</li>
+    <li><b>Quotes downgraded or flagged.</b> The egress proxy denied raw-page fetches (CONNECT 403 to www.sec.gov and the TSE disclosure host). Every quote here is an excerpt the fetch tool returned in quote marks, capped near 125 characters, and none was string-matched against raw page text. Items the tool paraphrased are graded as leads: HALEU allocation rounds 1–2, GLE milestone dates, the ESA-derived EU SWU breakdown, Orano's 14,000 t unit and the Urenco 2.1M SWU figure.</li>
+    <li><b>Unverified:</b> Port Hope nameplate in tU; Urenco's Dutch shareholding and Orano's state share (analyst's map only); whether the ESA figure of 3,233 tU for Rosatom refers to conversion or enrichment (not used); the outcome of Centrus's 2026–27 waiver request.</li>
+    <li><b>Unreachable:</b> Doosan Enerbility IR PDFs (returned binary data); the Centrus Q2 call transcript in management's own words; Orano's own Oak Ridge project release and NRC docket; the ESA mirror on euagenda (robots.txt); a Czech government release on the Dukovany signing.</li>
+    <li><b>Out of scope:</b> DOE notes that HALEU allocations draw on DOE stocks including NNSA material. Noted only; not researched. Sheffield Forgemasters' ownership noted only.</li>
+    <li><b>Tool calls:</b> about 112, over the 80 budget. Three research sub-agents used 37, 29 and 34. The main session made about 12: artifact list and read calls, a skill load, a proxy status check and the publish.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">9</span>The ledger</h2>
+  <button class="copy" id="copy-ledger" type="button">Copy JSON</button>
+<pre id="ledger">```json
+{
+  "theme": "nuclear",
+  "as_of": "2026-10-19",
+  "edition": 1,
+  "chokepoints": [
+    {"id": "nuc-1", "name": "Western enrichment capacity (SWU) without Russian supply", "layer": "enrichment", "status": "new",
+     "verdicts": {"scarcity": "supported (P); binding 2028-2031 between waiver end and new capacity", "capture": "supported on spot ($200/SWU Urenco); contract average $108.70 (EIA 2025) lags", "investability": "weak: Urenco and Orano unlisted and mainly state-owned; Centrus listed but resells TENEX supply"},
+     "holders": ["Urenco (UK govt, Dutch govt, RWE, E.ON)", "Orano (French state)", "Rosatom/TENEX", "CNNC", "Centrus Energy (listed; small own capacity)"],
+     "kill_criteria": ["Russian LEU waivers extended beyond 2027-12-31 (Federal Register/DOE)", "Urenco or Orano reports falling order book or SWU spot below $150", "Centrus states non-Russian sources are sufficient to replace TENEX"],
+     "first_seen": "2026-10-19", "earliest_evidence": "2026-02-20", "consensus": "consensus"},
+    {"id": "nuc-2", "name": "Western uranium conversion capacity (UF6)", "layer": "conversion", "status": "new",
+     "verdicts": {"scarcity": "supported but contested: few suppliers, Malvesi outage; spot off 2024 peak; Solstice expects long-run balance", "capture": "supported: record term prices; Solstice nuclear revenue +27% on price and volume", "investability": "mixed: Cameco and Solstice listed but conversion is a small share of each; Orano state-owned"},
+     "holders": ["Cameco (Port Hope; ~18% world primary capacity)", "Orano (Philippe Coste)", "Solstice Advanced Materials / ConverDyn (Metropolis)", "Rosatom", "CNNC"],
+     "kill_criteria": ["A holder states in a filing that Western conversion capacity is sufficient for the next five years", "NA long-term conversion price in Cameco MD&A below $45/kgU", "New Western converter FID with start before 2030"],
+     "first_seen": "2026-10-19", "earliest_evidence": "2023-02-09", "consensus": "consensus"},
+    {"id": "nuc-3", "name": "Large nuclear forgings (RPV and steam generator)", "layer": "reactor component", "status": "new",
+     "verdicts": {"scarcity": "lead: holders doubling capacity, no unit shortfall stated", "capture": "unexamined", "investability": "mixed: JSW, Doosan Enerbility listed; Framatome and Sheffield Forgemasters state-owned"},
+     "holders": ["Japan Steel Works", "Doosan Enerbility", "Framatome (EDF)", "Sheffield Forgemasters"],
+     "kill_criteria": ["Doosan or JSW states nuclear forging capacity exceeds order intake through 2030", "Poland and US AP1000 projects slip past 2027 without firm EPC"],
+     "first_seen": "2026-10-19", "earliest_evidence": "2025-11-01", "consensus": "emerging"}
+  ],
+  "predictions": [
+    {"id": "nuc-p1", "chokepoint": "nuc-1", "made": "2026-10-19", "deadline": "2027-03-31",
+     "text": "By 2027-03-31, Urenco's full-year 2026 results will report an order book of at least EUR 27.3 billion.",
+     "source_type": "company annual results release", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "nuc-p2", "chokepoint": "nuc-1", "made": "2026-10-19", "deadline": "2027-03-31",
+     "text": "By 2027-03-31, Centrus's FY2026 Form 10-K will report backlog of at least $4.5 billion and will not report any DOE waiver for Russian LEU imports after 2027.",
+     "source_type": "SEC Form 10-K", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "nuc-p3", "chokepoint": "nuc-2", "made": "2026-10-19", "deadline": "2027-02-28",
+     "text": "By 2027-02-28, Cameco's Q4 2026 MD&A will report the North American long-term UF6 conversion price at or above US$55.50 per kgU.",
+     "source_type": "company MD&A", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "nuc-p4", "chokepoint": "nuc-2", "made": "2026-10-19", "deadline": "2027-02-28",
+     "text": "By 2027-02-28, the CNSC will renew the Port Hope conversion facility's operating licence.",
+     "source_type": "regulator decision (CNSC) or company filing", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "nuc-p5", "chokepoint": "nuc-3", "made": "2026-10-19", "deadline": "2027-03-31",
+     "text": "By 2027-03-31, PEJ and the Westinghouse-Bechtel consortium will sign the EPC contract for Poland's first AP1000 plant.",
+     "source_type": "company or government release", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null}
+  ],
+  "rejected": [
+    {"name": "HALEU as a separate chokepoint", "reason": "Supply absent but demand DOE-allocated rather than buyer-committed; DOE declined further Centrus HALEU options; tracked inside nuc-1", "date": "2026-10-19"},
+    {"name": "ASME N-stamp qualification capacity", "reason": "No primary source quantifies a shortage; Sandia reports US vendors consistently obtain the most N-stamps", "date": "2026-10-19"},
+    {"name": "EU ban on Russian enrichment as demand driver", "reason": "No EU ban; Russian-origin SWU deliveries to EU rose in 2025 (S&P citing ESA, lead)", "date": "2026-10-19"}
+  ],
+  "cross_theme_hooks": [
+    "Large forgings and turbine rotor shafts share JSW Muroran capacity (nuclear vs power equipment)",
+    "Nuclear PPAs and gas turbine slots draw on the same data-center demand (demand driver, double-counting check only)",
+    "Customer-funded capacity: utility LTAs and DOE task orders underwrite enrichment expansion, same pattern as LTAs/SCAs/slot reservations elsewhere"
+  ],
+  "council_answers": [],
+  "primary_sources": [
+    {"who": "Centrus Energy", "doc": "Form 10-K FY2025", "date": "2026-02-20", "url": "https://www.sec.gov/Archives/edgar/data/1065059/000162828026007117/leu-20251231.htm", "quote": "without Russian supply, the global market would be undersupplied for uranium enrichment."},
+    {"who": "Centrus Energy", "doc": "Form 10-K FY2025", "date": "2026-02-20", "url": "https://www.sec.gov/Archives/edgar/data/1065059/000162828026007117/leu-20251231.htm", "quote": "While we have other sources of supply, they are not sufficient to replace the TENEX supply."},
+    {"who": "Centrus Energy", "doc": "Q2 2026 earnings release (8-K Ex. 99.1)", "date": "2026-08-05", "url": "https://www.sec.gov/Archives/edgar/data/0001065059/000162828026053433/ex991-10q2026_08x05.htm", "quote": "The Company's backlog across both segments is $4.5 billion as of June 30, 2026 and extends to 2040."},
+    {"who": "Centrus Energy", "doc": "Q2 2026 earnings release (8-K Ex. 99.1)", "date": "2026-08-05", "url": "https://www.sec.gov/Archives/edgar/data/0001065059/000162828026053433/ex991-10q2026_08x05.htm", "quote": "we continue to see healthy demand momentum with consistent constrained supply"},
+    {"who": "US DOE", "doc": "Instructions for Requesting a Waiver for Import of Russian LEU", "date": "2024-05-20", "url": "https://www.energy.gov/sites/default/files/2024-05/FINAL%20DOE%20Waiver%20Request%20Procedures%205.20.24.digital%20sig.KMG_.pdf", "quote": "Any waiver by the Secretary of Energy under this provision will terminate not later than January 1, 2028."},
+    {"who": "US DOE Office of Nuclear Energy", "doc": "Energy Department to Distribute Third Round of HALEU to NASA and Radiant", "date": "2026-07-23", "url": "https://www.energy.gov/ne/articles/energy-department-distribute-third-round-haleu-nasa-and-radiant", "quote": "HALEU is not currently available from domestic suppliers."},
+    {"who": "Urenco", "doc": "Half Year 2026 Unaudited Financial Results", "date": "2026-08-13", "url": "https://www.urenco.com/news/global/2026/half-year-2026-unaudited-financial-results", "quote": "Significant Order Book growth to €27.3 billion, up from €21.3 billion at the end of 2025"},
+    {"who": "Urenco", "doc": "Half Year 2026 Unaudited Financial Results", "date": "2026-08-13", "url": "https://www.urenco.com/news/global/2026/half-year-2026-unaudited-financial-results", "quote": "SWU spot prices were at an average of $200/SWU at the end of June 2026"},
+    {"who": "Urenco", "doc": "Half Year 2026 Unaudited Financial Results", "date": "2026-08-13", "url": "https://www.urenco.com/news/global/2026/half-year-2026-unaudited-financial-results", "quote": "the existing expansion project at our US site is on course for completion in 2027"},
+    {"who": "US EIA", "doc": "Uranium Marketing Annual Report 2025", "date": "2026-07-29", "url": "https://www.eia.gov/uranium/marketing/index.php", "quote": "Foreign-origin SWU included 26% from Russia, 18% from France, 14% from the United Kingdom, and 8% from the Netherlands"},
+    {"who": "US EIA", "doc": "Uranium Marketing Annual Report 2025", "date": "2026-07-29", "url": "https://www.eia.gov/uranium/marketing/index.php", "quote": "The average price paid by the COOs for the 13 million SWU was $108.70 per SWU in 2025"},
+    {"who": "Orano", "doc": "2026 Half-Year Results (Business Wire)", "date": "2026-07-30", "url": "https://www.businesswire.com/news/home/20260730285238/en/", "quote": "confirmed a schedule for an accelerated review of the application in 12 months"},
+    {"who": "Orano", "doc": "2026 half-year results (AMF filing)", "date": "2026-07-31", "url": "https://echanges.dila.gouv.fr/OPENDATA/AMF/BWR/2026/07/FCBWR168965_20260731.pdf", "quote": "the shutdown of factories for nearly four months due to exceptional climatic events at the Malvési site"},
+    {"who": "Cameco", "doc": "2025 Annual Information Form (40-F Ex. 99.1)", "date": "2026-03-19", "url": "https://www.sec.gov/Archives/edgar/data/1009001/000119312526116229/d34605dex991.htm", "quote": "For conversion services, we compete with a small number of primary commercial suppliers to meet global demand."},
+    {"who": "Cameco", "doc": "2025 Annual Information Form (40-F Ex. 99.1)", "date": "2026-03-19", "url": "https://www.sec.gov/Archives/edgar/data/1009001/000119312526116229/d34605dex991.htm", "quote": "We have about 18% of world UF 6primary conversion capacity"},
+    {"who": "Cameco", "doc": "MD&A Q2 2026 (6-K Ex. 99.2)", "date": "2026-07-31", "url": "https://www.sec.gov/Archives/edgar/data/0001009001/000119312526326768/d125942dex992.htm", "quote": "With consistent demand for western conversion services, pricing in both North America and Europe continues to be strong."},
+    {"who": "Cameco", "doc": "MD&A Q2 2026 (6-K Ex. 99.2)", "date": "2026-07-31", "url": "https://www.sec.gov/Archives/edgar/data/0001009001/000119312526326768/d125942dex992.htm", "quote": "The average long-term UF6 conversion price for North America finished the quarter at US$55.50 per kgU as UF6"},
+    {"who": "Cameco", "doc": "MD&A Q4/annual 2022 (6-K)", "date": "2023-02-09", "url": "https://www.sec.gov/Archives/edgar/data/1009001/000119312523029304/d801906dex993.htm", "quote": "conversion prices are at historic highs"},
+    {"who": "Euratom Supply Agency", "doc": "ESA Annual Report 2025", "date": "2026-07-09", "url": "https://euratom-supply.ec.europa.eu/document/download/f5fd9141-e7ae-4074-8c83-9a57f55446a7_en?filename=ESA_Annual_Report_2025.pdf", "quote": "Limited spare capacity and long lead times continued to make the fuel-cycle market vulnerable to supply shocks"},
+    {"who": "Euratom Supply Agency", "doc": "ESA Annual Report 2025", "date": "2026-07-09", "url": "https://euratom-supply.ec.europa.eu/document/download/f5fd9141-e7ae-4074-8c83-9a57f55446a7_en?filename=ESA_Annual_Report_2025.pdf", "quote": "In 2025, the EU uranium conversion market saw relatively stable supply."},
+    {"who": "Solstice Advanced Materials", "doc": "FY2025 Form 10-K", "date": "2026-02-12", "url": "https://www.sec.gov/Archives/edgar/data/2064953/000206495326000008/sols-20251231.htm", "quote": "the Company currently expects supply and demand in this area to be balanced in the long term"},
+    {"who": "Solstice Advanced Materials", "doc": "Q2 2026 earnings release (8-K Ex. 99.1)", "date": "2026-07-30", "url": "https://www.sec.gov/Archives/edgar/data/0002064953/000206495326000085/exhibit991-earningsrelease.htm", "quote": "Nuclear revenues increased 27% in the second quarter of 2026 compared to the second quarter of 2025"},
+    {"who": "Solstice Advanced Materials", "doc": "Press release on conversion expansion", "date": "2026-02-10", "url": "https://www.chemicalonline.com/doc/solstice-advanced-materials-announces-expansion-uranium-conversion-production-support-strong-nuclear-industry-0001", "quote": "projected to produce over 10 kilotonnes (10 kt) of uranium hexafluoride (UF6) in 2026"},
+    {"who": "Japan Steel Works", "doc": "Medium-Term Management Plan JGP2028, Update 2026", "date": "2026-07-13", "url": "https://finance-frontend-pc-dist.west.edge.storage-yahoo.jp/disclosure/20260713/20260710591715.pdf", "quote": "Double production capacity for nuclear power products by FY2028."},
+    {"who": "Framatome", "doc": "Le point de vue de Framatome (CNDP debate contribution no. 6)", "date": "2025-11-01", "url": "https://www.debatpublic.fr/sites/default/files/2025-11/SDDR-CA06-Framatome.pdf", "quote": "fournisseurs étrangers seuls en mesure de les réaliser"}
+  ],
+  "notes": "All quotes are fetch-tool excerpts (quote-marked, ~125 char cap); raw-page string-matching was blocked by the egress proxy. Dates 2026-02-20 (Centrus 10-K), 2026-02-12 (Solstice 10-K) and 2025-11-01 (Framatome) are approximate: month known, day estimated."
+}
+```</pre>
+</section>
+
+</div>
+<script>
+(function(){
+  var b=document.getElementById('copy-ledger');
+  b.addEventListener('click',function(){
+    var el=document.getElementById('ledger');
+    var t=el.textContent.replace(/^```json\n?/,'').replace(/\n?```\s*$/,'');
+    function sel(){var r=document.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected. Press Ctrl+C';}
+    try{navigator.clipboard.writeText(t).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy JSON'},1600)},sel);}catch(e){sel();}
+  });
+})();
+</script>
+
+</body></html>

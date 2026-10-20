@@ -1,0 +1,370 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Chokepoint Watch: Robotics</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: single reading column, a ledger-like board of chokepoint dossiers; evidence grades shown as stamped tags */
+:root{
+  --bg:#f3f5f6; --surface:#ffffff; --fg:#17212a; --muted:#56636e; --line:#d4dbe0;
+  --accent:#1f5f7a; --accent-soft:#e2eef3;
+  --p:#1d6b46; --p-bg:#e3f2ea; --l:#8a5a00; --l-bg:#fbf0d9; --x:#a33a2b; --x-bg:#f8e3df; --map:#5b5f8f; --map-bg:#e9e9f5;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10161b; --surface:#172028; --fg:#e3e9ee; --muted:#97a5b0; --line:#2b3843;
+  --accent:#6fb3d2; --accent-soft:#1b2d38;
+  --p:#7fd1a4; --p-bg:#173226; --l:#e9b75a; --l-bg:#3a2c12; --x:#f09a8b; --x-bg:#3d1f1a; --map:#aeb2e6; --map-bg:#25263f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10161b; --surface:#172028; --fg:#e3e9ee; --muted:#97a5b0; --line:#2b3843;
+  --accent:#6fb3d2; --accent-soft:#1b2d38;
+  --p:#7fd1a4; --p-bg:#173226; --l:#e9b75a; --l-bg:#3a2c12; --x:#f09a8b; --x-bg:#3d1f1a; --map:#aeb2e6; --map-bg:#25263f; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--body);}
+.wrap{max-width:860px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:40px}
+h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:2.1rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.35rem;font-weight:700;border-bottom:2px solid var(--fg);padding-bottom:6px}
+h3{font-size:1.15rem;font-weight:700}
+h4{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+p{margin:0}
+section{display:flex;flex-direction:column;gap:16px;min-width:0}
+a{color:var(--accent);overflow-wrap:anywhere}
+.eyebrow{font:600 .75rem var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.meta{display:flex;flex-wrap:wrap;gap:8px 24px;font:.85rem var(--mono);color:var(--muted)}
+.meta b{color:var(--fg);font-weight:600}
+.summary{background:var(--accent-soft);border-left:4px solid var(--accent);padding:14px 18px;display:flex;flex-direction:column;gap:6px}
+.summary p{max-width:70ch}
+.summary span{font:600 .72rem var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-right:6px}
+.tag{display:inline-block;font:600 .7rem/1 var(--mono);padding:3px 6px;border-radius:3px;letter-spacing:.04em;vertical-align:1px;white-space:nowrap}
+.P{color:var(--p);background:var(--p-bg)} .L{color:var(--l);background:var(--l-bg)} .X{color:var(--x);background:var(--x-bg)} .M{color:var(--map);background:var(--map-bg)} .U{color:var(--muted);border:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:.85rem;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.card-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline}
+.id{font:600 .8rem var(--mono);color:var(--muted)}
+.status{font:600 .72rem var(--mono);text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:3px;background:var(--accent-soft);color:var(--accent)}
+ol.chain{margin:0;padding-left:1.4em;display:flex;flex-direction:column;gap:4px}
+.steps{display:grid;grid-template-columns:9.5rem 1fr;gap:10px 16px}
+.steps dt{font-weight:600}
+.steps dd{margin:0;min-width:0;display:flex;flex-direction:column;gap:6px}
+@media (max-width:560px){.steps{grid-template-columns:1fr}.steps dd{margin-bottom:8px}}
+blockquote{margin:0;padding:6px 12px;border-left:3px solid var(--p);background:var(--bg);font-size:.92rem}
+blockquote cite{display:block;font:.75rem var(--mono);color:var(--muted);font-style:normal;margin-top:4px}
+.verdicts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:640px){.verdicts{grid-template-columns:1fr}}
+.verdict{border-top:3px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.verdict strong{font-family:var(--display);font-size:1rem}
+.verdict.amber{border-color:var(--l)} .verdict.green{border-color:var(--p)} .verdict.red{border-color:var(--x)} .verdict.grey{border-color:var(--muted)}
+ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px}
+.pred{border:1px dashed var(--accent);border-radius:4px;padding:10px 14px;font-size:.93rem}
+.pred .id{margin-right:6px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 .72rem var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px;overflow-x:auto;font:.78rem/1.5 var(--mono);margin:0}
+.note{font-size:.88rem;color:var(--muted)}
+.empty{padding:14px 18px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:14px">
+  <div class="eyebrow">Supply-chain research · robotics manufacturing</div>
+  <h1>Chokepoint Watch: Robotics</h1>
+  <div class="meta">
+    <div>As of <b>2026-10-19</b></div>
+    <div>Edition <b>1</b></div>
+    <div>Previous edition: <b>first edition</b></div>
+  </div>
+  <div class="summary">
+    <p><span>Changed</span>First edition. No earlier edition was found, so this run opens the board with two chokepoints and one rejection.</p>
+    <p><span>Top</span>rob-1: Tb/Dy-bearing NdFeB magnets and heavy rare earths under China's April 2025 export licensing (MOFCOM No. 18), which is still in force.</p>
+    <p><span>Next</span>Tesla Q3 results on 2026-10-21, then the 2026-11-10 expiry of MOFCOM's suspension (No. 70) of the October 2025 rare-earth controls.</p>
+  </div>
+  <p class="note">Evidence, not a trade: this page has no buy or sell views, no sizing, and no share prices.</p>
+  <div class="legend">
+    <span><span class="tag P">P</span> primary</span>
+    <span><span class="tag L">L</span> lead</span>
+    <span><span class="tag M">map</span> analyst's map, not evidence</span>
+    <span><span class="tag X">contradicted</span></span>
+    <span><span class="tag U">unexamined</span></span>
+  </div>
+</header>
+
+<section>
+  <h2>Predictions settled this week</h2>
+  <p class="empty">None. This is the first edition, so no predictions have come due.</p>
+</section>
+
+<section>
+  <h2>The board</h2>
+
+  <!-- ROB-1 -->
+  <article class="card">
+    <div class="card-head">
+      <div><div class="id">rob-1 · deep-dive</div><h3>Tb/Dy-bearing NdFeB magnets and heavy rare earths under China's export licensing</h3></div>
+      <span class="status">New</span>
+    </div>
+    <p><b>Layer:</b> heavy rare-earth (Dy, Tb) metal, alloy and oxide, and NdFeB magnet material that contains Tb or Dy, as named in MOFCOM/GACC Announcement 2025 No. 18. These are high-coercivity magnet grades used in servo and frameless torque motors.</p>
+
+    <div><h4>Chain</h4>
+    <ol class="chain">
+      <li>Factory automation demand drives industrial robot orders. JARA reports Apr–Jun 2026 orders of ¥312.7bn, +40.0% y/y. <span class="tag P">P</span></li>
+      <li>Each robot joint uses a servo or frameless torque motor. <span class="tag M">map</span></li>
+      <li>Compact high-temperature motors use sintered NdFeB with Dy/Tb added for coercivity. <span class="tag M">map</span></li>
+      <li>China requires a licence to export Tb/Dy-bearing NdFeB magnet material and Dy/Tb metal, alloy, oxide and compounds (No. 18). <span class="tag P">P</span></li>
+      <li>Outside China, Dy/Tb separation is small. Lynas is the disclosed producer, but it gives no annual capacity. <span class="tag P">P</span> (no tonnage)</li>
+    </ol></div>
+
+    <div><h4>Six steps</h4>
+    <dl class="steps">
+      <dt>Constraint <span class="tag P">primary</span></dt>
+      <dd><p>The constraint is an export licence for each shipment of the No. 18 items (unit: licensed shipments, in tonnes). The control instrument is primary. Its effect on how many tonnes are released is not measured here.</p>
+        <blockquote>"经国务院批准，决定对下列物项实施出口管制：" … "本公告自发布之日起正式实施。"<cite>MOFCOM &amp; GACC, Announcement 2025 No. 18, 2025-04-04 · <a href="https://www.mofcom.gov.cn/zfxxgk/fdzdgknr/ztfl/dwmygl/art/2025/art_99cf6e4b536d4a6796e6e2ed6d79f12c.html">mofcom.gov.cn</a> · item list covers Sm, Gd, Tb, Dy, Lu, Sc and Y as metal/alloy, oxide and compound, including NdFeB magnet material containing Tb or Dy</cite></blockquote>
+        <blockquote>No. 18 is not among the announcements suspended in Nov 2025. No. 70 suspends only Nos. 55–58 and 61–62: "自即日起至2026年11月10日"<cite>MOFCOM &amp; GACC, Announcement 2025 No. 70, 2025-11-07 · <a href="https://www.mofcom.gov.cn/zwgk/zcfb/art/2025/art_b1ec77dd3f0d4762952904df7cdaadec.html">mofcom.gov.cn</a></cite></blockquote></dd>
+
+      <dt>Demand vs supply <span class="tag L">lead</span></dt>
+      <dd><p>Robot demand is <b>ordered</b>, not hoped for: JARA orders were +40% y/y <span class="tag P">P</span>, IFR reports 2025 installations of 600,000+ <span class="tag P">P</span>, and Yaskawa robot orders were +33% <span class="tag L">L</span>. The US government says shipments are below "appropriate levels", but it says this of "rare earths" in general. Under the layer rule, that supports no magnet-layer step. Lynas reports strong demand for Dy/Tb, which shows demand is strong, not that it exceeds qualified capacity.</p>
+        <blockquote>"…with the goal of ensuring shipment levels return to appropriate levels." "The next exchange will occur by November 2026."<cite>The White House, fact sheet on the China state visit, 2026-09-25 · <a href="https://www.whitehouse.gov/fact-sheets/2026/09/fact-sheet-president-donald-j-trump-advances-a-fair-and-reciprocal-relationship-with-china-while-hosting-historic-state-visit/">whitehouse.gov</a></cite></blockquote>
+        <blockquote>"This will assist Lynas to meet the strong demand for Dy and Tb from outside China customers."<cite>Lynas Rare Earths, Quarterly Report, quarter to 30 Jun 2026, 2026-07-22 · <a href="https://announcements.asx.com.au/asxpdf/20260722/pdf/071y3m2j4fp9px.pdf">ASX</a></cite></blockquote></dd>
+
+      <dt>Relief <span class="tag P">primary</span> (magnet layer only)</dt>
+      <dd><p>New magnet capacity outside China is real at the <b>magnet</b> layer: eVAC has about 2,000 t/yr and USA Rare Earth is going from 600 to 1,200 mtpa; Neo Narva's about 2,000 t/yr is <span class="tag L">L</span> only. None of these documents names its Dy/Tb feed, and no Dy/Tb separation capacity is disclosed in tonnes per year. Customer qualification of motor-grade magnets typically takes 12–24 months <span class="tag M">map</span>, and that is the binding term.</p>
+        <blockquote>"The facility has a nameplate capacity of about 2,000 metric tons per year, with room to scale in the coming years."<cite>Vacuumschmelze, press release 04/2026 "Opening Ceremony Sumter", 2026-07-16 · <a href="https://vacuumschmelze.com/02_Pressreleases/2026/2026-07-16_Opening%20Ceremony%20Sumter.pdf">vacuumschmelze.com</a></cite></blockquote>
+        <blockquote>"Phase 1a is expected to ramp to a run rate capacity of 600 mtpa by the end of Q4 2026." "USAR anticipates total active production capacity at Stillwater of 1,200 mtpa in Q1 2027."<cite>USA Rare Earth, Stillwater Phase 1a commissioning release, 2026-03-26 · <a href="https://usare.gcs-web.com/news-releases/news-release-details/usa-rare-earth-achieves-major-operational-and-strategic">usare.gcs-web.com</a></cite></blockquote>
+        <blockquote>"Magnet qualification at Independence advanced through additional deliveries for customer qualification" … "while construction of our 10X facility accelerated."<cite>MP Materials, Q2 2026 results (8-K Ex. 99), 2026-08-06 · <a href="https://www.sec.gov/Archives/edgar/data/0001801368/000180136826000047/mpmcq22026er.htm">sec.gov</a> · no magnet tonnage given</cite></blockquote></dd>
+
+      <dt>Control <span class="tag U">unexamined</span></dt>
+      <dd><p>The holder of the constraint is the Chinese state, which issues the licences. China's share of Dy/Tb separation and of sintered NdFeB output is very high <span class="tag M">map</span>, but no primary share figure was opened this run.</p></dd>
+
+      <dt>Capture <span class="tag L">lead</span></dt>
+      <dd><p>The state captures leverage, not margin. Producers outside China see higher prices: Lynas's average selling price hit a record A$98.2/kg <span class="tag P">P</span>. That figure covers all products, so it is not Dy/Tb-specific and does not show who books magnet-layer economics.</p>
+        <blockquote>"The average selling price across all rare earth products increased to a record A$98.2/kg in the June quarter."<cite>Lynas, Quarterly Report, 2026-07-22 · <a href="https://announcements.asx.com.au/asxpdf/20260722/pdf/071y3m2j4fp9px.pdf">ASX</a></cite></blockquote></dd>
+
+      <dt>Invalidation <span class="tag P">primary</span></dt>
+      <dd><p>The Nov 2025 deal suspended the wider October 2025 package. The US also states that China would issue general licences. Those licences would ease No. 18 flows if they were issued, but no MOFCOM general-licence text was found.</p>
+        <blockquote>"China will issue general licenses valid for exports of rare earths, gallium, germanium, antimony, and graphite…" "The general license means the de facto removal of controls China imposed since 2023."<cite>The White House, fact sheet on the US–China deal, 2025-11-01 · <a href="https://www.whitehouse.gov/fact-sheets/2025/11/fact-sheet-president-donald-j-trump-strikes-deal-on-economic-and-trade-relations-with-china/">whitehouse.gov</a> · US characterisation, "rare earths" layer only</cite></blockquote></dd>
+    </dl></div>
+
+    <div><h4>Verdicts</h4>
+    <div class="verdicts">
+      <div class="verdict amber"><strong>Scarcity: plausible, lead-grade</strong><span class="note">The control is primary and in force. The tonnage shortfall at the magnet layer is unproven.</span></div>
+      <div class="verdict amber"><strong>Capture: state-held</strong><span class="note">The leverage sits with MOFCOM licensing. Producers outside China gain on price, but the evidence is not layer-specific.</span></div>
+      <div class="verdict grey"><strong>Investability: unresolved</strong><span class="note">The holder is a state. Listed producers outside China (Lynas, MP, USAR) exist, but their dilution and balance sheets were not checked.</span></div>
+    </div></div>
+
+    <div><h4>Bear checks</h4>
+    <ul>
+      <li><b>Dilution:</b> unexamined for MP, USAR or Lynas this run.</li>
+      <li><b>GAAP margins:</b> unexamined.</li>
+      <li><b>Customer concentration:</b> MP lists its Apple agreement and the DoW price-protection agreement in its risk factors <span class="tag P">P</span>. The share of revenue was not checked.</li>
+      <li><b>Cash vs debt:</b> unexamined.</li>
+      <li><b>Second source:</b> yes at the magnet layer (eVAC, USAR) <span class="tag P">P</span>. Thin at the Dy/Tb layer, where no tonnage is disclosed.</li>
+      <li><b>Bypass architecture:</b> no robot-specific release on reduced- or zero-rare-earth motors was found. Searched; none.</li>
+      <li><b>Pull-forward / humanoid volumes:</b> this chokepoint does not rely on humanoids. Industrial orders are up, but some may be restocking ahead of 2026-11-10 <span class="tag M">map</span>.</li>
+      <li><b>Policy reversal:</b> this is the main risk. An extension of No. 70 plus general licences for No. 18 items would ease it sharply. The next US–China exchange is due "by November 2026" <span class="tag P">P</span>.</li>
+      <li><b>Layer error:</b> the US fact sheets speak of "rare earths" and support no magnet step. The magnet-layer claim rests on No. 18 alone.</li>
+    </ul></div>
+
+    <div><h4>Kill criteria</h4>
+    <ul>
+      <li>By 2026-11-30, MOFCOM issues general licences that cover No. 18 items (Tb/Dy-bearing NdFeB material, Dy/Tb metal and oxide) for US, EU or Japan end users. This would mean downgrade, or kill if paired with the next item.</li>
+      <li>GACC data show NdFeB magnet exports (HS 8505.11) at or above their 2024 monthly average for three consecutive months.</li>
+      <li>A robot or servo maker states in a filing or on a call that magnet supply has normalised, or qualifies Dy/Tb-free grades in servo motors.</li>
+    </ul></div>
+
+    <div><h4>Predictions</h4>
+    <div class="pred"><span class="id">rob-p1</span>By 2026-11-30, MOFCOM will have published an announcement that extends or replaces the suspension in Announcement 2025 No. 70 beyond 2026-11-10, so the October 2025 measures (Nos. 55–58 and 61–62) do not take effect as written. Settled by a MOFCOM/GACC announcement.</div>
+    <div class="pred" style="margin-top:8px"><span class="id">rob-p2</span>By 2027-03-31, USA Rare Earth will report total active NdFeB magnet production capacity at Stillwater of at least 1,200 mtpa. Settled by its own Q4 2026 results release or Form 10-K.</div></div>
+
+    <p><b>Status since last edition:</b> new.</p>
+  </article>
+
+  <!-- ROB-2 -->
+  <article class="card">
+    <div class="card-head">
+      <div><div class="id">rob-2 · deep-dive (watch)</div><h3>Planetary roller screws for humanoid linear actuators</h3></div>
+      <span class="status">New · not qualified</span>
+    </div>
+    <p><b>Layer:</b> actuator component (inverted and standard planetary roller screws), plus the internal thread-grinding capacity that makes them. It stays on the board as a watch item, because humanoid demand is not yet ordered at volume.</p>
+
+    <div><h4>Chain</h4>
+    <ol class="chain">
+      <li>Humanoid programmes: Tesla says first-generation Optimus lines "are being installed in anticipation of production in 2026". <span class="tag L">L</span></li>
+      <li>Linear actuators are about 30% of the humanoid BOM in Schaeffler's view and use planetary roller screws. <span class="tag P">P</span></li>
+      <li>Roller screws need precision internal thread grinding. <span class="tag M">map</span></li>
+      <li>Chinese screw suppliers are at the sample stage. <span class="tag L">L</span></li>
+    </ol></div>
+
+    <div><h4>Six steps</h4>
+    <dl class="steps">
+      <dt>Constraint <span class="tag L">lead</span></dt>
+      <dd><p>The unit would be qualified roller-screw sets per year. Trade press says domestic screws have passed "0 to 1" but face three hurdles to "1 to 10" (Jiemian, about 2026-09-01) <span class="tag L">L</span>.</p></dd>
+      <dt>Demand vs supply <span class="tag X">contradicted</span></dt>
+      <dd><p>Demand is mostly <b>prototype or aspirational</b>. Schaeffler reports prototype orders, not series volume. Wuxi Best's humanoid roller-screw revenue is samples only (RMB 223k, 0.03% of H1 revenue) <span class="tag L">L</span>. UBTech delivered about 600 Walker S2 units in H1 <span class="tag L">L</span>, which is ordered but small.</p>
+        <blockquote>"28 prototype orders across 14 global Humanoid OEMs" · "Schaeffler aims to achieve a market share of >10 % by 2030 in the rapidly growing humanoid market"<cite>Schaeffler, "Powering Humanoid Motion" investor presentation, 2026-01-12 · <a href="https://www.schaeffler.com/remotemedien/media/_shared_media_rwd/08_investor_relations/presentations/20260112_schaeffler_powering_humanoid_motion.pdf">schaeffler.com</a></cite></blockquote></dd>
+      <dt>Relief <span class="tag L">lead</span></dt>
+      <dd><p>Many entrants are tooling up. Wuzhou Xinchun reports a planned 980k sets/yr in Xinchang (trade press) <span class="tag L">L</span>, and Qinchuan says it has P0-grade internal thread grinders <span class="tag L">L</span>. If volume does arrive, qualification time, not machine count, is likely to bind <span class="tag M">map</span>.</p></dd>
+      <dt>Control <span class="tag L">lead</span></dt>
+      <dd><p>Incumbents are GSA, Rollvis and Ewellix (Schaeffler) <span class="tag M">map</span>. Reports that Optimus Gen 2 uses GSA screws are trade press <span class="tag L">L</span>.</p></dd>
+      <dt>Capture <span class="tag U">unexamined</span></dt>
+      <dd><p>Nothing to capture until series orders exist.</p></dd>
+      <dt>Invalidation <span class="tag P">primary</span></dt>
+      <dd><p>Unitree in-sources its core components, which shifts the actuator decision to the robot maker.</p>
+        <blockquote>"公司坚持高性能通用机器人及核心部组件全栈自研" (full-stack in-house R&amp;D of robots and core components)<cite>Unitree, STAR Market draft prospectus (上会稿), 2026-05-25 · <a href="https://dataclouds.cninfo.com.cn/sjother2/documents/2026/2026-05-25/3d7fc0538abe281340a95c9c77a90525.pdf">cninfo</a></cite></blockquote></dd>
+    </dl></div>
+
+    <div><h4>Verdicts</h4>
+    <div class="verdicts">
+      <div class="verdict grey"><strong>Scarcity: not shown</strong><span class="note">Supply is at samples, but so is demand.</span></div>
+      <div class="verdict grey"><strong>Capture: not shown</strong><span class="note">There are no series contracts.</span></div>
+      <div class="verdict grey"><strong>Investability: n/a</strong><span class="note">Exposure is a tiny revenue share at listed suppliers.</span></div>
+    </div></div>
+
+    <div><h4>Bear checks</h4>
+    <ul>
+      <li><b>Dilution, GAAP margins, cash vs debt:</b> unexamined.</li>
+      <li><b>Customer concentration:</b> likely high. Tesla is the reference customer <span class="tag M">map</span>.</li>
+      <li><b>Second source:</b> many Chinese entrants are sampling <span class="tag L">L</span>. That argues against a lasting chokepoint.</li>
+      <li><b>Bypass architecture:</b> no primary evidence of a switch to ball screws was found. In-sourcing (Unitree) is primary.</li>
+      <li><b>Humanoid volumes that don't arrive:</b> this is the main risk. Tesla's Q3 2026 production release has no Optimus figure <span class="tag P">P</span>.</li>
+      <li><b>Policy reversal:</b> not applicable, except through magnets in the actuator motor (see rob-1).</li>
+      <li><b>Layer error:</b> "screw" revenue at suppliers often mixes ball and roller screws. Only roller-specific disclosures are used here.</li>
+    </ul></div>
+
+    <div><h4>Kill criteria</h4>
+    <ul>
+      <li>By 2027-04-19, no humanoid OEM has disclosed in a filing, release or call a series production rate of at least 10,000 units/yr or a roller-screw supply contract at series volume. Then kill this as aspirational.</li>
+      <li>Two or more non-incumbent suppliers announce batch qualification at a humanoid OEM. A second source would then exist.</li>
+      <li>A leading humanoid OEM discloses a switch to ball screws or another bypass in its linear actuators.</li>
+    </ul></div>
+
+    <div><h4>Predictions</h4>
+    <div class="pred"><span class="id">rob-p3</span>By 2027-02-15, neither Tesla's Q3 2026 nor its Q4 2026 update or earnings call will state cumulative Optimus production above 1,000 units. Settled by Tesla's quarterly update and call.</div></div>
+
+    <p><b>Status since last edition:</b> new.</p>
+  </article>
+</section>
+
+<section>
+  <h2>Rejected</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Candidate</th><th>Reason</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>Strain-wave (harmonic) and RV reducers</td><td>Demand is rising, but the supplier is not acting capacity-bound. HDS raised guidance on broad demand while cutting Q1 capex about 77% y/y, with no capacity or utilisation constraint stated. Leaderdrive says capacity ramped substantially <span class="tag L">L</span>.</td><td><span class="tag P">P</span> Harmonic Drive Systems, Q1 FY3/2027 results presentation, 2026-08-07: "…減速装置及びメカトロニクス製品の需要が増加していることから、売上高が前回予想額を上回ると見込み、上方修正" · <a href="https://www2.jpx.co.jp/disc/63240/140120260807515115.pdf">jpx.co.jp</a></td></tr>
+      <tr><td>Thread and gear grinding machines (standalone)</td><td>There is no order, backlog or lead-time evidence. Domestic grinders are being offered. Folded into rob-2.</td><td><span class="tag L">L</span> Qinchuan Machine Tool via Sina, 2026-06-11</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Cross-theme hooks</h2>
+  <ul>
+    <li>Tb/Dy-bearing NdFeB also feeds defence actuators and guidance, EV traction motors and wind generators. eVAC names automotive traction and a DLA agreement <span class="tag P">P</span>.</li>
+    <li>Precision reducers and servo motion are shared with semiconductor equipment. HDS cites chip-equipment demand alongside robots <span class="tag P">P</span>.</li>
+    <li>Precision roller screws and thread grinding are shared with aerospace and defence electromechanical actuation and with machine tools <span class="tag M">map</span>.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Next questions</h2>
+  <ul>
+    <li>Does MOFCOM extend, replace or let lapse the No. 70 suspension, and does it issue general licences for No. 18 items? Look at the MOFCOM announcements index and the export-control portal around 2026-11-07 to 11-10.</li>
+    <li>What do NdFeB magnet exports (HS 8505.11) look like for September and October 2026? Look at GACC data on stats.customs.gov.cn, released around the 20th of each month.</li>
+    <li>Does Tesla give an Optimus volume or name actuator suppliers? Look at the Q3 2026 update and call on 2026-10-21.</li>
+    <li>What are MP Materials' 10X timing, magnet tonnage and heavy rare-earth separation figures, and what is Lynas's Dy/Tb tonnage? Look at MP's Q3 2026 results (early Nov) and Lynas's September 2026 quarterly report on the ASX.</li>
+    <li>Does HDS show backlog and book-to-bill tightening? Look at its Q2 FY3/2027 tanshin on TDnet (early Nov), and also check six-axis F/T sensors, which were not examined this week.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Run notes</h2>
+  <ul>
+    <li>Step 0: the artifact list was searched (all 64 artifacts). No "Chokepoint Watch: Robotics" exists, so this is edition 1.</li>
+    <li>Pages were opened by research subagents through a fetch tool that returns verbatim fragments, sometimes cut at about 125 characters. Quotes are copied as returned, and long quotes may be fragments of the source sentence.</li>
+    <li>MOFCOM's export-control portal (exportcontrol.mofcom.gov.cn) was blocked by robots.txt or the proxy. No MOFCOM general-licence document was found, and no 2026 MOFCOM announcement on No. 70 was found.</li>
+    <li>Not reached: GACC 2026 magnet export data; BIS, Federal Register and DoD/DOE 2026 magnet awards; MP's Q2 call transcript; Lynas's FY2026 annual report; HDS's backlog table; the Nabtesco, Leaderdrive, Yaskawa and UBTech primary filings; Tesla's own Q2 2026 update PDF; NSK, THK, Timken, SKF and Shanghai Beite.</li>
+    <li>Unverified: Lynas's Dy/Tb output of 19 t in the quarter (trade press); Neo Narva's 2,000 t/yr (trade press); Leaderdrive's subsidiary figures; JARA's production growth figure.</li>
+    <li>Not examined: six-axis F/T and tactile sensors, dexterous hands, robot compute, batteries, encoders, heat treatment and test equipment.</li>
+    <li>Tool calls: about 84 (four research subagents used 76, the main run about 8). This is slightly over the 80 budget.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Ledger</h2>
+  <p class="note">Machine-readable state for next week's run and the council. IDs are stable.</p>
+<pre>```json
+{
+  "theme": "robotics",
+  "as_of": "2026-10-19",
+  "edition": 1,
+  "chokepoints": [
+    {"id": "rob-1", "name": "Tb/Dy-bearing NdFeB magnets and heavy rare earths under China export licensing (MOFCOM 2025 No. 18)",
+     "layer": "heavy RE metal/alloy/oxide and Tb/Dy-bearing NdFeB magnet material (export licence)", "status": "new",
+     "verdicts": {"scarcity": "plausible, lead-grade: control primary and in force; magnet-layer tonnage shortfall unproven",
+                  "capture": "state-held leverage (MOFCOM licensing); ex-China producers gain on price, not layer-specific",
+                  "investability": "unresolved: holder is a state; ex-China listed producers exist, dilution and balance sheets unchecked"},
+     "holders": ["PRC state (MOFCOM/GACC licensing)", "Chinese magnet and separation producers (unnamed, map)", "Lynas Rare Earths", "MP Materials", "eVAC (Vacuumschmelze)", "USA Rare Earth", "Neo Performance Materials"],
+     "kill_criteria": ["By 2026-11-30 MOFCOM issues general licences covering No. 18 items for US/EU/Japan end users (downgrade; kill if paired with next)",
+                       "GACC NdFeB magnet exports (HS 8505.11) at or above 2024 monthly average for three consecutive months",
+                       "A robot or servo maker states in a filing or call that magnet supply has normalised, or qualifies Dy/Tb-free grades in servo motors"],
+     "first_seen": "2026-10-19"},
+    {"id": "rob-2", "name": "Planetary roller screws for humanoid linear actuators (incl. internal thread grinding)",
+     "layer": "actuator component (roller screw) and precision grinding capacity", "status": "new",
+     "verdicts": {"scarcity": "not shown: supply and demand both at sample/prototype stage",
+                  "capture": "not shown: no series contracts",
+                  "investability": "n/a: tiny revenue share at listed suppliers"},
+     "holders": ["GSA (private, map)", "Rollvis (map)", "Schaeffler/Ewellix", "Wuxi Best Precision (300580)", "Wuzhou Xinchun (603667)", "Hengli Hydraulic (601100)"],
+     "kill_criteria": ["By 2027-04-19 no humanoid OEM discloses series rate of at least 10,000 units/yr or a series-volume roller-screw contract (kill as aspirational)",
+                       "Two or more non-incumbent suppliers announce batch qualification at a humanoid OEM",
+                       "A leading humanoid OEM discloses a switch to ball screws or another bypass in linear actuators"],
+     "first_seen": "2026-10-19"}
+  ],
+  "predictions": [
+    {"id": "rob-p1", "chokepoint": "rob-1", "made": "2026-10-19", "deadline": "2026-11-30",
+     "text": "By 2026-11-30, MOFCOM will have published an announcement that extends or replaces the suspension in Announcement 2025 No. 70 beyond 2026-11-10, so the October 2025 measures (Nos. 55-58 and 61-62) do not take effect as written.",
+     "source_type": "MOFCOM/GACC announcement", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "rob-p2", "chokepoint": "rob-1", "made": "2026-10-19", "deadline": "2027-03-31",
+     "text": "By 2027-03-31, USA Rare Earth will report total active NdFeB magnet production capacity at Stillwater of at least 1,200 mtpa.",
+     "source_type": "USA Rare Earth Q4 2026 results release or Form 10-K", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "rob-p3", "chokepoint": "rob-2", "made": "2026-10-19", "deadline": "2027-02-15",
+     "text": "By 2027-02-15, neither Tesla's Q3 2026 nor its Q4 2026 update or earnings call will state cumulative Optimus production above 1,000 units.",
+     "source_type": "Tesla quarterly update and earnings call", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null}
+  ],
+  "rejected": [
+    {"name": "Strain-wave (harmonic) and RV reducers", "reason": "Demand rising but HDS raised guidance while cutting Q1 capex about 77% y/y, no capacity constraint stated (HDS Q1 FY3/2027 presentation, 2026-08-07)", "date": "2026-10-19"},
+    {"name": "Thread and gear grinding machines (standalone)", "reason": "No order, backlog or lead-time evidence; domestic grinders being offered (Qinchuan, lead); folded into rob-2", "date": "2026-10-19"}
+  ],
+  "cross_theme_hooks": [
+    "Tb/Dy-bearing NdFeB also feeds defence, EV traction motors and wind generators",
+    "Precision reducers and servo motion shared with semiconductor equipment (HDS cites chip-equipment demand)",
+    "Roller screws and thread grinding shared with aerospace/defence electromechanical actuation and machine tools"
+  ],
+  "primary_sources": [
+    {"who": "MOFCOM & GACC", "doc": "Announcement 2025 No. 18 (export controls on medium/heavy rare-earth items)", "date": "2025-04-04", "url": "https://www.mofcom.gov.cn/zfxxgk/fdzdgknr/ztfl/dwmygl/art/2025/art_99cf6e4b536d4a6796e6e2ed6d79f12c.html", "quote": "经国务院批准，决定对下列物项实施出口管制："},
+    {"who": "MOFCOM", "doc": "Announcement 2025 No. 62 (rare-earth technologies), embassy copy", "date": "2025-10-09", "url": "https://fr.china-embassy.gov.cn/zgyw/202510/t20251009_11724518.htm", "quote": "稀土开采、冶炼分离、金属冶炼、磁材制造、稀土二次资源回收利用相关技术及其载体"},
+    {"who": "MOFCOM & GACC", "doc": "Announcement 2025 No. 70 (suspension of Nos. 55-58, 61-62)", "date": "2025-11-07", "url": "https://www.mofcom.gov.cn/zwgk/zcfb/art/2025/art_b1ec77dd3f0d4762952904df7cdaadec.html", "quote": "自即日起至2026年11月10日"},
+    {"who": "The White House", "doc": "Fact Sheet: US-China deal on economic and trade relations", "date": "2025-11-01", "url": "https://www.whitehouse.gov/fact-sheets/2025/11/fact-sheet-president-donald-j-trump-strikes-deal-on-economic-and-trade-relations-with-china/", "quote": "China will issue general licenses valid for exports of rare earths, gallium, germanium, antimony, and graphite…"},
+    {"who": "The White House", "doc": "Fact Sheet: deals with China", "date": "2026-05-17", "url": "https://www.whitehouse.gov/fact-sheets/2026/05/fact-sheet-president-donald-j-trump-secures-historic-deals-with-china-delivering-for-american-workers-farmers-and-industry/", "quote": "China will address U.S. concerns regarding supply chain shortages related to rare earths and other critical minerals"},
+    {"who": "The White House", "doc": "Fact Sheet: China state visit", "date": "2026-09-25", "url": "https://www.whitehouse.gov/fact-sheets/2026/09/fact-sheet-president-donald-j-trump-advances-a-fair-and-reciprocal-relationship-with-china-while-hosting-historic-state-visit/", "quote": "The next exchange will occur by November 2026."},
+    {"who": "MP Materials", "doc": "Q2 2026 results (8-K Ex. 99)", "date": "2026-08-06", "url": "https://www.sec.gov/Archives/edgar/data/0001801368/000180136826000047/mpmcq22026er.htm", "quote": "Magnet qualification at Independence advanced through additional deliveries for customer qualification"},
+    {"who": "Lynas Rare Earths", "doc": "Quarterly Report, quarter to 30 June 2026", "date": "2026-07-22", "url": "https://announcements.asx.com.au/asxpdf/20260722/pdf/071y3m2j4fp9px.pdf", "quote": "This will assist Lynas to meet the strong demand for Dy and Tb from outside China customers."},
+    {"who": "Vacuumschmelze (eVAC)", "doc": "Press release 04/2026, Opening Ceremony Sumter", "date": "2026-07-16", "url": "https://vacuumschmelze.com/02_Pressreleases/2026/2026-07-16_Opening%20Ceremony%20Sumter.pdf", "quote": "The facility has a nameplate capacity of about 2,000 metric tons per year, with room to scale in the coming years."},
+    {"who": "USA Rare Earth", "doc": "Stillwater Phase 1a commissioning release", "date": "2026-03-26", "url": "https://usare.gcs-web.com/news-releases/news-release-details/usa-rare-earth-achieves-major-operational-and-strategic", "quote": "Phase 1a is expected to ramp to a run rate capacity of 600 mtpa by the end of Q4 2026."},
+    {"who": "Schaeffler", "doc": "Powering Humanoid Motion investor presentation", "date": "2026-01-12", "url": "https://www.schaeffler.com/remotemedien/media/_shared_media_rwd/08_investor_relations/presentations/20260112_schaeffler_powering_humanoid_motion.pdf", "quote": "28 prototype orders across 14 global Humanoid OEMs"},
+    {"who": "Unitree", "doc": "STAR Market draft prospectus", "date": "2026-05-25", "url": "https://dataclouds.cninfo.com.cn/sjother2/documents/2026/2026-05-25/3d7fc0538abe281340a95c9c77a90525.pdf", "quote": "公司坚持高性能通用机器人及核心部组件全栈自研"},
+    {"who": "Tesla", "doc": "Q3 2026 Production & Deliveries release (8-K Ex. 99.1)", "date": "2026-10-02", "url": "https://www.sec.gov/Archives/edgar/data/0001318605/000162828026064366/exhibit991111111.htm", "quote": "Tesla will post its financial results for the third quarter of 2026 after market close on Wednesday, October 21, 2026."},
+    {"who": "Harmonic Drive Systems", "doc": "Q1 FY3/2027 results presentation", "date": "2026-08-07", "url": "https://www2.jpx.co.jp/disc/63240/140120260807515115.pdf", "quote": "産業用ロボット向け、半導体製造装置向けをはじめとした主要用途全般において、減速装置及びメカトロニクス製品の需要が増加していることから、売上高が前回予想額を上回ると見込み、上方修正"},
+    {"who": "JARA", "doc": "Quarterly statistics Apr-Jun 2026 (IR2026-04-06), orders figure only", "date": "undated", "url": "https://www.jara.jp/data/dl/quarter/IR2026-04-06.pdf", "quote": "(223,408) (312,663) (40.0%)"},
+    {"who": "IFR", "doc": "World Robotics 2026 press release", "date": "2026-09-24", "url": "https://ifr.org/ifr-press-releases/five-million-robots-now-operate-in-factories-globally", "quote": "Factories worldwide installed more than 600,000 new units over the year."}
+  ]
+}
+```</pre>
+  <p class="note">The JARA document shows no release date, so it is marked undated. The Tesla release date is taken from a trade-press listing.</p>
+</section>
+
+</div>
+
+</body></html>

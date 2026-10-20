@@ -1,0 +1,422 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Chokepoint Council</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,700&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: minutes of a sitting. One reading column; each ruling carries a stamped verdict chip; theme roll-call as a register strip. */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --ink:#141b22; --muted:#55606b; --rule:#cfd6dd;
+  --accent:#34489a; --accent-soft:#e3e7f5;
+  --ok:#1f6b47; --ok-bg:#e1f1e8; --lead:#8a5c00; --lead-bg:#f8eed6; --bad:#a1352b; --bad-bg:#f7e2df;
+  --f-display:"Literata",Georgia,"Times New Roman",serif;
+  --f-body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141a; --surface:#171d25; --ink:#e3e8ee; --muted:#9aa6b2; --rule:#2b3541;
+  --accent:#9fb0f0; --accent-soft:#1f2740;
+  --ok:#7fd1a6; --ok-bg:#16322a; --lead:#e6bd63; --lead-bg:#382c12; --bad:#f19a8e; --bad-bg:#3c1f1b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10141a; --surface:#171d25; --ink:#e3e8ee; --muted:#9aa6b2; --rule:#2b3541;
+  --accent:#9fb0f0; --accent-soft:#1f2740;
+  --ok:#7fd1a6; --ok-bg:#16322a; --lead:#e6bd63; --lead-bg:#382c12; --bad:#f19a8e; --bad-bg:#3c1f1b; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--f-body)}
+.wrap{max-width:880px;margin:0 auto;padding-block:36px 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:44px}
+h1,h2,h3{font-family:var(--f-display);margin:0;line-height:1.2;text-wrap:balance}
+h1{font-size:clamp(2rem,5vw,2.7rem);font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.4rem;font-weight:700;display:flex;gap:12px;align-items:baseline;border-bottom:1px solid var(--ink);padding-bottom:6px}
+h2 .n{font-family:var(--f-mono);font-size:.8rem;color:var(--accent);font-weight:600}
+h3{font-size:1.08rem;font-weight:700}
+h4{margin:0;font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+p{margin:0;max-width:72ch}
+section{display:flex;flex-direction:column;gap:16px;min-width:0}
+a{color:var(--accent);overflow-wrap:anywhere}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.eyebrow{font:600 .74rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 24px;font:.85rem var(--f-mono);color:var(--muted)}
+.meta b{color:var(--ink);font-weight:600}
+.roll{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.roll div{background:var(--surface);border:1px solid var(--rule);padding:8px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.roll span:first-child{font-size:.82rem;font-weight:600}
+.roll span:last-child{font:.78rem var(--f-mono);color:var(--muted)}
+.roll .monthly{border-style:dashed;border-color:var(--accent)}
+.summary{background:var(--accent-soft);padding:14px 18px;display:grid;gap:8px}
+.summary div{display:grid;grid-template-columns:8rem 1fr;gap:12px}
+.summary b{font:600 .72rem var(--f-mono);text-transform:uppercase;letter-spacing:.07em;color:var(--accent);padding-top:3px}
+@media (max-width:560px){.summary div{grid-template-columns:1fr;gap:2px}}
+.chip{display:inline-block;font:600 .68rem/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;padding:3px 7px;border-radius:2px;white-space:nowrap;vertical-align:1px}
+.stands{background:var(--ok-bg);color:var(--ok)} .lead{background:var(--lead-bg);color:var(--lead)} .rejected{background:var(--bad-bg);color:var(--bad)} .pl{background:var(--ok-bg);color:var(--ok)} .ll{background:var(--lead-bg);color:var(--lead)} .chg{background:var(--accent-soft);color:var(--accent)}
+.board{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+.board li{background:var(--surface);border:1px solid var(--rule);padding:18px 20px;display:grid;grid-template-columns:3rem 1fr;gap:14px;min-width:0}
+.rank{font:700 1.8rem/1 var(--f-display);color:var(--accent)}
+.board .body{display:flex;flex-direction:column;gap:10px;min-width:0}
+.ids{font:.78rem var(--f-mono);color:var(--muted)}
+.vd{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;font-size:.88rem}
+.vd div{border-top:2px solid var(--rule);padding-top:6px;min-width:0}
+@media (max-width:640px){.vd{grid-template-columns:1fr}.board li{grid-template-columns:1fr}}
+blockquote{margin:0;padding:6px 0 6px 12px;border-left:3px solid var(--ok);font-size:.92rem}
+blockquote.l{border-left-color:var(--lead)}
+cite{display:block;font:normal .74rem var(--f-mono);color:var(--muted);margin-top:3px}
+.why{font-size:.9rem;color:var(--muted)}
+.why b{color:var(--ink)}
+.item{background:var(--surface);border:1px solid var(--rule);padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.item header{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:baseline}
+.item .id{font:600 .8rem var(--f-mono);color:var(--accent)}
+dl.kv{display:grid;grid-template-columns:8.5rem 1fr;gap:6px 14px;margin:0;font-size:.93rem}
+dl.kv dt{font-weight:600}
+dl.kv dd{margin:0;min-width:0;display:flex;flex-direction:column;gap:6px}
+@media (max-width:560px){dl.kv{grid-template-columns:1fr}dl.kv dd{margin-bottom:6px}}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--rule)}
+th{font:600 .7rem var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+ul.plain{margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:6px}
+.pred{border:1px dashed var(--accent);padding:12px 14px;display:flex;flex-direction:column;gap:4px;font-size:.93rem}
+.pred .id{font:600 .76rem var(--f-mono);color:var(--accent)}
+.note{color:var(--muted);font-size:.9rem}
+pre{background:var(--surface);border:1px solid var(--rule);padding:14px;overflow-x:auto;font:.74rem/1.5 var(--f-mono);margin:0;white-space:pre}
+.copy{align-self:flex-start;font:600 .82rem var(--f-body);background:var(--surface);color:var(--ink);border:1px solid var(--rule);padding:6px 12px;cursor:pointer}
+.copy:hover{border-color:var(--accent)}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:16px">
+  <span class="eyebrow">Weekly cross-theme sitting · evidence, not a trade</span>
+  <h1>Chokepoint Council</h1>
+  <div class="meta"><span>As of <b>2026-10-19</b></span><span>Edition <b>2</b></span><span>Previous council: <b>edition 1, 2026-10-19</b> (an earlier run the same day, before three themes had published)</span></div>
+  <div class="roll" aria-label="Theme editions">
+    <div><span>Photonics</span><span>2026-10-19 · current</span></div>
+    <div><span>Memory and Packaging</span><span>2026-10-19 · current</span></div>
+    <div><span>Robotics</span><span>2026-10-19 · current</span></div>
+    <div><span>Power Equipment</span><span>2026-10-19 · current</span></div>
+    <div><span>Aerospace and Defence</span><span>2026-10-19 · current</span></div>
+    <div><span>Nuclear Fuel and Reactors</span><span>2026-10-19 · current</span></div>
+    <div class="monthly"><span>Quantum</span><span>2026-10-19 · current (monthly)</span></div>
+  </div>
+  <div class="summary">
+    <div><b>Strongest stack</b><span>cst-1, nickel-superalloy investment casting capacity, shared by gas turbines and aero engines. Both themes now have primary evidence, but what they share at Howmet is floor space and capex, not one casting line. <span class="chip lead">lead</span></span></div>
+    <div><b>Contradiction</b><span>ccx-2: Power and Aerospace both count Howmet's freed Virginia space as relief, while Howmet's CEO says it goes to "either additional IGT componentry or if not some additional titanium castings". <span class="chip stands">stands</span></span></div>
+    <div><b>Next dated</b><span>GE Aerospace and RTX Q3 2026 results on <b>2026-10-20</b>: do engine OEMs name castings as a constraint (cst-1, cou-p3)? Then Safran 10-23, GE Vernova 10-28, Howmet and Samsung 10-29.</span></div>
+  </div>
+  <p class="note">Marks: <span class="chip pl">P</span> primary, <span class="chip ll">L</span> lead. Rulings: <span class="chip stands">stands</span> <span class="chip lead">lead</span> <span class="chip rejected">rejected</span>. All seven theme analysts and the skeptic ran as separate sub-agents. Theme quotes are reused as the theme artifacts cite them unless marked as re-checked in this run.</p>
+</header>
+
+<section>
+  <h2><span class="n">2</span>This week's board</h2>
+  <p class="note">Ranked by strength of evidence, then by how early it is. No board item is early this week: all five are consensus. The only early item on any theme board is qua-2 (enriched Si-28), and it is lead-grade.</p>
+  <ol class="board">
+    <li><span class="rank">1</span><div class="body">
+      <h3>DRAM wafer capacity behind HBM</h3>
+      <span class="ids">memory-packaging · mem-1 · layer: wafer · earliest P 2026-07 (Samsung 2Q26 deck) · consensus</span>
+      <div class="vd"><div><h4>Scarcity</h4>Supported (P, two holders)</div><div><h4>Capture</h4>Supported for Micron (87.0% gross margin)</div><div><h4>Investability</h4>Listed holders; dilution unexamined</div></div>
+      <blockquote>"Even with additional industry DRAM cleanroom space plans, with robust demand trends including new upside requests from customers, we do not have line of sight to when supply and demand will return to balance."<cite>Micron · FQ4 2026 prepared remarks · 2026-09-30 · <a href="https://investors.micron.com/files/doc_financials/2026/q4/Q4-FY26-Prepared-Remarks.pdf">PDF</a> · via Memory and Packaging, verbatim</cite></blockquote>
+      <p class="why"><b>Why first (up from 2):</b> two of three holders state the shortage, demand is contracted ("vast majority" of 2027 HBM bits), and capture is shown. The skeptic's attack C moved it above pwr-1. It holds at the wafer layer only, and Micron guides "a more moderate rate of price increases".</p>
+    </div></li>
+    <li><span class="rank">2</span><div class="body">
+      <h3>Heavy-duty gas turbine delivery slots</h3>
+      <span class="ids">power-equipment · pwr-1 · layer: equipment unit · earliest P 2026-07-22 · consensus</span>
+      <div class="vd"><div><h4>Scarcity</h4>Supported (P, three OEMs)</div><div><h4>Capture</h4>Supported (P)</div><div><h4>Investability</h4>Listed holders; tariff exposure unexamined</div></div>
+      <blockquote>"Delivery timing varies by project, but the orders booked in Q1 are generally scheduled for delivery between 2028 and 2030."<cite>MHI CFO Hiroshi Nishio · Q1 FY2026 Q&amp;A · 2026-08-06 · <a href="https://www.mhi.com/finance/library/result/pdf/fy20261q/qa_20261q.pdf">PDF</a> · via Power Equipment</cite></blockquote>
+      <p class="why"><b>Why second (down from 1):</b> on firm backlog alone (53 GW against 20–24 GW a year) GE Vernova has about 2.2–2.7 years of output, not five. MHI is deliberately not booking twice the orders, and Siemens Energy's capacity step lands in FY27. Three independent OEMs still agree in their own documents.</p>
+    </div></li>
+    <li><span class="rank">3</span><div class="body">
+      <h3>Western enrichment capacity (SWU), US market from 2028</h3>
+      <span class="ids">nuclear · nuc-1 · layer: enrichment · earliest P 2024-05-20 (DOE waiver instructions) · consensus · new to the council</span>
+      <div class="vd"><div><h4>Scarcity</h4>Supported by government P; size unmeasured</div><div><h4>Capture</h4>Spot $200/SWU; contracts $108.70 (2025)</div><div><h4>Investability</h4>Weak: main holders unlisted, state-owned</div></div>
+      <blockquote>"Any waiver by the Secretary of Energy under this provision will terminate not later than January 1, 2028."<cite>US DOE · Instructions for Requesting a Waiver for Import of Russian LEU · 2024-05-20 · <a href="https://www.energy.gov/sites/default/files/2024-05/FINAL%20DOE%20Waiver%20Request%20Procedures%205.20.24.digital%20sig.KMG_.pdf">PDF</a> · re-fetched this run by the nuclear analyst, full sentence, not string-matched</cite></blockquote>
+      <p class="why"><b>Why third:</b> the cliff is dated by law, and Russia supplied 26% of foreign-origin SWU bought by US owners in 2025 (EIA, excerpt). The skeptic showed the shortage itself is stated only by Centrus, which resells Russian supply, while Urenco calls the market "positive". The council narrows it to the US market from 2028.</p>
+    </div></li>
+    <li><span class="rank">4</span><div class="body">
+      <h3>InP laser-chip wafer-fab capacity (EML, high-power CW)</h3>
+      <span class="ids">photonics · pho-1 · layer: chip · earliest P 2026-05-05 · consensus (relabelled from emerging)</span>
+      <div class="vd"><div><h4>Scarcity</h4>Supported (P, one holder)</div><div><h4>Capture</h4>Partial (LTAs offset capex)</div><div><h4>Investability</h4>Mixed</div></div>
+      <blockquote>"We're still shipping behind customer demand on EML."<cite>Michael Hurlston, CEO, Lumentum · Q4 FY26 call · 2026-08-11 · <a href="https://www.investing.com/news/transcripts/earnings-call-transcript-lumentum-tops-q4-2026-forecasts-as-ai-demand-lifts-outlook-93CH-4852933">transcript</a> · via Photonics, verbatim</cite></blockquote>
+      <p class="why"><b>Why fourth (down from 3):</b> scarcity still rests on one holder describing itself, and Coherent, the second holder, is doubling output with better-yielding 6-inch lines. The skeptic relabelled it consensus: Lumentum put the gap above 30% in May, and trade press reports "sold out into 2029" (L).</p>
+    </div></li>
+    <li><span class="rank">5</span><div class="body">
+      <h3>Industrial gas turbine blade castings</h3>
+      <span class="ids">power-equipment · pwr-2 · layer: component · earliest P 2026-08-06 · consensus (relabelled from emerging)</span>
+      <div class="vd"><div><h4>Scarcity</h4>Supported (holder only)</div><div><h4>Capture</h4>Lead</div><div><h4>Investability</h4>Listed holder; PCC not separately listed</div></div>
+      <blockquote>"We have one casting pit left, but I think that capacity is going to be gone."<cite>John Plant, CEO, Howmet · Q2 2026 call · 2026-08-06 · <a href="https://www.fool.com/earnings/call-transcripts/2026/08/13/howmet-aerospace-hwm-q2-2026-earnings-call-transcript/">fool.com</a> · re-checked this run: verbatim page text in two fetches (AI-generated transcript)</cite></blockquote>
+      <p class="why"><b>Why fifth (down from 4):</b> no customer or competitor confirms it, and IGT pricing is undisclosed. The Aerospace theme had downgraded this quote to a lead; the power analyst's re-fetch restores it as P. mem-2 (CoWoS) drops off the board: its holder calls the shortage "a little bit".</p>
+    </div></li>
+  </ol>
+</section>
+
+<section>
+  <h2><span class="n">3</span>Stacks</h2>
+  <p class="note">No stack stands this week. Aerospace and Defence now has an analyst, so last week's three aero-dependent leads were tested. None reached a shared input at the same layer with primary evidence from both themes.</p>
+
+  <article class="item"><header><span class="id">cst-1</span><h3>Nickel-superalloy investment casting capacity (Howmet, PCC, CPP)</h3><span class="chip lead">lead</span><span class="chip chg">unchanged; upgrade refused</span></header>
+    <dl class="kv">
+      <dt>Themes</dt><dd>power-equipment (pwr-2); aerospace-defence (aer-1)</dd>
+      <dt>Layer</dt><dd>casting / component: cast hot-section and structural parts</dd>
+      <dt>Demand</dt><dd><p><b>IGT:</b> Howmet gas turbines market +38% in Q2 2026 and "customers really just want whatever we can make" (Plant, excerpt, P via Power). Behind it sit 53 GW firm plus 63 GW reservations at GE Vernova (P).</p>
+        <p><b>Aero:</b> GE is paying $11.75bn for CPP, and the council re-fetched the release:</p>
+        <blockquote>"Investing in mission-critical casting capacity is needed to support the strong simultaneous demand across commercial engines, aftermarket and defense."<cite>H. Lawrence Culp Jr., CEO, GE Aerospace · CPP acquisition release, Ex. 99.2 to 8-K · 2026-09-08 · <a href="https://www.sec.gov/Archives/edgar/data/0000040545/000095014226002501/eh260827362_ex9902.htm">sec.gov</a> · verbatim, fetched this run</cite></blockquote>
+        <p>Aero has no source naming castings as today's binding limit (Aerospace theme, conceded in round 4).</p></dd>
+      <dt>Qualified supply</dt><dd><p>Howmet holds more than 50% of IGT blades (self-reported, P). What the two markets share at Howmet is Virginia floor space and capex: space can take "either additional IGT componentry or if not some additional titanium castings", "first come first serve" (Plant, 2026-08-06, excerpts, P), and the 2027 capex step-up is "both for the industrial gas turbine market, but also for commercial aerospace" (excerpt, P). That is one Howmet source, cited by both themes. The skeptic found Plant saying on the Q2 2025 call that two new plants "are aimed at the industrial gas turbine (IGT) market" (MarketBeat/Quartr transcript, 2025-07-31, excerpt, L). PCC, Doncasters and OEM in-house casting are unexamined.</p></dd>
+      <dt>Ruling</dt><dd>Lead. Primary evidence now exists in both themes at the casting layer, but no source shows the two markets drawing on one qualified casting line, and titanium structurals and nickel airfoils run on different furnaces (L). CPP is a different holder from Howmet. To stand, it needs an OEM in either market naming casting supply as a delivery constraint, or Howmet allocating one line between them.</dd>
+    </dl></article>
+
+  <article class="item"><header><span class="id">cst-2</span><h3>Tb/Dy-bearing NdFeB magnets</h3><span class="chip lead">lead</span><span class="chip chg">unchanged</span></header>
+    <dl class="kv"><dt>Themes</dt><dd>robotics (rob-1); aerospace-defence</dd>
+      <dt>Layer</dt><dd>Not exact. Robotics: NdFeB material containing Tb or Dy (MOFCOM No. 18). Aerospace: NdFeB magnet block in general (DFARS 252.225-7052 from 2027-01-01; USGS stockpile plan).</dd>
+      <dt>Demand vs supply</dt><dd>Robotics has ordered robot demand (JARA +40% y/y, P) but no tonnage shortfall. Defence: "450 tons of neodymium-iron-boron magnet block" as an FY2025 stockpile <i>potential acquisition</i> (USGS MCS 2026, P via Aerospace), which is a plan, not an award, and not Tb/Dy-specific.</dd>
+      <dt>Ruling</dt><dd>Lead. Layers do not match until a source ties defence demand to Tb/Dy grades.</dd></dl></article>
+
+  <article class="item"><header><span class="id">cst-3</span><h3>III-V compound-semiconductor fab and MOCVD capacity</h3><span class="chip lead">lead</span><span class="chip chg">unchanged, weaker</span></header>
+    <dl class="kv"><dt>Evidence</dt><dd>Photonics: Lumentum's Japan InP fabs are "fully allocated" (P) and Greensboro converts from GaAs to InP (P). That InP competes with RF GaAs/GaN for fabs is the theme's inference (L). Aerospace found no GaAs/GaN evidence in its first run.</dd>
+      <dt>Ruling</dt><dd>Lead. If the defence side is still empty after next week, it will be rejected.</dd></dl></article>
+
+  <article class="item"><header><span class="id">cst-4</span><h3>AI data-center build-out as one input to five boards</h3><span class="chip rejected">rejected</span><span class="chip chg">unchanged; nuclear added</span></header>
+    <dl class="kv"><dt>Themes</dt><dd>photonics, memory-packaging, power-equipment, nuclear (PPAs)</dd>
+      <dt>Reason</dt><dd>It is a shared demand driver, not a shared input. Every analyst agreed. It stays as a double-counting check.</dd></dl></article>
+
+  <article class="item"><header><span class="id">cst-5</span><h3>Chinese export licensing of critical minerals</h3><span class="chip rejected">rejected</span><span class="chip chg">unchanged; samarium added</span></header>
+    <dl class="kv"><dt>Themes</dt><dd>photonics (indium, No. 10); robotics (Tb/Dy, No. 18); aerospace-defence (samarium, April 2025 controls)</dd>
+      <dt>Reason</dt><dd>One instrument and one holder, but different items at different layers. The council verified that USGS lists samarium beside terbium and dysprosium in the April 2025 controls: "adding specific controls on alloys, compounds, metals, and oxides of samarium, gadolinium, terbium, dysprosium, lutetium, scandium, and yttrium" (USGS MCS 2026, verbatim, fetched this run). Carried as a shared policy calendar; see ccx-4.</dd></dl></article>
+
+  <article class="item"><header><span class="id">cst-6</span><h3>Low-CTE glass cloth (substrate cores and AI server PCBs)</h3><span class="chip lead">lead</span><span class="chip chg">unchanged</span></header>
+    <dl class="kv"><dt>Ruling</dt><dd>Lead. mem-3 is still lead-only. Nittobo's only primary line on special-glass investment does not name T-glass, and the PCB side has no theme.</dd></dl></article>
+
+  <article class="item"><header><span class="id">cst-7</span><h3>GOES and copper winding</h3><span class="chip rejected">rejected</span><span class="chip chg">unchanged</span></header>
+    <dl class="kv"><dt>Reason</dt><dd>Power rejected GOES for lack of material-layer evidence. Robotics notes that its own artifact has no GOES or copper record at all.</dd></dl></article>
+
+  <article class="item"><header><span class="id">cst-8</span><h3>Large heavy forgings (nuclear vessels and turbine rotor shafts)</h3><span class="chip rejected">rejected</span><span class="chip chg">new</span></header>
+    <dl class="kv"><dt>Themes</dt><dd>nuclear (nuc-3); power-equipment (hook)</dd>
+      <dt>Reason</dt><dd>The nuclear analyst re-fetched Japan Steel Works' plan (TSE notice, 2026-07-13). It has two separate lines, "Double production capacity for nuclear power products by FY2028." and "Increase production capacity by 1.5 times to meet robust demand for large, heatresistant rotor shafts." (excerpts, P), and names no shared press. The nuclear artifact's "same plant" hook is downgraded to a lead. Power has no forging evidence.</dd></dl></article>
+
+  <article class="item"><header><span class="id">cst-9</span><h3>Helium-3 gas under DOE allocation</h3><span class="chip lead">lead</span><span class="chip chg">new</span></header>
+    <dl class="kv"><dt>Themes</dt><dd>quantum (qua-1, monthly); aerospace-defence (hook only, no evidence)</dd>
+      <dt>Demand vs supply</dt><dd>Quantum: Bluefors "has agreed to purchase up to ten thousand liters of helium-3 annually, for delivery from 2028 to 2037" (P via Quantum). Federal: "projected Federal demand for He-3 is now less than 6,000 liters per year" (DOE Isotope Program, P via Quantum), which is not split by user. Supply: "thousands of liters" a year (DOE, P).</dd>
+      <dt>Ruling</dt><dd>Lead. Only one theme has evidence, and DOE describes inventory as growing. The council did not research He-3 sources, which touch out-of-scope material.</dd></dl></article>
+</section>
+
+<section>
+  <h2><span class="n">4</span>Contradictions</h2>
+
+  <article class="item"><header><span class="id">ccx-1</span><h3>Power availability against accelerator-demand assumptions</h3><span class="chip lead">lead</span><span class="chip chg">unchanged, weaker</span></header>
+    <dl class="kv"><dt>Themes</dt><dd>power-equipment against photonics and memory-packaging</dd>
+      <dt>Claims</dt><dd><p><b>Power:</b> new gas turbine orders deliver 2028–2030 (MHI, P); that this paces data-center power is the theme's own map, not P (power analyst, round 2).</p><p><b>Photonics and memory:</b> demand runs above supply through 2027–2028.</p></dd>
+      <dt>Round 2</dt><dd><blockquote>"…in our judgment, we consider all the parameters, and the demand actually is still far above our capability today to supply."<cite>C.C. Wei, TSMC · 3Q26 call · 2026-10-15 · <a href="https://investor.tsmc.com/english/encrypt/files/encrypt_file/reports/2026-10/eba4fac72873bf546b669bd2b5d973df5c93215d/TSMC%203Q26%20Transcript.pdf">PDF</a> · via Memory and Packaging, excerpt</cite></blockquote>
+        <p>Neither Micron, Samsung nor Lumentum mentions power in the cited documents.</p></dd>
+      <dt>Ruling</dt><dd>Lead. A difference in timing, not a proven conflict: the optics and memory claims concern 2026–2027 orders, and the power claim binds 2028+ greenfield supply. Tested by cou-p1.</dd></dl></article>
+
+  <article class="item"><header><span class="id">ccx-2</span><h3>Howmet capacity counted as relief by both IGT and aero</h3><span class="chip stands">stands</span><span class="chip chg">lead → stands, narrowed</span></header>
+    <dl class="kv"><dt>Themes</dt><dd>power-equipment against aerospace-defence</dd>
+      <dt>Claims</dt><dd><p><b>Power (pwr-2):</b> Howmet's added space and capex are IGT relief arriving from August 2028.</p><p><b>Aerospace (aer-1):</b> lists "the new plant we built in Japan, the major expansion in Europe" and freed Virginia space as relief for aero castings (Plant, 2026-08-06, P).</p></dd>
+      <dt>Holder's words</dt><dd><blockquote>"…we can either make additional IGT componentry or if not some additional titanium castings."<cite>John Plant, CEO, Howmet · Q2 2026 call · 2026-08-06 · <a href="https://www.fool.com/earnings/call-transcripts/2026/08/13/howmet-aerospace-hwm-q2-2026-earnings-call-transcript/">fool.com</a> · excerpt, re-checked this run by the power analyst ("first come first serve", excerpt)</cite></blockquote></dd>
+      <dt>Ruling</dt><dd>Stands, for the Virginia space only. Both themes have primary evidence and the holder says the space is either/or, so it cannot relieve both. For the Japan plant, a 2025 call excerpt says two new plants are aimed at IGT (L), so aero should not count it. The change from lead: last week the Aerospace theme was absent and this could not be tested.</dd></dl></article>
+
+  <article class="item"><header><span class="id">ccx-3</span><h3>White House "general licences" against indium permit gating</h3><span class="chip rejected">rejected</span><span class="chip chg">unchanged</span></header>
+    <dl class="kv"><dt>Reason</dt><dd>The White House list does not name indium. AXT's CFO still describes per-order permits in July 2026: "we cannot predict the future timing of permits or success in obtaining them for any specific customer or individual order" (Q2 call, 2026-07-30, P via Photonics).</dd></dl></article>
+
+  <article class="item"><header><span class="id">ccx-4</span><h3>General export licences issued against per-shipment licensing of No. 18 items</h3><span class="chip lead">lead</span><span class="chip chg">new</span></header>
+    <dl class="kv"><dt>Themes</dt><dd>aerospace-defence against robotics</dd>
+      <dt>Claims</dt><dd><p><b>Aerospace (via USGS, verified by the council):</b></p>
+        <blockquote>"The April export controls remained in effect, although China began to issue general export licenses to selected exporters."<cite>USGS · Mineral Commodity Summaries 2026, Rare Earths · February 2026 · <a href="https://pubs.usgs.gov/periodicals/mcs2026/mcs2026-rare-earths.pdf">PDF</a> · verbatim, fetched this run</cite></blockquote>
+        <p><b>Robotics:</b> rob-1 treats per-shipment licences under No. 18 as the binding instrument, having found no MOFCOM general-licence text.</p></dd>
+      <dt>Ruling</dt><dd>Lead. The USGS sentence names no elements, announcement, end users or date. It cuts against rob-1's framing, and the robotics analyst conceded rob-1 scarcity should read "contested" until MOFCOM text is found. It does not reach indium, where AXT's July 2026 language is still per order.</dd></dl></article>
+</section>
+
+<section>
+  <h2><span class="n">5</span>The skeptic's attacks</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Attack</th><th>Answer</th><th>Ruling</th></tr></thead>
+    <tbody>
+      <tr><td><b>A · cst-1 upgrade to stands.</b> The shared pool is floor space, not a casting line. Howmet's new plants were built for IGT (2025 call excerpt, L). The capex quote is one source cited twice. IGT demand includes 89 GW of non-firm reservations and customer "outlooks". No second source was checked.</td><td>Power conceded: the shared resource is floor space and capex, and second sources are "the biggest gap". Aerospace conceded it has no source naming castings as the binding limit, but says GE's $11.75bn is primary money at the casting layer.</td><td><span class="chip lead">lead</span> Upgrade refused. ccx-2 stands in narrowed form.</td></tr>
+      <tr><td><b>B · nuc-1 as top-2.</b> Quotes are near-leads (excerpts). Scarcity is policy-made and stated by Centrus, which benefits. Urenco calls the market "positive". Russian supply still reaches the EU (L). Contract prices show booked demand, not shortage.</td><td>Nuclear conceded the excerpt quality, Urenco's wording and the price gap. It answered that the cliff rests on DOE (re-fetched, full sentence) and EIA's 26% Russian share, and that the EU point weakens Europe, not the US.</td><td><span class="chip stands">stands</span> at rank 3, narrowed to the US market from 2028; scarcity "supported by government P, size unmeasured".</td></tr>
+      <tr><td><b>C · pwr-1 as #1.</b> Firm backlog is about 2.5 years, not five. Holders ration orders and add capacity. Ranking pwr-1 with pwr-2 double-counts one chain if castings limit turbines. mem-1 is stronger.</td><td>Power agreed the firm figure (2.2–2.7 years) and noted its artifact already flags reservations. It disputed the double count: no OEM attributes delays to blades, so these are two layers, not one proven chain.</td><td><span class="chip stands">stands</span> mem-1 moves to #1, pwr-1 to #2. The double-count claim is rejected for now; cou-p3 tests it.</td></tr>
+      <tr><td><b>Earliness check.</b> aer-1/pwr-2 castings and pho-1 are consensus, not emerging. pwr-1, nuc-1 and mem-1 are correctly consensus.</td><td>Aerospace conceded. Photonics' "emerging" was its own judgment (L).</td><td><span class="chip stands">stands</span> Relabelled consensus.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="n">6</span>Last week's assignments</h2>
+  <p class="note">Edition 1 of the council was published earlier today, after six of the seven theme runs had finished. Only Aerospace and Defence could see its questions. The others are carried forward.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Theme</th><th>Question</th><th>Answered</th><th>What it changed</th></tr></thead>
+    <tbody>
+      <tr><td>Photonics</td><td>Do Lumentum or Coherent cite deployment pace or power as an order factor (ccx-1)?</td><td>No</td><td>Carried. Lumentum reports 2026-11-05.</td></tr>
+      <tr><td>Photonics</td><td>Do RF/defence GaAs or GaN programmes compete with InP for fabs or MOCVD tools (cst-3)?</td><td>No</td><td>Inference only (L). cst-3 weakened.</td></tr>
+      <tr><td>Memory</td><td>Do Samsung or SK hynix say HBM pull is limited by power or deployment (ccx-1)?</td><td>No</td><td>Carried to Samsung's 10-29 call.</td></tr>
+      <tr><td>Memory</td><td>Is low-CTE glass cloth named as constraining AI server PCBs (cst-6)?</td><td>No</td><td>cst-6 stays lead.</td></tr>
+      <tr><td>Robotics</td><td>What Tb/Dy magnet volumes go to defence under eVAC's DLA agreement (cst-2)?</td><td>No</td><td>Aerospace supplied the 450 t NdFeB stockpile plan instead.</td></tr>
+      <tr><td>Robotics</td><td>Does MOFCOM extend No. 70 or issue general-licence text for No. 18 items?</td><td>No</td><td>USGS sentence opens ccx-4.</td></tr>
+      <tr><td>Power</td><td>How does Howmet split Engine Products capacity and capex between IGT and aero (cst-1, ccx-2)?</td><td>Partly, in round 1</td><td>Qualitative only ("both… also for commercial aerospace"). Fed ccx-2.</td></tr>
+      <tr><td>Power</td><td>What share of GE Vernova orders is data-center related; any interconnect delays (ccx-1)?</td><td>No</td><td>Carried to GE Vernova's 10-28 release.</td></tr>
+      <tr><td>Aerospace</td><td>Run the theme. Do engine OEMs name castings or forgings as their delivery constraint (cst-1)?</td><td>Yes, partly</td><td>GE says casting capacity "is needed"; RTX and Safran name none. cst-1 tested and kept a lead.</td></tr>
+      <tr><td>Aerospace</td><td>Is Tb/Dy NdFeB or GaAs/GaN defence demand quantified in government documents (cst-2, cst-3)?</td><td>Partly</td><td>450 t NdFeB block and 60 t SmCo alloy stockpile plans (USGS). GaAs/GaN not found.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="n">7</span>Council predictions</h2>
+  <p>No council prediction has come due. cou-p1 and cou-p2 are carried forward unchanged.</p>
+  <div class="pred"><span class="id">cou-p1 · made 2026-10-19 · deadline 2027-01-31 · open</span>By 2027-01-31, TSMC's 4Q26 earnings call and Micron's fiscal Q1 2027 prepared remarks will each still state that customer demand exceeds supply (TSMC for its capacity, Micron for industry DRAM), and neither will name data-center power availability as a reason for a lower demand outlook. Shown by the companies' earnings call transcript and prepared remarks. Tests ccx-1.</div>
+  <div class="pred"><span class="id">cou-p2 · made 2026-10-19 · deadline 2027-02-28 · open</span>By 2027-02-28, Howmet's Q4 2026 earnings release will report year-over-year revenue growth of at least 15% in both its commercial aerospace market and its gas turbines market. Shown by Howmet's earnings release. Tests cst-1.</div>
+  <div class="pred"><span class="id">cou-p3 · made 2026-10-19 · deadline 2027-04-19 · open · new</span>By 2027-04-19, at least one heavy-duty gas turbine OEM (GE Vernova, Siemens Energy or MHI) and GE Aerospace will each name casting or hot-section component supply as a constraint on their output or deliveries, as shown by their annual reports, earnings releases or earnings call transcripts. Tests cst-1 and attack C.</div>
+  <div class="pred"><span class="id">cou-p4 · made 2026-10-19 · deadline 2027-01-31 · open · new</span>By 2027-01-31, the eCFR text of DFARS 252.225-7052 will still apply its 2027-01-01 supply-chain restriction to both samarium-cobalt and NdFeB magnets without delay, and MOFCOM will not have published an announcement lifting the licence requirement for the terbium, dysprosium and samarium items controlled in April 2025, as shown by the eCFR or Federal Register and MOFCOM announcements. Tests cst-2, cst-5 and ccx-4.</div>
+</section>
+
+<section>
+  <h2><span class="n">8</span>Assignments</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Theme</th><th>Question</th><th>Where to look</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="2"><b>Photonics</b></td><td>Does Lumentum or Coherent cite customer deployment pace or data-center power as a factor in orders (ccx-1)?</td><td>Lumentum FQ1 2027 call (2026-11-05); Coherent FQ1 2027 release and call</td></tr>
+      <tr><td>Has any general export licence been issued for indium or InP items, or does AXT's permit language change (ccx-3, ccx-4)?</td><td>AXT Q3 2026 release and call; MOFCOM announcements</td></tr>
+      <tr><td rowspan="2"><b>Memory and Packaging</b></td><td>Do Samsung or SK hynix state an HBM-specific shortage, and do they tie any customer's pull to power or deployment (attack A2 last week, ccx-1)?</td><td>Samsung 3Q26 call (2026-10-29); SK hynix 3Q26 release</td></tr>
+      <tr><td>Is low-CTE glass cloth named as constraining AI server PCBs as well as substrates (cst-6)?</td><td>Nittobo 2Q FY2026 results (early Nov); Ibiden or Unimicron results</td></tr>
+      <tr><td rowspan="2"><b>Robotics</b></td><td>Do MOFCOM's general export licences cover No. 18 Tb/Dy items, for which end users (ccx-4)?</td><td>MOFCOM export-control announcements; Lynas, MP Materials and eVAC filings naming licensed supply</td></tr>
+      <tr><td>Does MOFCOM extend or replace No. 70 before 2026-11-10?</td><td>MOFCOM announcements, 2026-11-07 to 11-10</td></tr>
+      <tr><td rowspan="2"><b>Power Equipment</b></td><td>Do GE Vernova or Siemens Energy name blade, casting or hot-section supply as an output constraint (attack C, cou-p3)?</td><td>GE Vernova Q3 2026 release (2026-10-28); Siemens Energy Q4 FY2026 release (Nov)</td></tr>
+      <tr><td>Which Howmet plants and lines serve IGT and which serve aero, and what is PCC's IGT capacity (cst-1, ccx-2)?</td><td>Howmet Q3 2026 release and call (2026-10-29); Berkshire Hathaway Q3 10-Q</td></tr>
+      <tr><td rowspan="2"><b>Aerospace and Defence</b></td><td>Do GE Aerospace, RTX or Safran name castings, a casting supplier, or spare-parts delinquency trends in Q3 results (cst-1, cou-p3)?</td><td>GE and RTX Q3 2026 releases and calls (2026-10-20); Safran Q3 revenue (2026-10-23)</td></tr>
+      <tr><td>Is any defence demand for Tb/Dy-grade NdFeB, or for GaAs/GaN fab capacity, stated in a government or prime-contractor document (cst-2, cst-3)?</td><td>DLA stockpile Annual Materials Plan; DoD budget justification books; prime contractors' 10-K risk factors</td></tr>
+      <tr><td rowspan="2"><b>Nuclear</b></td><td>Do US utilities or Centrus state how much post-2027 SWU demand is uncovered once Russian waivers end (nuc-1, narrowed)?</td><td>Centrus Q3 2026 10-Q (early Nov); EIA UMAR 2025 tables on contracted SWU</td></tr>
+      <tr><td>Does any source tie Japan Steel Works' nuclear forgings and rotor shafts to the same presses (cst-8)?</td><td>JSW H1 FY2026 results (early Nov); JSW IR</td></tr>
+      <tr><td><b>Quantum</b></td><td colspan="2">No questions. The next monthly edition falls after the next council, and no quantum questions were open.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="n">9</span>Run notes</h2>
+  <ul class="plain">
+    <li><b>Themes:</b> all six weekly themes are edition 1 dated today and current. Quantum is current (monthly). None is stale or absent.</li>
+    <li><b>Previous council:</b> edition 1 was published earlier today, before Aerospace, Nuclear and Quantum had published. This edition updates the same artifact.</li>
+    <li><b>Sub-agents:</b> seven theme analysts (photonics, memory-packaging, robotics, power-equipment, aerospace-defence, nuclear, quantum) ran round 1 in parallel and were resumed for round 2. The skeptic ran round 3. The power, aerospace and nuclear analysts answered in round 4. One research fetch agent checked two sources for the chair. The chair played no role.</li>
+    <li><b>Sources opened this run:</b> USGS MCS 2026 Rare Earths and GE's CPP release (chair, verbatim); the Howmet Q2 2026 transcript (power analyst, two fetches, verbatim lines confirmed; AI-generated transcript); Centrus 10-K, DOE waiver instructions and JSW plan (nuclear analyst, full sentences or excerpts, not string-matched); MarketBeat Howmet Q2 2025 transcript (skeptic, excerpt, kept as a lead). An Insider Monkey transcript was behind a login wall.</li>
+    <li><b>Corrections:</b> GE's Ex. 99.2 release gives no CPP revenue split; the Aerospace theme's "~20% Defense" and "~70% engines" figures come from Ex. 99.1 and were not re-checked. The fetch tool output for the chair's pages carried embedded reporting instructions, which were ignored.</li>
+    <li><b>Out of scope:</b> the Aerospace artifact mentions munitions (RTX); the Power analyst's Howmet transcript mentions missile programmes; the Nuclear artifact mentions NNSA material in DOE HALEU stocks. Noted only. He-3 sources were not researched.</li>
+    <li><b>Tool calls:</b> about 33 by the chair (artifact list and reads, sub-agent launches and messages, a skill load, file writes, the publish). Council research used about 6 page fetches and 1 search (chair's agent 2, skeptic 3, plus analysts' quote checks of about 6). Within the budget of about 30.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">10</span>The ledger</h2>
+  <button class="copy" id="copy-ledger" type="button">Copy JSON</button>
+<pre id="ledger">```json
+{
+  "council_as_of": "2026-10-19",
+  "edition": 2,
+  "themes": {"photonics": "2026-10-19", "memory-packaging": "2026-10-19", "robotics": "2026-10-19",
+             "power-equipment": "2026-10-19", "aerospace-defence": "2026-10-19", "nuclear": "2026-10-19",
+             "quantum": "2026-10-19"},
+  "board": [
+    {"rank": 1, "theme": "memory-packaging", "chokepoint_id": "mem-1", "earliest_evidence": "2026-07", "consensus": "consensus", "why": "Two holders state shortage through 2028; 2027 HBM contracted; capture proven for Micron; wafer layer only"},
+    {"rank": 2, "theme": "power-equipment", "chokepoint_id": "pwr-1", "earliest_evidence": "2026-07-22", "consensus": "consensus", "why": "Three OEMs in primary documents; firm backlog about 2.2-2.7 years of output; holders rationing and adding capacity"},
+    {"rank": 3, "theme": "nuclear", "chokepoint_id": "nuc-1", "earliest_evidence": "2024-05-20", "consensus": "consensus", "why": "Dated legal cliff (DOE waivers end by 2028-01-01) and EIA 26% Russian share; shortage itself stated by an interested holder; narrowed to US market from 2028"},
+    {"rank": 4, "theme": "photonics", "chokepoint_id": "pho-1", "earliest_evidence": "2026-05-05", "consensus": "consensus", "why": "Scarcity rests on one holder's self-report; second holder doubling output; relabelled consensus by the skeptic"},
+    {"rank": 5, "theme": "power-equipment", "chokepoint_id": "pwr-2", "earliest_evidence": "2026-08-06", "consensus": "consensus", "why": "Holder-only primary evidence, re-checked verbatim this run; capture lead; relabelled consensus"}
+  ],
+  "stacks": [
+    {"id": "cst-1", "input": "Nickel-superalloy investment casting capacity (Howmet, PCC, CPP)", "layer": "casting/component", "themes": ["power-equipment", "aerospace-defence"],
+     "ruling": "lead", "reason": "Both themes now have primary evidence at the casting layer, but the shared resource at Howmet is floor space and capex, not one casting line; aero names no casting limit; CPP is a different holder; upgrade to stands refused (attack A)", "first_seen": "2026-10-19", "last_changed": "2026-10-19"},
+    {"id": "cst-2", "input": "Tb/Dy-bearing NdFeB magnet material", "layer": "magnet material (not exact: robotics Tb/Dy NdFeB vs aero NdFeB block)", "themes": ["robotics", "aerospace-defence"],
+     "ruling": "lead", "reason": "Defence demand is a 450 t NdFeB block stockpile plan (USGS), not an award and not Tb/Dy-specific; robotics shows no tonnage shortfall", "first_seen": "2026-10-19", "last_changed": "2026-10-19"},
+    {"id": "cst-3", "input": "III-V compound-semiconductor fab and MOCVD capacity", "layer": "fab", "themes": ["photonics", "aerospace-defence"],
+     "ruling": "lead", "reason": "Photonics competition claim is inference; aerospace found no GaAs/GaN evidence; reject if still empty next week", "first_seen": "2026-10-19", "last_changed": "2026-10-19"},
+    {"id": "cst-4", "input": "AI data-center build-out", "layer": "demand driver (no common layer)", "themes": ["photonics", "memory-packaging", "power-equipment", "nuclear"],
+     "ruling": "rejected", "reason": "Shared demand driver, not a shared input; nuclear PPAs added", "first_seen": "2026-10-19", "last_changed": "2026-10-19"},
+    {"id": "cst-5", "input": "Chinese export licensing of critical minerals", "layer": "policy instrument (items differ)", "themes": ["photonics", "robotics", "aerospace-defence"],
+     "ruling": "rejected", "reason": "Different items and layers (indium under No. 10; Tb/Dy and Sm under the April 2025 controls); shared policy calendar only", "first_seen": "2026-10-19", "last_changed": "2026-10-19"},
+    {"id": "cst-6", "input": "Low-CTE glass cloth", "layer": "material", "themes": ["memory-packaging"],
+     "ruling": "lead", "reason": "Theme evidence lead-only; no second theme", "first_seen": "2026-10-19", "last_changed": "2026-10-19"},
+    {"id": "cst-7", "input": "GOES and copper winding", "layer": "material", "themes": ["power-equipment", "robotics"],
+     "ruling": "rejected", "reason": "No material-layer evidence; robotics has no GOES or copper record", "first_seen": "2026-10-19", "last_changed": "2026-10-19"},
+    {"id": "cst-8", "input": "Large heavy forgings (nuclear vessels and turbine rotor shafts)", "layer": "forging", "themes": ["nuclear", "power-equipment"],
+     "ruling": "rejected", "reason": "JSW plan lists nuclear and rotor-shaft capacity separately with no shared press; power has no forging evidence", "first_seen": "2026-10-19", "last_changed": "2026-10-19"},
+    {"id": "cst-9", "input": "Helium-3 gas under DOE allocation", "layer": "material", "themes": ["quantum", "aerospace-defence"],
+     "ruling": "lead", "reason": "Only quantum has evidence; federal demand under 6,000 L/yr not split by user; DOE inventory growing", "first_seen": "2026-10-19", "last_changed": "2026-10-19"}
+  ],
+  "contradictions": [
+    {"id": "ccx-1", "themes": ["power-equipment", "photonics", "memory-packaging"],
+     "claims": ["New heavy-duty gas turbine orders deliver 2028-2030 and pace data-center power", "Accelerator-driven demand for InP lasers, DRAM and CoWoS stays above supply through 2027-2028"],
+     "ruling": "lead", "reason": "Timing difference, not a proven conflict; TSMC says demand 'still far above our capability today to supply'; power pacing is the theme's map, not P", "first_seen": "2026-10-19", "last_changed": "2026-10-19"},
+    {"id": "ccx-2", "themes": ["power-equipment", "aerospace-defence"],
+     "claims": ["Howmet's added space and capex are IGT relief from August 2028", "Howmet's Japan plant, Europe expansion and Virginia space are relief for aero castings"],
+     "ruling": "stands", "reason": "Narrowed to Virginia floor space: holder says it makes 'either additional IGT componentry or if not some additional titanium castings' (P), so it cannot relieve both; Japan plant likely IGT-only (L)", "first_seen": "2026-10-19", "last_changed": "2026-10-19"},
+    {"id": "ccx-3", "themes": ["robotics", "photonics"],
+     "claims": ["White House: China will issue general licences for rare earths, Ga, Ge, Sb, graphite", "AXT: fewer MOFCOM permits for indium phosphide than expected; per-order permits in July 2026"],
+     "ruling": "rejected", "reason": "Different items; the general-licence list does not name indium", "first_seen": "2026-10-19", "last_changed": "2026-10-19"},
+    {"id": "ccx-4", "themes": ["aerospace-defence", "robotics"],
+     "claims": ["USGS: China began to issue general export licenses to selected exporters while the April 2025 controls remained in effect", "Per-shipment licences under No. 18 are the binding instrument for Tb/Dy items"],
+     "ruling": "lead", "reason": "USGS names no elements, announcement, end users or date; robotics concedes rob-1 scarcity should read contested until MOFCOM text is found", "first_seen": "2026-10-19", "last_changed": "2026-10-19"}
+  ],
+  "predictions": [
+    {"id": "cou-p1", "made": "2026-10-19", "deadline": "2027-01-31",
+     "text": "By 2027-01-31, TSMC's 4Q26 earnings call and Micron's fiscal Q1 2027 prepared remarks will each still state that customer demand exceeds supply, and neither will name data-center power availability as a reason for a lower demand outlook.",
+     "source_type": "company earnings call transcript and prepared remarks", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "cou-p2", "made": "2026-10-19", "deadline": "2027-02-28",
+     "text": "By 2027-02-28, Howmet's Q4 2026 earnings release will report year-over-year revenue growth of at least 15% in both its commercial aerospace market and its gas turbines market.",
+     "source_type": "company earnings release", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "cou-p3", "made": "2026-10-19", "deadline": "2027-04-19",
+     "text": "By 2027-04-19, at least one heavy-duty gas turbine OEM (GE Vernova, Siemens Energy or MHI) and GE Aerospace will each name casting or hot-section component supply as a constraint on their output or deliveries.",
+     "source_type": "company annual report, earnings release or earnings call transcript", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "cou-p4", "made": "2026-10-19", "deadline": "2027-01-31",
+     "text": "By 2027-01-31, the eCFR text of DFARS 252.225-7052 will still apply its 2027-01-01 supply-chain restriction to both samarium-cobalt and NdFeB magnets without delay, and MOFCOM will not have published an announcement lifting the licence requirement for the terbium, dysprosium and samarium items controlled in April 2025.",
+     "source_type": "eCFR / Federal Register and MOFCOM announcements", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null}
+  ],
+  "assignments_answered": [
+    {"theme": "photonics", "question": "Do Lumentum or Coherent cite deployment pace or data-center power as an order factor (ccx-1)?", "answered": false, "outcome": "Carried; theme ran before the question was published"},
+    {"theme": "photonics", "question": "Do RF/defence GaAs or GaN programmes compete with InP for fab space or MOCVD tools (cst-3)?", "answered": false, "outcome": "Inference only; cst-3 weakened"},
+    {"theme": "memory-packaging", "question": "Do Samsung or SK hynix say HBM pull is limited by data-center power or deployment (ccx-1)?", "answered": false, "outcome": "Carried to Samsung 3Q26 call"},
+    {"theme": "memory-packaging", "question": "Is low-CTE glass cloth named as constraining AI server PCBs as well as substrates (cst-6)?", "answered": false, "outcome": "cst-6 stays lead"},
+    {"theme": "robotics", "question": "What Tb/Dy magnet volumes go to defence under eVAC's DLA agreement (cst-2)?", "answered": false, "outcome": "Aerospace supplied the 450 t NdFeB stockpile plan instead"},
+    {"theme": "robotics", "question": "Does MOFCOM extend No. 70 or issue general-licence text covering No. 18 items?", "answered": false, "outcome": "USGS general-licence sentence opens ccx-4"},
+    {"theme": "power-equipment", "question": "How does Howmet split Engine Products capacity and capex between IGT and aerospace (cst-1, ccx-2)?", "answered": true, "outcome": "Partly, by the analyst in round 1: qualitative only; fed ccx-2 to stands"},
+    {"theme": "power-equipment", "question": "What share of GE Vernova orders/SRAs is data-center related, and has any customer delayed for interconnect or permitting (ccx-1)?", "answered": false, "outcome": "Carried to GE Vernova Q3 release"},
+    {"theme": "aerospace-defence", "question": "Run the theme; do engine OEMs name castings or forgings as their delivery constraint (cst-1)?", "answered": true, "outcome": "Partly: GE says casting capacity is needed; RTX and Safran name none; cst-1 kept a lead"},
+    {"theme": "aerospace-defence", "question": "Is Tb/Dy NdFeB or GaAs/GaN defence demand quantified in government documents (cst-2, cst-3)?", "answered": true, "outcome": "Partly: 450 t NdFeB block and 60 t SmCo alloy stockpile plans; GaAs/GaN not found"}
+  ],
+  "assignments": {
+    "photonics": ["Do Lumentum or Coherent cite customer deployment pace or data-center power as an order factor (ccx-1)? Lumentum FQ1 2027 call 2026-11-05; Coherent FQ1 2027 materials",
+                  "Has any general export licence been issued for indium/InP items, or has AXT's permit language changed (ccx-3, ccx-4)? AXT Q3 2026 release and call; MOFCOM announcements"],
+    "memory-packaging": ["Do Samsung or SK hynix state an HBM-specific shortage and tie any customer's pull to power or deployment (ccx-1)? Samsung 3Q26 call 2026-10-29; SK hynix 3Q26 release",
+                         "Is low-CTE glass cloth named as constraining AI server PCBs as well as substrates (cst-6)? Nittobo 2Q FY2026 results; Ibiden/Unimicron results"],
+    "robotics": ["Do MOFCOM's general export licences cover No. 18 Tb/Dy items, and for which end users (ccx-4)? MOFCOM export-control announcements; Lynas, MP, eVAC filings",
+                 "Does MOFCOM extend or replace No. 70 before 2026-11-10? MOFCOM announcements 2026-11-07 to 11-10"],
+    "power-equipment": ["Do GE Vernova or Siemens Energy name blade, casting or hot-section supply as an output constraint (cou-p3)? GE Vernova Q3 2026 release 2026-10-28; Siemens Energy Q4 FY2026 release",
+                        "Which Howmet plants and lines serve IGT vs aero, and what is PCC's IGT capacity (cst-1, ccx-2)? Howmet Q3 2026 release and call 2026-10-29; Berkshire Q3 10-Q"],
+    "aerospace-defence": ["Do GE Aerospace, RTX or Safran name castings, a casting supplier or spare-parts delinquency trends in Q3 results (cst-1, cou-p3)? GE and RTX Q3 2026 (2026-10-20); Safran Q3 revenue (2026-10-23)",
+                          "Is defence demand for Tb/Dy-grade NdFeB or GaAs/GaN fab capacity stated in a government or prime-contractor document (cst-2, cst-3)? DLA Annual Materials Plan; DoD budget justification books; prime 10-K risk factors"],
+    "nuclear": ["Do US utilities or Centrus state how much post-2027 SWU demand is uncovered once Russian waivers end (nuc-1)? Centrus Q3 2026 10-Q; EIA UMAR 2025 tables",
+                "Does any source tie JSW's nuclear forgings and rotor shafts to the same presses (cst-8)? JSW H1 FY2026 results; JSW IR"],
+    "quantum": []
+  },
+  "subagents": [
+    {"role": "analyst: photonics", "round": 1}, {"role": "analyst: memory-packaging", "round": 1}, {"role": "analyst: robotics", "round": 1},
+    {"role": "analyst: power-equipment", "round": 1}, {"role": "analyst: aerospace-defence", "round": 1}, {"role": "analyst: nuclear", "round": 1},
+    {"role": "analyst: quantum", "round": 1},
+    {"role": "analyst: photonics", "round": 2}, {"role": "analyst: memory-packaging", "round": 2}, {"role": "analyst: robotics", "round": 2},
+    {"role": "analyst: power-equipment", "round": 2}, {"role": "analyst: aerospace-defence", "round": 2}, {"role": "analyst: nuclear", "round": 2},
+    {"role": "analyst: quantum", "round": 2},
+    {"role": "skeptic", "round": 3},
+    {"role": "chair research (web fetch)", "round": 3},
+    {"role": "analyst: power-equipment", "round": 4}, {"role": "analyst: aerospace-defence", "round": 4}, {"role": "analyst: nuclear", "round": 4}
+  ]
+}
+```</pre>
+</section>
+
+</div>
+<script>
+(function(){
+  var b=document.getElementById('copy-ledger');
+  b.addEventListener('click',function(){
+    var el=document.getElementById('ledger');
+    var t=el.textContent.replace(/^```json\n?/,'').replace(/\n?```\s*$/,'');
+    function sel(){var r=document.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected. Press Ctrl+C';}
+    try{navigator.clipboard.writeText(t).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy JSON'},1600)},sel);}catch(e){sel();}
+  });
+})();
+</script>
+
+</body></html>

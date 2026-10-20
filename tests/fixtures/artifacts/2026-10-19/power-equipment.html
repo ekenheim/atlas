@@ -1,0 +1,409 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Chokepoint Watch: Power Equipment</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single reading column styled like an equipment nameplate register; one card per chokepoint, evidence rows as a ledger */
+:root{
+  --bg:#f3f5f6; --panel:#ffffff; --ink:#172126; --muted:#56656d; --rule:#d5dde1;
+  --accent:#1f5f7a; --accent-soft:#e2eef3;
+  --ok:#2c6e49; --ok-soft:#e1f0e7; --warn:#8a5a00; --warn-soft:#fbf0d9; --bad:#9b2c2c; --bad-soft:#f8e3e3; --lead:#5b4a8a; --lead-soft:#ece8f6;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11181c; --panel:#182227; --ink:#e3eaed; --muted:#9aabb3; --rule:#2c3a41;
+  --accent:#7cc0dc; --accent-soft:#1d3440;
+  --ok:#86d0a4; --ok-soft:#183427; --warn:#e8c06a; --warn-soft:#3a2f14; --bad:#f09a9a; --bad-soft:#3d1f1f; --lead:#bfb0ee; --lead-soft:#2a2440; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11181c; --panel:#182227; --ink:#e3eaed; --muted:#9aabb3; --rule:#2c3a41;
+  --accent:#7cc0dc; --accent-soft:#1d3440;
+  --ok:#86d0a4; --ok-soft:#183427; --warn:#e8c06a; --warn-soft:#3a2f14; --bad:#f09a9a; --bad-soft:#3d1f1f; --lead:#bfb0ee; --lead-soft:#2a2440; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.wrap{max-width:900px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.1;margin:0}
+h1{font-size:2.6rem;font-weight:700;letter-spacing:.01em}
+h2{font-size:1.7rem;font-weight:600;border-bottom:2px solid var(--ink);padding-bottom:6px}
+h3{font-size:1.3rem;font-weight:600}
+h4{margin:0;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+p{margin:0}
+section{display:flex;flex-direction:column;gap:16px;min-width:0}
+a{color:var(--accent);word-break:break-word}
+.eyebrow{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.plate{border:2px solid var(--ink);background:var(--panel);padding:20px;display:grid;gap:14px}
+.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px 20px;font-family:var(--f-mono);font-size:.85rem}
+.meta div{display:flex;flex-direction:column}
+.meta span:first-child{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}
+.summary{list-style:none;margin:0;padding:0;display:grid;gap:8px;border-top:1px solid var(--rule);padding-top:12px}
+.summary li{display:grid;grid-template-columns:7.5rem 1fr;gap:12px}
+.summary b{font-family:var(--f-mono);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);padding-top:3px}
+.card{background:var(--panel);border:1px solid var(--rule);padding:20px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.card-head{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:baseline}
+.id{font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+.chip{display:inline-block;font-family:var(--f-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:3px;white-space:nowrap;vertical-align:1px}
+.c-p{background:var(--ok-soft);color:var(--ok)}
+.c-l{background:var(--lead-soft);color:var(--lead)}
+.c-m{background:var(--accent-soft);color:var(--accent)}
+.c-u{background:var(--warn-soft);color:var(--warn)}
+.c-x{background:var(--bad-soft);color:var(--bad)}
+.c-new{background:var(--ink);color:var(--bg)}
+ol.chain{margin:0;padding-left:1.4rem;display:grid;gap:4px}
+.steps{display:grid;gap:0;border-top:1px solid var(--rule)}
+.step{display:grid;grid-template-columns:9.5rem 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.step > div{min-width:0;display:grid;gap:6px}
+.step .lbl{font-weight:600}
+blockquote{margin:0;padding:6px 0 6px 12px;border-left:3px solid var(--ok);font-size:.93rem}
+blockquote.l{border-left-color:var(--lead)}
+cite{display:block;font-style:normal;font-size:.8rem;color:var(--muted);font-family:var(--f-mono)}
+.verdicts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.verdicts div{border:1px solid var(--rule);padding:10px 12px;display:grid;gap:4px;min-width:0}
+ul.tight{margin:0;padding-left:1.2rem;display:grid;gap:4px}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--rule)}
+th{font-family:var(--f-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500}
+.tbl{overflow-x:auto}
+.num{font-variant-numeric:tabular-nums}
+pre{background:var(--panel);border:1px solid var(--rule);padding:14px;overflow-x:auto;font-family:var(--f-mono);font-size:.76rem;line-height:1.5;margin:0;white-space:pre}
+.note{color:var(--muted);font-size:.9rem}
+@media (max-width:560px){.step{grid-template-columns:1fr;gap:6px}.summary li{grid-template-columns:1fr;gap:2px}h1{font-size:2.1rem}}
+</style>
+
+<div class="wrap">
+
+<header class="plate">
+  <div class="eyebrow">Weekly supply-chain research · evidence, not a trade</div>
+  <h1>Chokepoint Watch: Power Equipment</h1>
+  <div class="meta">
+    <div><span>As of</span><span>2026-10-19</span></div>
+    <div><span>Edition</span><span>1</span></div>
+    <div><span>Previous edition</span><span>First edition</span></div>
+    <div><span>Board</span><span>3 chokepoints · 2 deep-dives</span></div>
+  </div>
+  <p class="note">Edition 1. No earlier edition of this artifact was found in the artifact gallery, so nothing is carried forward and no predictions were due.</p>
+  <ul class="summary">
+    <li><b>Changed</b><span>First edition: three chokepoints opened (gas-turbine units, IGT turbine blades, North American large power transformers); GOES and MV switchgear rejected for now.</span></li>
+    <li><b>Top</b><span>pwr-2, industrial gas turbine blade castings: Howmet says it holds over 50% of global IGT blade supply, its new plant is "essentially fully spoken for", and fresh capacity committed now arrives "earliest August of '28".</span></li>
+    <li><b>Next</b><span>GE Vernova Q3 2026 results on 2026-10-28 (gas backlog plus slot reservations, last 116 GW, guided to at least 125 GW by year-end).</span></li>
+  </ul>
+</header>
+
+<section id="settled">
+  <h2>Predictions settled this week</h2>
+  <p>None. This is the first edition, so no predictions existed to settle.</p>
+</section>
+
+<section id="board">
+  <h2>The board</h2>
+  <p class="note">Marks: <span class="chip c-p">P</span> primary, <span class="chip c-l">L</span> lead, <span class="chip c-m">map</span> analyst's own map (never evidence). Step states: unexamined, lead, primary, contradicted.</p>
+
+  <!-- PWR-1 -->
+  <article class="card" id="pwr-1">
+    <div class="card-head"><span class="id">pwr-1</span><h3>Heavy-duty gas turbine units (delivery slots)</h3><span class="chip c-new">new</span><span class="chip c-m">layer: equipment unit</span><span class="chip c-p">deep-dive</span></div>
+
+    <div><h4>Chain</h4>
+    <ol class="chain">
+      <li>Data-center campuses and utilities need firm dispatchable generation <span class="chip c-m">map</span></li>
+      <li>They contract gas turbines; data-center orders are named by GE Vernova, Siemens Energy and MHI <span class="chip c-p">P</span></li>
+      <li>Three OEMs (GE Vernova, Siemens Energy, MHI) build heavy-duty frames <span class="chip c-m">map</span></li>
+      <li>Contracted GW (backlog + slot reservations) is several years of OEM output; new orders deliver 2028–2030 <span class="chip c-p">P</span></li>
+    </ol></div>
+
+    <div class="steps">
+      <div class="step"><span class="lbl">Constraint <span class="chip c-p">primary</span></span><div>
+        <p>Heavy-duty (≥100 MW class) gas turbine delivery slots, in GW per year. GE Vernova output is 20 GW/yr from Q3 2026, rising to 24 GW in 2028.</p>
+        <blockquote>"To meet this demand, we remain on track to deliver 20 GW of annual gas turbine output in the third quarter of 2026, with 24 GW in 2028, and we are implementing actions to produce 30 GW in 2030."<cite>GE Vernova, Q2 2026 earnings release, 2026-07-22</cite></blockquote>
+      </div></div>
+      <div class="step"><span class="lbl">Demand vs supply <span class="chip c-p">primary</span></span><div>
+        <p>GE Vernova holds 116 GW under contract (53 GW firm backlog + 63 GW slot reservations) against 20–24 GW/yr of output. That is roughly five years of output, though the 63 GW of reservations are not firm orders. MHI says orders booked now deliver 2028–2030.</p>
+        <blockquote>"Converted 10 GW of existing slot reservation agreements to orders and shipped 3 GW of equipment; resulting in backlog growth from 44 to 53 GW and an increase in slot reservation agreements from 56 to 63 GW."<cite>GE Vernova, Q2 2026 earnings release, 2026-07-22</cite></blockquote>
+        <blockquote>"Delivery timing varies by project, but the orders booked in Q1 are generally scheduled for delivery between 2028 and 2030."<cite>MHI, Q1 FY2026 results briefing Q&amp;A (CFO Hiroshi Nishio), 2026-08-06</cite></blockquote>
+        <blockquote>"High level of firm customer commitments (69 GW backlog / 26 GW SRAs)"<cite>Siemens Energy, Q3 FY26 analyst presentation, 2026-08-05</cite></blockquote>
+      </div></div>
+      <div class="step"><span class="lbl">Relief <span class="chip c-p">primary</span></span><div>
+        <p>All three OEMs are adding capacity. GE Vernova targets 24 GW in 2028 and 30 GW in 2030. Siemens Energy says large gas turbine capacity expansion becomes effective in FY27. MHI plans to double capacity but will not book twice the orders until that capacity is certain. Relief comes in steps over 2027–2030, and it also depends on hot-section supply (pwr-2).</p>
+        <blockquote>"LGT capacity expansion to become effective in FY27"<cite>Siemens Energy, Q3 FY26 analyst presentation, 2026-08-05</cite></blockquote>
+        <blockquote>"That said, the fact that production capacity is expected to double in the future does not mean that we are immediately seeking to book twice as many orders as before."<cite>MHI, Q1 FY2026 Q&amp;A, 2026-08-06</cite></blockquote>
+      </div></div>
+      <div class="step"><span class="lbl">Control <span class="chip c-l">lead</span></span><div><p>Held by three listed OEMs: GE Vernova (US), Siemens Energy (DE) and MHI (JP). Contracted volumes from their own filings are 116 GW, 69 GW + 26 GW and 35 GW of backlog respectively. Market shares are not computed from primary data here, because the GW definitions differ by company.</p></div></div>
+      <div class="step"><span class="lbl">Capture <span class="chip c-p">primary</span></span><div>
+        <p>The OEMs report price gains and margin expansion. MHI says new-order pricing has not declined and profitability keeps improving.</p>
+        <blockquote>"Order pricing has not declined, and the profitability of newly booked projects continues to improve gradually."<cite>MHI, Q1 FY2026 Q&amp;A, 2026-08-06</cite></blockquote>
+        <blockquote>"Segment EBITDA was $1.0 billion and segment EBITDA margin was 18.8%, up +240 basis points, +320 basis points organically*, primarily driven by higher volume and favorable price at Gas Power, partially offset by the impact of inflation."<cite>GE Vernova, Q2 2026 earnings release, 2026-07-22</cite></blockquote>
+      </div></div>
+      <div class="step"><span class="lbl">Invalidation <span class="chip c-l">lead</span></span><div><p>Most of the contracted GW at GE Vernova (63 of 116) are slot reservations, not orders. Conversion is running, though: 10 GW converted in Q2. No cancellations were found. Reciprocating engines, fuel cells and batteries can serve some data-center load; their impact was not examined this week.</p></div></div>
+    </div>
+
+    <div class="verdicts">
+      <div><h4>Physical scarcity</h4><p>Supported by primary evidence at the unit layer. New orders are slotting into 2028–2030 at two of three OEMs.</p></div>
+      <div><h4>Economic capture</h4><p>Supported. Price and margin gains are stated by GE Vernova and MHI; Siemens Energy cites a strong pricing environment.</p></div>
+      <div><h4>Investability</h4><p>All three holders are listed. No dilution overhang was seen; customer advances (reservation fees) fund working capital. US tariff exposure on imported Siemens/MHI units was not examined.</p></div>
+    </div>
+
+    <div><h4>Bear checks</h4>
+    <ul class="tight">
+      <li><b>Dilution:</b> none seen; GE Vernova and Siemens Energy fund growth from cash and customer advances.</li>
+      <li><b>GAAP margins and pricing:</b> segment margins are non-GAAP EBITDA. Whether SRA prices are fixed at reservation or escalate is not disclosed.</li>
+      <li><b>Customer concentration:</b> not disclosed.</li>
+      <li><b>Cash vs debt:</b> GE Vernova guides FY26 free cash flow of $11.5–12.5bn. Balance sheets were not read.</li>
+      <li><b>Second source or imports:</b> no fourth heavy-duty OEM at scale <span class="chip c-m">map</span>. Not verified this week.</li>
+      <li><b>Bypass architecture:</b> engines, aeroderivatives (GE took 61 aero units in Q2) and batteries; unquantified.</li>
+      <li><b>Pull-forward or non-converting slots:</b> this is the main risk, with 63 GW of GE reservations and 26 GW at Siemens Energy.</li>
+      <li><b>Data-center capex cut:</b> it would hit reservations first.</li>
+      <li><b>Policy reversal:</b> not examined.</li>
+      <li><b>Layer error:</b> OEM backlogs prove scarcity of units only. They say nothing about castings (see pwr-2).</li>
+    </ul></div>
+
+    <div><h4>Kill criteria</h4>
+    <ul class="tight">
+      <li>GE Vernova backlog plus SRAs falls quarter on quarter, or SRA cancellations are disclosed, in any release through Q1 2027.</li>
+      <li>An OEM states that new heavy-duty orders can deliver before 2028.</li>
+      <li>Siemens Energy Gas Services book-to-bill falls below 1.0 for two consecutive quarters.</li>
+    </ul></div>
+
+    <div><h4>Predictions</h4>
+    <ul class="tight">
+      <li><span class="id">pwr-p1</span> By 2027-02-15, GE Vernova's reported Gas Power equipment backlog plus slot reservation agreements at year-end 2026 will be at least 125 GW, as shown by GE Vernova's Q4 2026 earnings release.</li>
+      <li><span class="id">pwr-p2</span> By 2026-11-30, Siemens Energy will report a Gas Services book-to-bill above 1.5 for Q4 FY2026, as shown by its Q4 FY2026 earnings release.</li>
+    </ul></div>
+    <p><b>Status since last edition:</b> new (first edition).</p>
+  </article>
+
+  <!-- PWR-2 -->
+  <article class="card" id="pwr-2">
+    <div class="card-head"><span class="id">pwr-2</span><h3>Industrial gas turbine blade castings</h3><span class="chip c-new">new</span><span class="chip c-m">layer: component</span><span class="chip c-p">deep-dive</span></div>
+
+    <div><h4>Chain</h4>
+    <ol class="chain">
+      <li>Gas turbine unit demand (pwr-1) <span class="chip c-p">P</span></li>
+      <li>Each turbine needs hot-section blades and vanes (equiaxed, directionally solidified, single crystal) <span class="chip c-p">P</span></li>
+      <li>Howmet supplies more than half of global IGT turbine blades <span class="chip c-p">P</span></li>
+      <li>New casting capacity (Japan plant, Europe expansion, Virginia) is spoken for; capacity committed now arrives no earlier than August 2028 <span class="chip c-p">P</span></li>
+    </ol></div>
+
+    <div class="steps">
+      <div class="step"><span class="lbl">Constraint <span class="chip c-p">primary</span></span><div>
+        <p>Investment-cast IGT turbine blades, measured in casting capacity (pits and furnaces). The holder does not publish a unit count.</p>
+        <blockquote>"...that new plant that I -- in fact, I visited that in April is going to be -- it's already essentially fully spoken for. We have one casting pit left, but I think that capacity is going to be gone."<cite>John Plant, CEO, Howmet Aerospace, Q2 2026 earnings call, 2026-08-06</cite></blockquote>
+      </div></div>
+      <div class="step"><span class="lbl">Demand vs supply <span class="chip c-p">primary</span></span><div>
+        <p>The holder says demand exceeds output and that customers take whatever it makes. Demand is backed by long-term agreements with all seven major customers, a mix of firm and outlook volumes that is not broken out.</p>
+        <blockquote>"albeit at the moment, the demand is such that customers really just want whatever we can make."<cite>John Plant, Howmet Q2 2026 call</cite></blockquote>
+        <blockquote>"We have completed negotiations with the last of our 7 major customers, though the overall picture continues to expand with some customers already wanting to revisit and add to their demand outlooks."<cite>John Plant, Howmet Q2 2026 call</cite></blockquote>
+        <blockquote>"and 38% growth in the gas turbines market."<cite>Howmet Aerospace, Q2 2026 earnings release, 2026-08-06</cite></blockquote>
+      </div></div>
+      <div class="step"><span class="lbl">Relief <span class="chip c-p">primary</span></span><div>
+        <p>New capacity takes about two years from commitment. Howmet capex will exceed $500M in 2026 and step up again in 2027, split between IGT and aerospace.</p>
+        <blockquote>"But if we started now, you can assume that it's a brand-new commitment, let's say, August of '26. You can say it's earliest August of '28..."<cite>John Plant, Howmet Q2 2026 call</cite></blockquote>
+        <blockquote>"And while this year, we are now likely to exceed $500 million in capital spend, we are already seeing the need to further increase this in 2027."<cite>John Plant, Howmet Q2 2026 call</cite></blockquote>
+      </div></div>
+      <div class="step"><span class="lbl">Control <span class="chip c-p">primary</span></span><div>
+        <p>Howmet reports more than 50% global share. The rest is mainly Precision Castparts (Berkshire Hathaway, not separately listed), plus CPP, Doncasters and OEM in-house casting <span class="chip c-m">map</span>. Their capacity was not verified this week.</p>
+        <blockquote>"And I think I'll start off with saying it's important to note that Howmet has a market share in excess of 50% globally for turbine blades in the IGT market."<cite>John Plant, Howmet Q2 2026 call</cite></blockquote>
+      </div></div>
+      <div class="step"><span class="lbl">Capture <span class="chip c-l">lead</span></span><div>
+        <p>Howmet's Engine Products segment grew revenue 32% to $1.37bn, with adjusted EBITDA margin of 37.7% (non-GAAP, from release tables). Howmet does not separate IGT pricing from aerospace, and the LTA price terms are not disclosed. That keeps capture at lead level for the IGT slice.</p>
+        <blockquote>"Engine Products reported second quarter 2026 revenue of $1.37 billion, an increase of 32% year over year,"<cite>Howmet Q2 2026 earnings release, 2026-08-06</cite></blockquote>
+      </div></div>
+      <div class="step"><span class="lbl">Invalidation <span class="chip c-u">unexamined</span></span><div><p>No contrary primary evidence was found. Second-source expansion (PCC, CPP, Doncasters) and OEM in-sourcing were not checked; the Berkshire 10-Q could not be fetched. The evidence comes from one party, the holder itself, which has an interest in describing demand as strong.</p></div></div>
+    </div>
+
+    <div class="verdicts">
+      <div><h4>Physical scarcity</h4><p>Supported at the component layer by the holder's own statements: sold-out new plant, two-year relief lag. Not yet confirmed by a customer or competitor.</p></div>
+      <div><h4>Economic capture</h4><p>Lead only. Segment margins are high and rising, but IGT pricing is not disclosed.</p></div>
+      <div><h4>Investability</h4><p>The holder is listed (NYSE). It is buying back stock, not issuing it. The main second source (PCC) is not separately investable. The Japan plant may face US import duties when it supplies US turbine assembly; not examined.</p></div>
+    </div>
+
+    <div><h4>Bear checks</h4>
+    <ul class="tight">
+      <li><b>Dilution:</b> none. $300M of buybacks in Q2 and $800M year to date through July.</li>
+      <li><b>GAAP margins and pricing:</b> company GAAP operating margin 27.9% in Q2 (release table). Whether LTA pricing is fixed or escalates is not disclosed.</li>
+      <li><b>Customer concentration:</b> seven major IGT customers. The three heavy-duty OEMs are likely the largest <span class="chip c-m">map</span>.</li>
+      <li><b>Cash vs debt:</b> cash $563M against about $4.5bn of borrowings (my sum of release balance-sheet lines). Q2 free cash flow was $479M.</li>
+      <li><b>Second source or imports:</b> unverified; this is the biggest gap.</li>
+      <li><b>Bypass architecture:</b> engines and batteries reduce turbine demand. Single-crystal is under 5% of IGT blades, so a technology shift is slow.</li>
+      <li><b>Pull-forward:</b> the turbine OEMs' 89 GW of non-firm reservations (GE 63 GW, Siemens Energy 26 GW) flow through to blade demand.</li>
+      <li><b>Data-center capex cut:</b> transmits with a lag through the OEMs.</li>
+      <li><b>Policy reversal:</b> not examined.</li>
+      <li><b>Layer error check:</b> evidence is component-specific (blades, casting pits). Turbine backlogs are used only as demand context.</li>
+    </ul></div>
+
+    <div><h4>Kill criteria</h4>
+    <ul class="tight">
+      <li>Howmet states it has uncommitted IGT casting capacity, or gas-turbine-market growth falls below 10% year on year, in any quarterly release through Q2 2027.</li>
+      <li>A competitor or OEM announces qualified IGT blade capacity that starts before 2028.</li>
+      <li>A heavy-duty OEM attributes delivery slippage to a supplier other than Howmet, which would show the bottleneck sits elsewhere.</li>
+    </ul></div>
+
+    <div><h4>Predictions</h4>
+    <ul class="tight">
+      <li><span class="id">pwr-p3</span> By 2027-02-28, Howmet will report gas turbines market revenue growth of at least 25% year over year for Q4 2026, as shown by its Q4 2026 earnings release.</li>
+    </ul></div>
+    <p><b>Status since last edition:</b> new (first edition).</p>
+  </article>
+
+  <!-- PWR-3 -->
+  <article class="card" id="pwr-3">
+    <div class="card-head"><span class="id">pwr-3</span><h3>Large power transformers, North America</h3><span class="chip c-new">new</span><span class="chip c-m">layer: equipment unit</span><span class="chip c-l">watch, no deep-dive</span></div>
+
+    <div><h4>Chain</h4>
+    <ol class="chain">
+      <li>Data centers and grid build-outs need substations <span class="chip c-m">map</span></li>
+      <li>Grid equipment orders outrun revenue: GE Vernova Electrification book-to-bill about 1.7, Siemens Energy Grid Technologies 1.48 <span class="chip c-p">P</span></li>
+      <li>Siemens Energy names its transformer business as the main driver <span class="chip c-p">P</span></li>
+      <li>Lead times for 100+ MVA units of 2–3 years or more in North America and Europe <span class="chip c-l">L</span></li>
+    </ol></div>
+
+    <div class="steps">
+      <div class="step"><span class="lbl">Constraint <span class="chip c-l">lead</span></span><div><p>Power transformers of 100 MVA and above, measured in MVA. Lead times come only from Rystad via trade press. No maker-quoted figure was found this week.</p>
+        <blockquote class="l">"Lead times remain historically high, exceeding 12 months for transformers above 20 MVA and more than 24 months for 100+ MVA units in Europe and North America."<cite>Power Peak Digest citing Rystad Energy, 2026-06-08 (lead)</cite></blockquote></div></div>
+      <div class="step"><span class="lbl">Demand vs supply <span class="chip c-l">lead</span></span><div>
+        <p>Book-to-bill well above 1 is primary evidence, but it is at the grid-equipment and segment layer. Only Siemens Energy names transformers specifically.</p>
+        <blockquote>"The major contribution came from the substantial growth in the transformer business including data center projects."<cite>Siemens Energy, Q3 FY2026 earnings release, 2026-08-05</cite></blockquote>
+        <blockquote>"Book‑to‑bill ratio was 1.48 and the order backlog increased to €51bn."<cite>Siemens Energy, Q3 FY2026 earnings release (Grid Technologies)</cite></blockquote>
+      </div></div>
+      <div class="step"><span class="lbl">Relief <span class="chip c-p">primary</span></span><div>
+        <p>Hitachi Energy broke ground on a $457M large power transformer plant in South Boston, Virginia, and is building a $528M plant in Mississippi that starts production in 2029. Rystad (lead) expects about 200 GVA of global capacity added in 2026 and says peak lead times could ease within 12 months. Chinese imports with short lead times are also arriving (lead).</p>
+        <blockquote>"Construction is expected to begin late this year, with transformer production at the facility scheduled to start in 2029."<cite>Hitachi Energy, press release on Mississippi factory, 2026-09-15</cite></blockquote>
+        <blockquote class="l">"However, Rystad Energy noted that growth in lead times and prices has largely stagnated over the past year."<cite>Power Peak Digest citing Rystad, 2026-06-08 (lead)</cite></blockquote>
+      </div></div>
+      <div class="step"><span class="lbl">Control <span class="chip c-u">unexamined</span></span><div><p>Many holders: Hitachi Energy, Siemens Energy, GE Vernova/Prolec GE, HD Hyundai Electric, Hyosung and others. Rystad counts more than 260 OEMs globally (lead). This fragmentation weakens any pricing-power case.</p></div></div>
+      <div class="step"><span class="lbl">Capture <span class="chip c-p">primary</span></span><div><blockquote>"Segment EBITDA was $0.7 billion and segment EBITDA margin was 18.4%, up +390 basis points, +700 basis points organically*, due to volume, productivity, and price at Power Transmission and Power Conversion &amp; Storage."<cite>GE Vernova, Q2 2026 earnings release, 2026-07-22</cite></blockquote></div></div>
+      <div class="step"><span class="lbl">Invalidation <span class="chip c-l">lead</span></span><div><p>Rystad reports lead times and prices plateauing, global capacity growing more than 10% by 2028, and imports from China, Korea, Turkey and India filling gaps.</p></div></div>
+    </div>
+
+    <div class="verdicts">
+      <div><h4>Physical scarcity</h4><p>Probable but plateauing. Lead times are lead-level only, and relief is visible.</p></div>
+      <div><h4>Economic capture</h4><p>Price is cited at segment level. It is spread across many holders.</p></div>
+      <div><h4>Investability</h4><p>Holders are mostly listed. The 50% Section 232 tariff on steel content in imported transformers (from August 2025, per trade press) helps US-built supply and hurts importers.</p></div>
+    </div>
+
+    <div><h4>Kill criteria</h4>
+    <ul class="tight">
+      <li>A maker quotes lead times under 18 months for 100+ MVA units in its own filing or call, by Q2 2027.</li>
+      <li>Grid Technologies (Siemens Energy) or Electrification (GE Vernova) book-to-bill falls below 1.1 in any quarter through Q1 2027.</li>
+    </ul></div>
+
+    <div><h4>Predictions</h4>
+    <ul class="tight">
+      <li><span class="id">pwr-p4</span> By 2027-02-28, Siemens Energy Grid Technologies will report a book-to-bill of at least 1.2 for Q1 FY2027, as shown by its Q1 FY2027 earnings release.</li>
+    </ul></div>
+    <p><b>Status since last edition:</b> new (first edition). Held at watch level until a maker-quoted lead time or a utility filing is found.</p>
+  </article>
+</section>
+
+<section id="rejected">
+  <h2>Rejected</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Candidate</th><th>Reason</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>Grain-oriented electrical steel (GOES), US</td><td>Cleveland-Cliffs is the sole US producer and is adding up to 25% by early 2028. No tonnage or demand-against-supply figure was found at the material layer, and transformer makers import cores and steel. Not shown to be a binding constraint; reopen if a transformer maker names GOES as limiting output.</td><td>Cleveland-Cliffs release, 2026-10-05: "As the sole U.S. producer of GOES, Butler Works occupies a unique position in the nation's manufacturing and energy supply chain..."</td></tr>
+      <tr><td>Medium-voltage switchgear</td><td>Lead times of 24–32 weeks for standard MV systems, below the horizon that would make it a chokepoint.</td><td>Power Peak Digest citing Rystad, 2026-06-08 (lead)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="hooks">
+  <h2>Cross-theme hooks</h2>
+  <ul class="tight">
+    <li>Howmet's casting equipment and capex serve both IGT and commercial aero engines, so blade capacity for turbines competes with aerospace engine ramps.</li>
+    <li>Gas turbine delivery slots (2028–2030 for new orders) cap how fast behind-the-meter power reaches AI data centers, and so pace accelerator deployment.</li>
+    <li>GOES and copper winding are shared with EV motors and robotics actuators.</li>
+  </ul>
+</section>
+
+<section id="next">
+  <h2>Next questions</h2>
+  <ol class="chain">
+    <li>Do GE Vernova's gas backlog plus SRAs reach the 125 GW path? Look at the GE Vernova Q3 2026 release on 2026-10-28.</li>
+    <li>What is Precision Castparts' IGT capacity and expansion? Look at the Berkshire Hathaway Q3 2026 10-Q (early November) and the Howmet Technology and Markets Day 2026 deck.</li>
+    <li>What lead time do transformer makers quote for 100+ MVA units? Look at the HD Hyundai Electric and Hyosung Heavy Industries Q3 2026 IR releases (late October) and the Hitachi Ltd. Q2 FY2026 results.</li>
+    <li>Are slot reservations converting at Siemens Energy? Look at the Siemens Energy Q4 FY2026 release (November).</li>
+    <li>Are HVDC cable and cable-laying vessels a candidate? Look at Prysmian, NKT and Nexans Q3 2026 statements.</li>
+  </ol>
+</section>
+
+<section id="notes">
+  <h2>Run notes</h2>
+  <ul class="tight">
+    <li>No previous edition was found in the artifact list, so this is edition 1. Past chats were not searchable from this scheduled run.</li>
+    <li>Primary documents were opened and read in this run by fetch sub-agents, and their verbatim extracts are quoted here. MHI quotes come from the company's English Q&amp;A summary, and Siemens Energy chart values come from PDF text extraction (GT-unit chart values not used).</li>
+    <li>Unreachable: the HD Hyundai Electric site and its Barchart release (empty pages), the Berkshire Hathaway 10-Q on EDGAR (robots refusal), and the Howmet Technology and Markets Day PDF (not opened).</li>
+    <li>Unverified: the 2026 status of Section 232 duties on GOES, cores and laminations (the August 2025 inclusions notice was read, but no 2026 notice was found); the DOE "30 months" distribution-transformer figure (trade press only); Howmet's call date (the transcript says Aug 6; the page byline says Aug 13; the release is Aug 6).</li>
+    <li>Tool calls: about 22 direct calls, plus about 40 page fetches by 9 sub-agents, for roughly 62 in all against a budget of about 80.</li>
+  </ul>
+</section>
+
+<section id="ledger">
+  <h2>Ledger</h2>
+  <pre>{
+  "theme": "power-equipment",
+  "as_of": "2026-10-19",
+  "edition": 1,
+  "chokepoints": [
+    {"id": "pwr-1", "name": "Heavy-duty gas turbine units (delivery slots)", "layer": "equipment unit", "status": "new",
+     "verdicts": {"scarcity": "supported-primary", "capture": "supported-primary", "investability": "listed holders; no dilution seen; tariff exposure unexamined"},
+     "holders": ["GE Vernova", "Siemens Energy", "Mitsubishi Heavy Industries"],
+     "kill_criteria": ["GEV backlog+SRA falls QoQ or SRA cancellations disclosed through Q1 2027", "An OEM states new heavy-duty orders can deliver before 2028", "Siemens Energy Gas Services book-to-bill below 1.0 for two consecutive quarters"],
+     "first_seen": "2026-10-19"},
+    {"id": "pwr-2", "name": "Industrial gas turbine blade castings", "layer": "component", "status": "new",
+     "verdicts": {"scarcity": "supported-primary (holder only)", "capture": "lead", "investability": "listed holder (Howmet); buybacks not dilution; main second source PCC not separately listed"},
+     "holders": ["Howmet Aerospace (>50% IGT blades, self-reported)", "Precision Castparts (Berkshire Hathaway)"],
+     "kill_criteria": ["Howmet states uncommitted IGT casting capacity, or gas turbine market growth below 10% YoY, through Q2 2027", "Competitor or OEM announces qualified IGT blade capacity starting before 2028", "Heavy-duty OEM attributes delivery slippage to a non-Howmet supplier"],
+     "first_seen": "2026-10-19"},
+    {"id": "pwr-3", "name": "Large power transformers (100+ MVA), North America", "layer": "equipment unit", "status": "new",
+     "verdicts": {"scarcity": "probable, plateauing (lead)", "capture": "segment-level price cited; fragmented", "investability": "mostly listed holders; Section 232 helps US-built supply"},
+     "holders": ["Hitachi Energy", "Siemens Energy", "GE Vernova / Prolec GE", "HD Hyundai Electric", "Hyosung Heavy Industries"],
+     "kill_criteria": ["Maker quotes under 18 months lead time for 100+ MVA in own filing or call by Q2 2027", "Siemens Energy Grid Technologies or GEV Electrification book-to-bill below 1.1 in any quarter through Q1 2027"],
+     "first_seen": "2026-10-19"}
+  ],
+  "predictions": [
+    {"id": "pwr-p1", "chokepoint": "pwr-1", "made": "2026-10-19", "deadline": "2027-02-15",
+     "text": "GE Vernova's reported Gas Power equipment backlog plus slot reservation agreements at year-end 2026 will be at least 125 GW.",
+     "source_type": "GE Vernova Q4 2026 earnings release", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "pwr-p2", "chokepoint": "pwr-1", "made": "2026-10-19", "deadline": "2026-11-30",
+     "text": "Siemens Energy will report a Gas Services book-to-bill above 1.5 for Q4 FY2026.",
+     "source_type": "Siemens Energy Q4 FY2026 earnings release", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "pwr-p3", "chokepoint": "pwr-2", "made": "2026-10-19", "deadline": "2027-02-28",
+     "text": "Howmet will report gas turbines market revenue growth of at least 25% year over year for Q4 2026.",
+     "source_type": "Howmet Aerospace Q4 2026 earnings release", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "pwr-p4", "chokepoint": "pwr-3", "made": "2026-10-19", "deadline": "2027-02-28",
+     "text": "Siemens Energy Grid Technologies will report a book-to-bill of at least 1.2 for Q1 FY2027.",
+     "source_type": "Siemens Energy Q1 FY2027 earnings release", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null}
+  ],
+  "rejected": [
+    {"name": "GOES (US)", "reason": "Sole US producer adding up to 25% by early 2028, but no material-layer demand-vs-supply evidence; makers import cores/steel. Reopen if a transformer maker names GOES as limiting.", "date": "2026-10-19"},
+    {"name": "Medium-voltage switchgear", "reason": "Standard MV lead times 24-32 weeks (lead), below chokepoint horizon.", "date": "2026-10-19"}
+  ],
+  "cross_theme_hooks": [
+    "IGT blade casting capacity (Howmet) is shared with commercial aero engines",
+    "Gas turbine slots (2028-2030 for new orders) pace behind-the-meter power for AI data centers",
+    "GOES and copper winding shared with EV motors and robotics"
+  ],
+  "primary_sources": [
+    {"who": "GE Vernova", "doc": "Q2 2026 earnings release (8-K exhibit)", "date": "2026-07-22", "url": "https://www.sec.gov/Archives/edgar/data/0001996810/000199681026000147/gevpressrelease2q26.htm", "quote": "Converted 10 GW of existing slot reservation agreements to orders and shipped 3 GW of equipment; resulting in backlog growth from 44 to 53 GW and an increase in slot reservation agreements from 56 to 63 GW."},
+    {"who": "GE Vernova", "doc": "Q2 2026 earnings release (8-K exhibit)", "date": "2026-07-22", "url": "https://www.sec.gov/Archives/edgar/data/0001996810/000199681026000147/gevpressrelease2q26.htm", "quote": "To meet this demand, we remain on track to deliver 20 GW of annual gas turbine output in the third quarter of 2026, with 24 GW in 2028, and we are implementing actions to produce 30 GW in 2030."},
+    {"who": "GE Vernova", "doc": "Q2 2026 earnings release (8-K exhibit)", "date": "2026-07-22", "url": "https://www.sec.gov/Archives/edgar/data/0001996810/000199681026000147/gevpressrelease2q26.htm", "quote": "Orders of $6.3 billion increased +66% organically, driving a book-to-bill ratio of approximately 1.7, with continued strong demand for grid equipment."},
+    {"who": "GE Vernova", "doc": "Q3 2026 results date announcement", "date": "2026-10-13", "url": "https://www.gevernova.com/news/press-releases/ge-vernova-announce-third-quarter-2026-financial-results-october-28", "quote": "GE Vernova Inc. (NYSE: GEV) is scheduled to release its third quarter 2026 financial results on Wednesday, October 28, 2026, before market open."},
+    {"who": "Siemens Energy", "doc": "Q3 FY26 analyst presentation", "date": "2026-08-05", "url": "https://assets.siemens-energy.com/dam/3e846440-66dd-4a56-be75-b49d004e6741/2026-08-05_Q3_Analyst_presentation-pdf_Original%20file.pdf", "quote": "High level of firm customer commitments (69 GW backlog / 26 GW SRAs)"},
+    {"who": "Siemens Energy", "doc": "Q3 FY26 analyst presentation", "date": "2026-08-05", "url": "https://assets.siemens-energy.com/dam/3e846440-66dd-4a56-be75-b49d004e6741/2026-08-05_Q3_Analyst_presentation-pdf_Original%20file.pdf", "quote": "LGT capacity expansion to become effective in FY27"},
+    {"who": "Siemens Energy", "doc": "Q3 FY2026 earnings release", "date": "2026-08-05", "url": "https://assets.siemens-energy.com/dam/30018eed-275d-4e73-811e-b49d004cdc3d/2026-08-05-Earnings_Release_Q3_FY26_EN-pdf_Original%20file.pdf", "quote": "The major contribution came from the substantial growth in the transformer business including data center projects."},
+    {"who": "Siemens Energy", "doc": "Q3 FY2026 earnings release", "date": "2026-08-05", "url": "https://assets.siemens-energy.com/dam/30018eed-275d-4e73-811e-b49d004cdc3d/2026-08-05-Earnings_Release_Q3_FY26_EN-pdf_Original%20file.pdf", "quote": "Book‑to‑bill ratio was 2.65 and order backlog increased to €73bn."},
+    {"who": "Mitsubishi Heavy Industries (CFO Hiroshi Nishio)", "doc": "Q1 FY2026 Financial Results Briefing Q&A summary", "date": "2026-08-06", "url": "https://www.mhi.com/finance/library/result/pdf/fy20261q/qa_20261q.pdf", "quote": "Delivery timing varies by project, but the orders booked in Q1 are generally scheduled for delivery between 2028 and 2030."},
+    {"who": "Mitsubishi Heavy Industries (CFO Hiroshi Nishio)", "doc": "Q1 FY2026 Financial Results Briefing Q&A summary", "date": "2026-08-06", "url": "https://www.mhi.com/finance/library/result/pdf/fy20261q/qa_20261q.pdf", "quote": "Order pricing has not declined, and the profitability of newly booked projects continues to improve gradually."},
+    {"who": "Howmet Aerospace (CEO John Plant)", "doc": "Q2 2026 earnings call transcript", "date": "2026-08-06", "url": "https://www.fool.com/earnings/call-transcripts/2026/08/13/howmet-aerospace-hwm-q2-2026-earnings-call-transcript/", "quote": "And I think I'll start off with saying it's important to note that Howmet has a market share in excess of 50% globally for turbine blades in the IGT market."},
+    {"who": "Howmet Aerospace (CEO John Plant)", "doc": "Q2 2026 earnings call transcript", "date": "2026-08-06", "url": "https://www.fool.com/earnings/call-transcripts/2026/08/13/howmet-aerospace-hwm-q2-2026-earnings-call-transcript/", "quote": "We have one casting pit left, but I think that capacity is going to be gone."},
+    {"who": "Howmet Aerospace (CEO John Plant)", "doc": "Q2 2026 earnings call transcript", "date": "2026-08-06", "url": "https://www.fool.com/earnings/call-transcripts/2026/08/13/howmet-aerospace-hwm-q2-2026-earnings-call-transcript/", "quote": "But if we started now, you can assume that it's a brand-new commitment, let's say, August of '26. You can say it's earliest August of '28..."},
+    {"who": "Howmet Aerospace (CEO John Plant)", "doc": "Q2 2026 earnings call transcript", "date": "2026-08-06", "url": "https://www.fool.com/earnings/call-transcripts/2026/08/13/howmet-aerospace-hwm-q2-2026-earnings-call-transcript/", "quote": "albeit at the moment, the demand is such that customers really just want whatever we can make."},
+    {"who": "Howmet Aerospace", "doc": "Q2 2026 earnings release", "date": "2026-08-06", "url": "https://www.howmet.com/press-release/2026-08-06/howmet-aerospace-reports-second-quarter-2026-results/", "quote": "Engine Products reported second quarter 2026 revenue of $1.37 billion, an increase of 32% year over year,"},
+    {"who": "Hitachi Energy", "doc": "Press release: $528 million Mississippi transformer factory", "date": "2026-09-15", "url": "https://www.hitachienergy.com/news-and-events/press-releases/2026/09/hitachi-deepens-commitment-to-u-s-manufacturing-with-528-million-mississippi-transformer-factory", "quote": "Construction is expected to begin late this year, with transformer production at the facility scheduled to start in 2029."},
+    {"who": "Hitachi Energy", "doc": "Press release: South Boston large power transformer groundbreaking", "date": "2026-06-29", "url": "https://www.hitachienergy.com/us/en/news-and-events/press-releases/2026/06/hitachi-energy-breaks-ground-on-the-nation-s-largest-facility-for-the-production-of-large-power-transformers-in-south-boston-virginia", "quote": "The $457 million project will bring about 825 new jobs to Halifax County."},
+    {"who": "Cleveland-Cliffs", "doc": "Press release: Butler Works GOES expansion visit", "date": "2026-10-05", "url": "https://www.clevelandcliffs.com/news/news-releases/detail/704/cleveland-cliffs-to-host-u-s-secretary-of-energy-chris", "quote": "The Butler Works project will enhance steel quality, increase operating efficiency, and expand the facility's GOES production volume by up to 25 percent."}
+  ]
+}</pre>
+</section>
+
+</div>
+
+</body></html>

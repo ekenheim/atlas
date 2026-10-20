@@ -1,0 +1,386 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Chokepoint Watch: Quantum</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a cryostat log. One reading column; each chokepoint is a stage card with a step register (six steps, each with a stamped grade) and a verdict strip. */
+:root{
+  --bg:#edf1f3; --surface:#fbfcfd; --ink:#11202a; --muted:#516370; --rule:#c9d4da;
+  --accent:#0d6b7f; --accent-soft:#dcecef;
+  --ok:#1f6b47; --ok-bg:#e0f0e7; --lead:#8a5c00; --lead-bg:#f7edd4; --bad:#9f3328; --bad-bg:#f6e0dc; --none:#6b7780; --none-bg:#e7ecef;
+  --f-display:"Spectral",Georgia,"Times New Roman",serif;
+  --f-body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d1519; --surface:#142027; --ink:#e1eaee; --muted:#93a7b2; --rule:#26363f;
+  --accent:#6cc6d6; --accent-soft:#163039;
+  --ok:#7fd1a6; --ok-bg:#15312a; --lead:#e6bd63; --lead-bg:#372b12; --bad:#f19a8e; --bad-bg:#3b1f1b; --none:#9fadb6; --none-bg:#1d2a31; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1519; --surface:#142027; --ink:#e1eaee; --muted:#93a7b2; --rule:#26363f;
+  --accent:#6cc6d6; --accent-soft:#163039;
+  --ok:#7fd1a6; --ok-bg:#15312a; --lead:#e6bd63; --lead-bg:#372b12; --bad:#f19a8e; --bad-bg:#3b1f1b; --none:#9fadb6; --none-bg:#1d2a31; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 var(--f-body)}
+.wrap{max-width:880px;margin:0 auto;padding-block:36px 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:44px}
+h1,h2,h3{font-family:var(--f-display);margin:0;line-height:1.2;text-wrap:balance}
+h1{font-size:clamp(2rem,5vw,2.7rem);font-weight:700}
+h2{font-size:1.4rem;display:flex;gap:12px;align-items:baseline;border-bottom:1px solid var(--ink);padding-bottom:6px}
+h2 .n{font:600 .8rem var(--f-mono);color:var(--accent)}
+h3{font-size:1.15rem}
+h4{margin:0;font:600 .72rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+p{margin:0;max-width:72ch}
+section{display:flex;flex-direction:column;gap:16px;min-width:0}
+a{color:var(--accent);overflow-wrap:anywhere}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.eyebrow{font:600 .74rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 24px;font:.85rem var(--f-mono);color:var(--muted)}
+.meta b{color:var(--ink)}
+.summary{background:var(--accent-soft);padding:14px 18px;display:grid;gap:8px}
+.summary div{display:grid;grid-template-columns:8.5rem 1fr;gap:12px}
+.summary b{font:600 .72rem var(--f-mono);text-transform:uppercase;letter-spacing:.07em;color:var(--accent);padding-top:3px}
+@media (max-width:560px){.summary div{grid-template-columns:1fr;gap:2px}}
+.chip{display:inline-block;font:600 .66rem/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;padding:3px 7px;border-radius:2px;white-space:nowrap;vertical-align:1px}
+.c-p{background:var(--ok-bg);color:var(--ok)} .c-l{background:var(--lead-bg);color:var(--lead)} .c-x{background:var(--bad-bg);color:var(--bad)} .c-u{background:var(--none-bg);color:var(--none)} .c-m{background:var(--accent-soft);color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--rule);padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.card header{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:baseline}
+.id{font:600 .82rem var(--f-mono);color:var(--accent)}
+ol.chain{margin:0;padding-left:1.4rem;display:flex;flex-direction:column;gap:4px;font-size:.95rem}
+dl.steps{display:grid;grid-template-columns:9rem 1fr;gap:10px 16px;margin:0}
+dl.steps dt{font-weight:600;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+dl.steps dd{margin:0;min-width:0;display:flex;flex-direction:column;gap:8px;font-size:.95rem}
+@media (max-width:600px){dl.steps{grid-template-columns:1fr}dl.steps dd{margin-bottom:8px}}
+blockquote{margin:0;padding:4px 0 4px 12px;border-left:3px solid var(--ok);font-size:.93rem}
+blockquote.l{border-left-color:var(--lead)}
+cite{display:block;font:normal .72rem/1.45 var(--f-mono);color:var(--muted);margin-top:3px}
+.vd{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;font-size:.93rem}
+.vd div{border-top:2px solid var(--accent);padding-top:6px;min-width:0}
+@media (max-width:640px){.vd{grid-template-columns:1fr}}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--rule)}
+th{font:600 .7rem var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+ul.plain{margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:6px}
+.pred{border:1px dashed var(--accent);padding:12px 14px;display:flex;flex-direction:column;gap:4px;font-size:.95rem}
+.note{color:var(--muted);font-size:.92rem}
+pre{background:var(--surface);border:1px solid var(--rule);padding:14px;overflow-x:auto;font:.74rem/1.5 var(--f-mono);margin:0;white-space:pre}
+.copy{align-self:flex-start;font:600 .85rem var(--f-body);background:var(--surface);color:var(--ink);border:1px solid var(--rule);padding:6px 12px;cursor:pointer}
+.copy:hover{border-color:var(--accent)}
+.num{font-variant-numeric:tabular-nums}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:16px">
+  <span class="eyebrow">Monthly theme watch · quantum computing and sensing hardware · evidence, not a trade</span>
+  <h1>Chokepoint Watch: Quantum</h1>
+  <div class="meta"><span>As of <b>2026-10-19</b></span><span>Edition <b>1</b></span><span>Previous edition: <b>first edition</b></span></div>
+  <div class="summary">
+    <div><b>What changed</b><span>This is the first edition, so there is no baseline. Two chokepoints are on the board and both are graded lead-to-partial. Dilution-refrigerator units, TFLN foundry capacity and specialty lasers were considered and rejected.</span></div>
+    <div><b>Top chokepoint</b><span>qua-1, helium-3 gas for dilution refrigerators. DOE allocates "thousands of liters" a year from federal reserves, and Bluefors alone has contracted for up to 10,000 L/yr from 2028. Physical scarcity is plausible, but no primary source shows quantum demand above supply. The holder is state-run.</span></div>
+    <div><b>Next dated</b><span>Silex says sample production of Q-Si (enriched silicon-28) "is expected to commence in Q1 CY2027". ASP Isotopes' FY2026 10-K (due by about 2027-03-31) should show whether its Si-28 deliveries started.</span></div>
+  </div>
+  <p class="note">Marks: <span class="chip c-p">P</span> primary, <span class="chip c-l">L</span> lead, <span class="chip c-m">map</span> analyst's map, not evidence. Step grades: <span class="chip c-p">primary</span> <span class="chip c-l">lead</span> <span class="chip c-u">unexamined</span> <span class="chip c-x">contradicted</span>. All quotes were captured with a fetch tool that extracts sentences rather than showing raw HTML. Quotes cut short by the tool end in "…" (see Run notes).</p>
+</header>
+
+<section>
+  <h2><span class="n">2</span>Predictions settled this month</h2>
+  <p>None. This is the first edition, so no earlier predictions exist.</p>
+</section>
+
+<section>
+  <h2><span class="n">3</span>The board</h2>
+  <p class="note">Two chokepoints, both deep-dived. Neither reaches "supported" on demand against supply. Both are kept because a primary source states the constraint at the right layer and in a real unit.</p>
+
+  <!-- qua-1 -->
+  <article class="card">
+    <header><span class="id">qua-1</span><h3>Helium-3 gas for dilution refrigerators</h3><span class="chip c-m">new</span></header>
+    <p class="note">Layer: material (He-3 gas, ≥99.8 atom %), measured in litres per year. Downstream: the dilution refrigerator (a subsystem) used by superconducting and spin-qubit machines.</p>
+
+    <div><h4>The chain</h4>
+    <ol class="chain">
+      <li>National programmes fund superconducting and spin-qubit machines. About 5 of DARPA QBI's 11 Stage B firms use dilution fridges <span class="chip c-p">P</span> <span class="chip c-m">map</span> (the modality split is the analyst's).</li>
+      <li>Each machine needs one or more dilution refrigerators <span class="chip c-p">P</span> (Rigetti 10-K).</li>
+      <li>Each fridge holds "a few dozen liters" of He-3 <span class="chip c-l">L</span> (Interlune).</li>
+      <li>US federal He-3 is allocated each year from reserves by DOE's interagency group <span class="chip c-p">P</span>.</li>
+      <li>The fridge maker contracts for a large forward supply: Bluefors, up to 10,000 L/yr from 2028 <span class="chip c-p">P</span>.</li>
+    </ol></div>
+
+    <dl class="steps">
+      <dt>Constraint <span class="chip c-p">primary</span></dt>
+      <dd><p>Litres of He-3 per year. US federal supply is "thousands of liters". Allocation is administered, not auctioned.</p>
+        <blockquote>"Each year, thousands of liters of He-3 gas are made available"<cite>DOE Isotope Program (NIDC) · Supply and Demand of Helium-3 · undated page, read 2026-10-19 · <a href="https://www.isotopes.gov/Supply-and-Demand-of-Helium-3">isotopes.gov</a></cite></blockquote>
+        <blockquote>"The IRP leads the Interagency Group on He-3 to determine annual federal allocations from reserves."<cite>DOE · FY2026 Congressional Justification, Isotope R&amp;D and Production, p.254 · 2025-07 · <a href="https://www.energy.gov/sites/default/files/2025-07/FY2026-PresidentsRequest-IRP.pdf">energy.gov PDF</a> (repeated in the FY2027 request, p.258)</cite></blockquote></dd>
+
+      <dt>Demand vs supply <span class="chip c-l">lead</span></dt>
+      <dd><p>The evidence here is one supply contract, not an order backlog. Bluefors' ceiling of 10,000 L/yr is about the size of the entire US federal supply (an estimate; CRS put new US supply near 8,000 L/yr in 2011). That shows intent to source at scale. It does not prove that today's demand exceeds supply. Every explicit "demand exceeds supply" statement found comes from a would-be supplier (Interlune, Black Moon, Pulsar Helium), so those are leads.</p>
+        <blockquote>"Bluefors has agreed to purchase up to ten thousand liters of helium-3 annually, for delivery from 2028 to 2037."<cite>Bluefors (counterparty) · press release on the Interlune agreement · 2025-09-16 · <a href="https://bluefors.com/news/bluefors-to-source-helium-3-from-the-moon-with-interlune-to-power-next-phase-of-quantum-industry-growth/">bluefors.com</a></cite></blockquote>
+        <blockquote>"In the coming years, the demand for helium-3 will rise sharply to power this next phase of quantum industry growth."<cite>Bluefors · same release (forecast, not orders)</cite></blockquote>
+        <blockquote>"projected Federal demand for He-3 is now less than 6,000 liters per year."<cite>DOE Isotope Program · Supply and Demand of Helium-3 · isotopes.gov (federal demand only, not commercial or quantum demand)</cite></blockquote>
+        <blockquote class="l">"Helium-3 remains exceptionally scarce, expensive and tightly regulated."<cite>Pulsar Helium (would-be supplier) · 2026-07-10 · <a href="https://s203.q4cdn.com/212931576/files/doc_news/Quantum-Scale-Up-Highlights-Strategic-Importance-of-Secure-Helium-Supply--2026.pdf">release PDF</a> · L, self-interested</cite></blockquote></dd>
+
+      <dt>Relief <span class="chip c-l">lead</span></dt>
+      <dd><p>Lunar He-3 deliveries are contracted for 2028–2037 (Bluefors) and 2029–2035 (Maybell, per Interlune), and no supplier has delivered yet. DOE's own purchase of 3 litres from Interlune is due "no later than April 2029" (Interlune's release only; no DOE confirmation was found). DOE's FY2027 request describes "growth in heavy water and helium-3 inventory…" (excerpt). Terrestrial relief from Canadian supply appears only in 2011 CRS material. Relief horizon: 2028 at the earliest, and unproven.</p></dd>
+
+      <dt>Control <span class="chip c-p">primary</span></dt>
+      <dd><p>In the US, the DOE Isotope Program is the sole federal seller. Russian exports, once about 25,000 L/yr, were suspended (CRS 2011). Shares today are not published.</p>
+        <blockquote>"the He-3 supply was impacted by an unexpected reduction of Russian exports to the marketplace."<cite>DOE Isotope Program · Supply and Demand of Helium-3 · isotopes.gov</cite></blockquote></dd>
+
+      <dt>Capture <span class="chip c-l">lead</span></dt>
+      <dd><p>A state books the economics. DOE prices sales to commercial customers at "full-cost recovery or market price…" (FY2026 request, p.252, excerpt). No current price per litre was found. CRS (2011) reported auction prices of $40–85/L before 2009 and commercial prices of "$2,000 per liter or more" after the shortage was found. <b>Cost share, estimate:</b> a few dozen litres at about $2,000/L is roughly $50–70k per fridge. Against a dilution refrigerator priced in the high hundreds of thousands of dollars (map, unsourced), that is roughly 5–15% of the subsystem.</p></dd>
+
+      <dt>Invalidation <span class="chip c-l">lead</span></dt>
+      <dd><p>Several observations argue against a binding shortage:</p><ul class="plain">
+        <li>DOE's 2026 documents describe He-3 inventory growing and frame it as stewardship, not crisis.</li>
+        <li>The DOE World Quantum Day page (2026-04-14) names quantum as a "critical role" for He-3 but gives no shortfall.</li>
+        <li>Bluefors' revenue was roughly flat from 2023 to 2025 (L, registry data). That does not suggest fridge output is being rationed by gas supply.</li>
+        <li>About half the QBI Stage B field (neutral atom, trapped ion, photonic) needs no dilution fridge.</li></ul></dd>
+    </dl>
+
+    <div class="vd">
+      <div><h4>Physical scarcity</h4>Plausible, lead-grade. The constraint and its unit are primary. A shortfall against quantum demand is not shown.</div>
+      <div><h4>Economic capture</h4>State. DOE prices at full cost or market. No current price is published, so pricing power is unproven.</div>
+      <div><h4>Investability</h4>Not investable through the holder. The holder is the US DOE, a state body (Russia's position is unexamined). Would-be suppliers Interlune and Black Moon are private and pre-revenue for He-3.</div>
+    </div>
+
+    <div><h4>Bear checks</h4>
+    <div class="tbl"><table>
+      <thead><tr><th>Check</th><th>Finding</th></tr></thead>
+      <tbody>
+        <tr><td>Dilution</td><td>Not applicable to the state holder. The private would-be suppliers are venture-funded.</td></tr>
+        <tr><td>GAAP margins</td><td>Not applicable. DOE prices at full-cost recovery or market price.</td></tr>
+        <tr><td>Customer concentration</td><td>Unexamined. Federal users (neutron detection, research) compete with commercial quantum buyers for the same allocation.</td></tr>
+        <tr><td>Cash vs debt</td><td>Not applicable.</td></tr>
+        <tr><td>Second source qualifying</td><td>Lunar suppliers are contracted but not delivering before 2028. Canadian supply is unexamined after 2011.</td></tr>
+        <tr><td>Design bypass</td><td>Real. Neutral-atom, trapped-ion and photonic machines need no dilution fridge (DARPA QBI Stage B list, P; IonQ 10-K, P).</td></tr>
+        <tr><td>Roadmap slips</td><td>A slip would reduce demand and relieve the constraint.</td></tr>
+        <tr><td>Programme cuts</td><td>Not checked this month.</td></tr>
+        <tr><td>Layer error</td><td>The risk is real. "Quantum needs He-3" claims often blur the gas (material) and the fridge (subsystem). This card claims only the gas layer, and the fridge layer is rejected separately.</td></tr>
+      </tbody></table></div></div>
+
+    <div><h4>Kill criteria</h4><ul class="plain">
+      <li>DOE publishes an allocation or sales notice showing commercial He-3 requests met in full for two consecutive years.</li>
+      <li>A fridge maker (Bluefors, Maybell, Quantum Design) or a DOE document states that He-3 availability is not limiting fridge deliveries.</li>
+      <li>DOE or another government source reports a non-US, non-Russian supply (for example Canadian) entering the market at more than 1,000 L/yr before 2028.</li>
+    </ul></div>
+
+    <div class="pred"><span class="id">qua-p1 · made 2026-10-19 · deadline 2027-04-19 · open</span>By 2027-04-19, no DOE Isotope Program document (isotopes.gov page, notice or budget justification) will state that helium-3 demand exceeds available federal supply. DOE will continue to describe He-3 as allocated annually from reserves by the interagency group. Shown by DOE Isotope Program web pages and budget documents.</div>
+
+    <p><b>Consensus check:</b> the earliest primary evidence found is CRS R41419 (2011-10-06) on the He-3 shortage. The quantum-specific angle dates from 2025 (Bluefors, 2025-09-16). The scarcity theme is <b>consensus</b>; the size of the quantum demand is still unproven.</p>
+  </article>
+
+  <!-- qua-2 -->
+  <article class="card">
+    <header><span class="id">qua-2</span><h3>Isotopically enriched silicon-28 for spin qubits</h3><span class="chip c-m">new</span></header>
+    <p class="note">Layer: material (enriched Si-28 feedstock), measured in kilograms per year. Downstream: spin-qubit wafers and chips. This card covers supply, volumes and contracts only; how the isotope is produced is out of scope.</p>
+
+    <div><h4>The chain</h4>
+    <ol class="chain">
+      <li>Spin-qubit programmes are running. Diraq, Quantum Motion and Silicon Quantum Computing are in DARPA QBI Stage B <span class="chip c-p">P</span>.</li>
+      <li>Spin qubits need Si-28-enriched silicon <span class="chip c-m">map</span>.</li>
+      <li>The market is under 50 kg/yr and was historically sourced from Russia <span class="chip c-p">P</span> (Silex).</li>
+      <li>Non-Russian supply is pre-volume. Silex samples are due in Q1 CY2027 <span class="chip c-p">P</span>. ASP Isotopes' Si-28 deliveries were due in Q1 2026 <span class="chip c-p">P</span>, and a press report puts them in Q3 <span class="chip c-l">L</span>.</li>
+    </ol></div>
+
+    <dl class="steps">
+      <dt>Constraint <span class="chip c-p">primary</span></dt>
+      <dd><p>Kilograms of qualified, non-Russian Si-28 per year. Supply today is near zero and the first module is sized at 20 kg/yr.</p>
+        <blockquote>"Historically, enriched silicon was primarily sourced from Russia"<cite>Silex Systems · ASX announcement, Silex Quantum Silicon Production Plant Update – Construction Completed, Commissioning Underway · 2026-06-29 · <a href="https://announcements.asx.com.au/asxpdf/20260629/pdf/0713j341mdv4h9.pdf">ASX PDF</a></cite></blockquote>
+        <blockquote>"The initial Q-Si production module will produce up to 20kg of Q-Si annually"<cite>Silex Systems · same announcement</cite></blockquote></dd>
+
+      <dt>Demand vs supply <span class="chip c-l">lead</span></dt>
+      <dd><p>Demand is stated by the would-be holder's own market analysis (a forecast, not orders). One offtake partner and one unnamed US contract exist, neither with a volume. This is a timing and qualification gap, not a proven volume shortfall.</p>
+        <blockquote>"Internal market analysis indicates the current market is small (less than 50 kgs per year)"<cite>Silex Systems · same announcement</cite></blockquote>
+        <blockquote>"Silex is currently working with its first commercial offtake partner, Silicon Quantum Computing Pty Ltd,"<cite>Silex Systems · same announcement (offtake partner, volume not disclosed)</cite></blockquote>
+        <blockquote>"This represents the Company's largest silicon-28 contract to date."<cite>ASP Isotopes · press release EX-99.1, Business Updates · 2025-10-13 · <a href="https://www.sec.gov/Archives/edgar/data/1921865/000147793225007513/aspi_ex991.htm">sec.gov</a> (US customer unnamed; deliveries "expected during Q1 2026")</cite></blockquote></dd>
+
+      <dt>Relief <span class="chip c-p">primary</span></dt>
+      <dd><blockquote>"Sample production of highly enriched silicon-28 is expected to commence in Q1 CY2027."<cite>Silex Systems · ASX announcement · 2026-06-29</cite></blockquote>
+        <p>A 20 kg/yr module set against a market of under 50 kg/yr implies relief within about 12–24 months of qualification, if the samples qualify. ASP Isotopes' delivery date may have slipped from Q1 to Q3 2026 (Creamer Media, 2026-05-26, snippet only, L).</p></dd>
+
+      <dt>Control <span class="chip c-p">primary</span></dt>
+      <dd><p>Historically Russia (Silex's words; share not quantified). Emerging holders are Silex (ASX) and ASP Isotopes (Nasdaq; plant in South Africa). Urenco and others were not evidenced this run.</p></dd>
+
+      <dt>Capture <span class="chip c-u">unexamined</span></dt>
+      <dd><p>No price or pricing-power statement was found. The total market is under 50 kg/yr, so the absolute economics are small for any holder. <b>Cost share, estimate:</b> negligible per spin-qubit chip (grams per wafer), but gating for qualification.</p></dd>
+
+      <dt>Invalidation <span class="chip c-l">lead</span></dt>
+      <dd><p>The volumes are tiny. A single 20 kg module could cover a large share of the stated market. The dilution-fridge-using spin-qubit firms are a minority of QBI Stage B. Spin-qubit groups also hold earlier Si-28 stock (unexamined).</p></dd>
+    </dl>
+
+    <div class="vd">
+      <div><h4>Physical scarcity</h4>Near-term only (12–24 months), lead-grade. Non-Russian qualified supply is pre-volume; the long-run gap is small.</div>
+      <div><h4>Economic capture</h4>Unproven. The market is under 50 kg/yr and no price was found.</div>
+      <div><h4>Investability</h4>Weak. Silex is listed, but Q-Si is a small part of a group centred on uranium enrichment (GLE). ASP Isotopes is listed; its dilution and margins were not examined this run.</div>
+    </div>
+
+    <div><h4>Bear checks</h4>
+    <div class="tbl"><table>
+      <thead><tr><th>Check</th><th>Finding</th></tr></thead>
+      <tbody>
+        <tr><td>Dilution</td><td>Unexamined for ASP Isotopes and for Silex.</td></tr>
+        <tr><td>GAAP margins</td><td>Unexamined. Q-Si is not yet producing.</td></tr>
+        <tr><td>Customer concentration</td><td>High. Silex names one offtake partner (SQC), and ASP Isotopes names one US customer, unnamed.</td></tr>
+        <tr><td>Cash vs debt</td><td>Unexamined.</td></tr>
+        <tr><td>Second source qualifying</td><td>Two non-Russian entrants are in progress, which argues for relief.</td></tr>
+        <tr><td>Design bypass</td><td>Other modalities need no Si-28. Some spin-qubit work uses natural silicon or germanium (map).</td></tr>
+        <tr><td>Roadmap slips</td><td>A slip lowers demand, and ASP Isotopes' delivery may have slipped too (L).</td></tr>
+        <tr><td>Programme cuts</td><td>Not checked.</td></tr>
+        <tr><td>Layer error</td><td>The card holds to the material layer. No claim is made about qubit chips.</td></tr>
+      </tbody></table></div></div>
+
+    <div><h4>Kill criteria</h4><ul class="plain">
+      <li>Silex reports Q-Si samples delivered and qualified by SQC (expected 2027).</li>
+      <li>ASP Isotopes reports Si-28 deliveries to its US customer in a 10-Q or 10-K.</li>
+      <li>A spin-qubit maker (Diraq, Quantum Motion, SQC, Intel) states it has adequate Si-28 supply from a non-Russian source.</li>
+    </ul></div>
+
+    <div class="pred"><span class="id">qua-p2 · made 2026-10-19 · deadline 2027-04-30 · open</span>By 2027-04-30, Silex will report in an ASX announcement or its quarterly activities report that sample production of highly enriched silicon-28 (Q-Si) has commenced. Shown by Silex Systems ASX announcements.</div>
+    <div class="pred"><span class="id">qua-p3 · made 2026-10-19 · deadline 2027-04-15 · open</span>By 2027-04-15, ASP Isotopes' annual report on Form 10-K for FY2026 will state that silicon-28 deliveries to its US customer have begun. Shown by ASP Isotopes' SEC filing.</div>
+
+    <p><b>Consensus check:</b> the earliest primary evidence found is ASP Isotopes' release of 2025-10-13; the Silex detail dates from 2026-06-29. The theme is <b>early</b>, barely reported outside specialist press.</p>
+  </article>
+</section>
+
+<section>
+  <h2><span class="n">4</span>Rejected</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Candidate</th><th>Reason</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td><b>Dilution refrigerator units</b> (subsystem)</td><td>Capacity is being added and there is no sign of scarcity pricing. Bluefors is expanding its Syracuse plant "by almost 45%" and reports "less production backlog" (L). Its revenue was €162M in 2023 and €169M in 2025, with operating profit down (L, registry data). Oxford Instruments sold NanoScience for £60m on revenue of about £59m and adjusted operating profit of about £1m. New entrants include Quantum Design and Maybell.</td><td>Bluefors release 2024-09-16 (P); Oxford Instruments 2025-06-10 (P); Quantum Design 2026-01-02 (P)</td></tr>
+      <tr><td><b>TFLN photonic foundry capacity</b></td><td>No quantum demand evidence: QCi has research-scale purchase orders only. 2026 capacity additions are driven by AI and datacom, for example the UMC/HyperLight/Wavetek "customer-qualified, high-volume manufacturing (HVM) line within a 6-inch CMOS foundry". The risk to quantum is being crowded out by AI demand, which is not shown.</td><td>UMC release 2026-03-12 (P); QCi release 2025-01-28 (P)</td></tr>
+      <tr><td><b>Silicon / SiN photonic foundry</b></td><td>PsiQuantum's chips run on standard 300mm GlobalFoundries lines (L), and SiN capacity at X-FAB is large (L, 2021).</td><td>Quantum Computing Report 2026-09-08 (L)</td></tr>
+      <tr><td><b>Specialty lasers and optics</b> (trapped-ion, neutral-atom)</td><td>Only generic risk-factor language, with no named vendor, delay or lead time: "We have a limited number of suppliers for significant components…" (Quantinuum S-1). The same sentence appears in IonQ's 10-K, which suggests boilerplate. Reopen if a filing names a vendor or a delay.</td><td>Quantinuum S-1 2026 (P); Infleqtion S-1 2026 (P); IonQ 10-K FY2025 (P)</td></tr>
+      <tr><td><b>Cryogenic wiring and HEMT LNAs</b></td><td>Called "quantum computing's biggest bottleneck" only in trade press, as an engineering limit. Bluefors and Delft Circuits offer 1,536 lines per XLDsl (L). No supply-capacity evidence.</td><td>The Quantum Insider 2025-09-30 (L)</td></tr>
+      <tr><td><b>SNSPDs</b></td><td>No primary statement of capacity or constraint was found.</td><td>None found</td></tr>
+    </tbody></table></div>
+</section>
+
+<section>
+  <h2><span class="n">5</span>Cross-theme hooks</h2>
+  <ul class="plain">
+    <li><b>Helium-3</b> is also allocated to neutron detectors for defence, security and border screening. Federal and quantum users draw on the same DOE allocation (Aerospace and Defence theme).</li>
+    <li><b>TFLN and silicon-photonics foundries</b> (UMC/HyperLight, GlobalFoundries) are shared with datacom optics, where AI demand sets the capacity (Photonics theme).</li>
+    <li><b>Stable-isotope enrichment capacity</b> overlaps with nuclear fuel. Silex's Q-Si sits inside a group whose main business is uranium enrichment (a possible nuclear theme).</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">6</span>Council questions</h2>
+  <p>The latest Chokepoint Council (edition 1, 2026-10-19) assigns <b>no questions to the quantum theme</b>. Quantum is not on its theme roll. There is nothing to answer this month.</p>
+</section>
+
+<section>
+  <h2><span class="n">7</span>Next questions</h2>
+  <ol class="chain">
+    <li>What is DOE's annual He-3 allocation volume and its current price per litre? Look at isotopes.gov product and ordering pages, the full FY2027 IRP justification text, and any Federal Register notice.</li>
+    <li>Do Maybell or Quantum Design confirm He-3 contracts or state that He-3 limits deliveries? Look at company releases and Bluefors' 2025 financial statements in the Finnish registry.</li>
+    <li>What is the status of Silex's Q-Si commissioning? Look at Silex's September-quarter activities report (late October 2026) and its AGM materials.</li>
+    <li>Have ASP Isotopes' Si-28 deliveries started? Look at its Q3 2026 10-Q (about mid-November).</li>
+    <li>Do the filings of IBM, D-Wave and Rigetti (full risk factors) or the S-1s of Quantinuum and Infleqtion name a sole-source fridge, gas or laser supplier? Look at SEC EDGAR full text.</li>
+  </ol>
+</section>
+
+<section>
+  <h2><span class="n">8</span>Run notes</h2>
+  <ul class="plain">
+    <li><b>Edition:</b> no artifact titled "Chokepoint Watch: Quantum" existed among the user's 69 artifacts, so this is edition 1 and a new artifact. No earlier contents were assumed.</li>
+    <li><b>Quote fidelity:</b> every quote was captured by WebFetch, which runs pages through an extraction model and does not show raw HTML. Sub-agents report the quoted sentences as extracted verbatim. Several were truncated at about 125 characters and are marked "…" or described as excerpts. P items rest on these extractions, so treat them as near-verbatim.</li>
+    <li><b>Downgraded to lead:</b> all Interlune claims, including DOE's purchase of 3 L by April 2029 and the Maybell offtake, because no DOE or Maybell confirmation was found. Also downgraded: the Black Moon DOE contract (wire release), Pulsar Helium, Bluefors registry revenue (via Asiakastieto, not a filing), Bluefors' 2024 "stories" page, the Creamer Media report on ASP Isotopes' delivery slip (snippet only), and the Vexlum funding (snippet only).</li>
+    <li><b>Unreachable or incomplete:</b> CRS R48144 (blocked by robots.txt); the full QCi 10-Q (only a mirror was available); the Rigetti 10-K (about 113k characters read, risk factors possibly incomplete); the Infleqtion S-1 beyond 100k characters; CRS R41419 (first 100k of about 108k characters).</li>
+    <li><b>Not checked:</b> ULVAC, Leiden Cryogenics, ICEoxford, Zero Point Cryogenics, Low Noise Factory, the FormFactor 10-K, IBM and D-Wave filings, Toptica, NKT/Hamamatsu, SNSPD makers, and European and Japanese national programme budgets. These are gaps, not negatives.</li>
+    <li><b>Out of scope, respected:</b> no research on isotope production methods or on weapons. No share prices were used.</li>
+    <li><b>Tool calls:</b> about 84. That is 7 in the main session (two artifact listings, one council read, one skill load, the write, the publish, one notification) and 77 across three research sub-agents (24, 27 and 26). This is slightly over the budget of about 80.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">9</span>The ledger</h2>
+  <button class="copy" id="copy-ledger" type="button">Copy JSON</button>
+<pre id="ledger">```json
+{
+  "theme": "quantum",
+  "as_of": "2026-10-19",
+  "edition": 1,
+  "chokepoints": [
+    {"id": "qua-1", "name": "Helium-3 gas for dilution refrigerators", "layer": "material (He-3 gas, litres/yr)", "status": "new",
+     "verdicts": {"scarcity": "plausible, lead-grade: constraint and unit primary; shortfall vs quantum demand not shown",
+                  "capture": "state (DOE IRP prices at full-cost recovery or market); no current price published",
+                  "investability": "not investable via holder: US DOE (state); would-be suppliers Interlune, Black Moon private"},
+     "holders": ["US DOE Isotope Program (sole US federal seller)", "Russia (exports suspended per CRS 2011)"],
+     "kill_criteria": ["DOE allocation/sales notice shows commercial He-3 requests met in full for two consecutive years",
+                       "A dilution fridge maker or DOE states He-3 availability does not limit fridge deliveries",
+                       "Government source reports a non-US, non-Russian supply above 1,000 L/yr entering before 2028"],
+     "first_seen": "2026-10-19", "earliest_evidence": "2011-10-06", "consensus": "consensus"},
+    {"id": "qua-2", "name": "Isotopically enriched silicon-28 for spin qubits", "layer": "material (Si-28 feedstock, kg/yr)", "status": "new",
+     "verdicts": {"scarcity": "near-term only (12-24 months), lead-grade: non-Russian qualified supply pre-volume; market under 50 kg/yr",
+                  "capture": "unproven: no price found; tiny market",
+                  "investability": "weak: Silex listed but Q-Si small part of a uranium-enrichment group; ASP Isotopes listed, dilution unexamined"},
+     "holders": ["Russia (historical)", "Silex Systems (Q-Si, ASX)", "ASP Isotopes (Nasdaq)"],
+     "kill_criteria": ["Silex reports Q-Si samples delivered and qualified by SQC",
+                       "ASP Isotopes reports Si-28 deliveries to its US customer in a 10-Q/10-K",
+                       "A spin-qubit maker states adequate non-Russian Si-28 supply"],
+     "first_seen": "2026-10-19", "earliest_evidence": "2025-10-13", "consensus": "early"}
+  ],
+  "predictions": [
+    {"id": "qua-p1", "chokepoint": "qua-1", "made": "2026-10-19", "deadline": "2027-04-19",
+     "text": "By 2027-04-19, no DOE Isotope Program document (isotopes.gov page, notice or budget justification) will state that helium-3 demand exceeds available federal supply; DOE will continue to describe He-3 as allocated annually from reserves by the interagency group.",
+     "source_type": "DOE Isotope Program web pages and budget justifications", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "qua-p2", "chokepoint": "qua-2", "made": "2026-10-19", "deadline": "2027-04-30",
+     "text": "By 2027-04-30, Silex will report in an ASX announcement or quarterly activities report that sample production of highly enriched silicon-28 (Q-Si) has commenced.",
+     "source_type": "Silex Systems ASX announcement", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "qua-p3", "chokepoint": "qua-2", "made": "2026-10-19", "deadline": "2027-04-15",
+     "text": "By 2027-04-15, ASP Isotopes' Form 10-K for FY2026 will state that silicon-28 deliveries to its US customer have begun.",
+     "source_type": "ASP Isotopes SEC filing (10-K)", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null}
+  ],
+  "rejected": [
+    {"name": "Dilution refrigerator units (subsystem)", "reason": "Capacity additions (Bluefors Syracuse +45%), flat Bluefors revenue 2023-25, Oxford NanoScience sold at ~1x revenue with ~1m GBP profit; new entrants. No scarcity pricing.", "date": "2026-10-19"},
+    {"name": "TFLN photonic foundry capacity", "reason": "No quantum demand evidence beyond research-scale POs; 2026 HVM capacity (UMC/HyperLight/Wavetek) driven by AI/datacom.", "date": "2026-10-19"},
+    {"name": "Silicon / SiN photonic foundry", "reason": "Standard 300mm CMOS lines (GlobalFoundries for PsiQuantum, lead); large SiN capacity.", "date": "2026-10-19"},
+    {"name": "Specialty lasers and optics for trapped-ion / neutral-atom", "reason": "Only generic risk-factor language (Quantinuum, Infleqtion S-1s; IonQ 10-K); no named vendor, delay or lead time. Reopen if a filing names one.", "date": "2026-10-19"},
+    {"name": "Cryogenic wiring and HEMT LNAs", "reason": "Engineering bottleneck in trade press only; no supply-capacity evidence.", "date": "2026-10-19"},
+    {"name": "Superconducting nanowire single-photon detectors", "reason": "No primary statement of capacity or constraint found.", "date": "2026-10-19"}
+  ],
+  "cross_theme_hooks": [
+    "Helium-3: same DOE allocation serves neutron detectors for defence and security (aerospace-defence)",
+    "TFLN and silicon-photonics foundries (UMC/HyperLight, GlobalFoundries) shared with datacom optics (photonics)",
+    "Stable-isotope enrichment: Silex Q-Si sits in a uranium-enrichment group (nuclear)"
+  ],
+  "council_answers": [],
+  "primary_sources": [
+    {"who": "DOE Isotope Program (NIDC)", "doc": "Supply and Demand of Helium-3", "date": "2026-10-19", "url": "https://www.isotopes.gov/Supply-and-Demand-of-Helium-3", "quote": "Each year, thousands of liters of He-3 gas are made available"},
+    {"who": "DOE Isotope Program (NIDC)", "doc": "Supply and Demand of Helium-3", "date": "2026-10-19", "url": "https://www.isotopes.gov/Supply-and-Demand-of-Helium-3", "quote": "projected Federal demand for He-3 is now less than 6,000 liters per year."},
+    {"who": "DOE Isotope Program (NIDC)", "doc": "Supply and Demand of Helium-3", "date": "2026-10-19", "url": "https://www.isotopes.gov/Supply-and-Demand-of-Helium-3", "quote": "the He-3 supply was impacted by an unexpected reduction of Russian exports to the marketplace."},
+    {"who": "US DOE", "doc": "FY2026 Congressional Justification, Isotope R&D and Production, p.254", "date": "2025-07-01", "url": "https://www.energy.gov/sites/default/files/2025-07/FY2026-PresidentsRequest-IRP.pdf", "quote": "The IRP leads the Interagency Group on He-3 to determine annual federal allocations from reserves."},
+    {"who": "Bluefors", "doc": "Press release: Bluefors to source helium-3 from the Moon with Interlune", "date": "2025-09-16", "url": "https://bluefors.com/news/bluefors-to-source-helium-3-from-the-moon-with-interlune-to-power-next-phase-of-quantum-industry-growth/", "quote": "Bluefors has agreed to purchase up to ten thousand liters of helium-3 annually, for delivery from 2028 to 2037."},
+    {"who": "Congressional Research Service", "doc": "R41419 The Helium-3 Shortage: Supply, Demand, and Options for Congress", "date": "2011-10-06", "url": "https://www.everycrsreport.com/files/20111006_R41419_7303f1d7c70786db47dd2aa18ba24f7a85e9c23d.html", "quote": "the historical auction price of helium-3 has been relatively steady, ranging from about $40 to $85 per liter."},
+    {"who": "Silex Systems", "doc": "ASX: Silex Quantum Silicon Production Plant Update - Construction Completed, Commissioning Underway", "date": "2026-06-29", "url": "https://announcements.asx.com.au/asxpdf/20260629/pdf/0713j341mdv4h9.pdf", "quote": "Internal market analysis indicates the current market is small (less than 50 kgs per year)"},
+    {"who": "Silex Systems", "doc": "ASX announcement (same)", "date": "2026-06-29", "url": "https://announcements.asx.com.au/asxpdf/20260629/pdf/0713j341mdv4h9.pdf", "quote": "The initial Q-Si production module will produce up to 20kg of Q-Si annually"},
+    {"who": "Silex Systems", "doc": "ASX announcement (same)", "date": "2026-06-29", "url": "https://announcements.asx.com.au/asxpdf/20260629/pdf/0713j341mdv4h9.pdf", "quote": "Sample production of highly enriched silicon-28 is expected to commence in Q1 CY2027."},
+    {"who": "Silex Systems", "doc": "ASX announcement (same)", "date": "2026-06-29", "url": "https://announcements.asx.com.au/asxpdf/20260629/pdf/0713j341mdv4h9.pdf", "quote": "Historically, enriched silicon was primarily sourced from Russia"},
+    {"who": "ASP Isotopes", "doc": "EX-99.1 ASP Isotopes Provides Business Updates", "date": "2025-10-13", "url": "https://www.sec.gov/Archives/edgar/data/1921865/000147793225007513/aspi_ex991.htm", "quote": "This represents the Company's largest silicon-28 contract to date."},
+    {"who": "Bluefors", "doc": "Press release: Bluefors opens expanded U.S. production facilities", "date": "2024-09-16", "url": "https://bluefors.com/press-releases/bluefors-opens-expanded-u-s-production-facilities-becomes-biggest-producer-of-dilution-refrigerators-in-north-america/", "quote": "Our expansion in Syracuse makes Bluefors the biggest manufacturer of dilution refrigerators in the United States."},
+    {"who": "Oxford Instruments", "doc": "Sale of Oxford Instruments' quantum business, NanoScience", "date": "2025-06-10", "url": "https://www.oxinst.com/news/sale-of-oxford-instruments’-quantum-business,-nanoscience/", "quote": "£60m total cash consideration"},
+    {"who": "UMC", "doc": "HyperLight, UMC, and Wavetek Announce Strategic Partnership for High-Volume Foundry Production of TFLN Chiplet Platform", "date": "2026-03-12", "url": "https://www.umc.com/en/News/press_release/Content/corporate/20260312", "quote": "a customer-qualified, high-volume manufacturing (HVM) line within a 6-inch CMOS foundry."},
+    {"who": "Quantinuum", "doc": "Form S-1", "date": "2026-01-01", "url": "https://www.sec.gov/Archives/edgar/data/0002110105/000162828026032836/quantinuum-sx1.htm", "quote": "We have a limited number of suppliers for significant components of the equipment we use to build and operate"},
+    {"who": "DARPA", "doc": "Quantum Benchmarking Initiative Stage B selection", "date": "2025-11-06", "url": "https://www.darpa.mil/research/programs/quantum-benchmarking-initiative/stage-b-selection", "quote": "As of Nov. 6, 2025, DARPA has selected 11 companies to enter the second stage (Stage B)"}
+  ]
+}
+```</pre>
+  <p class="note">Dates of 2026-10-19 on undated pages are read dates. The Quantinuum S-1 is dated to 2026 only; the -01-01 day is a placeholder.</p>
+</section>
+
+</div>
+<script>
+(function(){
+  var b=document.getElementById('copy-ledger');
+  b.addEventListener('click',function(){
+    var el=document.getElementById('ledger');
+    var t=el.textContent.replace(/^```json\n?/,'').replace(/\n?```\s*$/,'');
+    function sel(){var r=document.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected. Press Ctrl+C';}
+    try{navigator.clipboard.writeText(t).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy JSON'},1600)},sel);}catch(e){sel();}
+  });
+})();
+</script>
+
+</body></html>

@@ -1,0 +1,598 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Chokepoint Watch: Photonics</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (~72ch) of analyst brief; each chokepoint is one bordered dossier; evidence tags (P / L / map) are the recurring device. */
+:root{
+  --bg:#f5f6f4; --surface:#ffffff; --ink:#1b2023; --muted:#5b6469; --rule:#d8dcda;
+  --accent:#7a2e8c;            /* indium-phosphide violet */
+  --p:#1f6b4a; --p-bg:#e3f1ea; --l:#8a5a00; --l-bg:#f8eed8; --m:#4b5560; --m-bg:#e8ebed;
+  --x:#a23a2a; --x-bg:#f7e3df; --code-bg:#eef0ee;
+  --f-display:"Fraunces", Georgia, "Times New Roman", serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#121517; --surface:#1a1f22; --ink:#e4e8e6; --muted:#9aa4a8; --rule:#2e3538;
+  --accent:#c99ad6; --p:#7fd1a8; --p-bg:#173226; --l:#e4b45a; --l-bg:#3a2d12; --m:#b6c0c6; --m-bg:#262d31;
+  --x:#f0937f; --x-bg:#3d1f19; --code-bg:#161a1c; color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#121517; --surface:#1a1f22; --ink:#e4e8e6; --muted:#9aa4a8; --rule:#2e3538;
+  --accent:#c99ad6; --p:#7fd1a8; --p-bg:#173226; --l:#e4b45a; --l-bg:#3a2d12; --m:#b6c0c6; --m-bg:#262d31;
+  --x:#f0937f; --x-bg:#3d1f19; --code-bg:#161a1c; color-scheme:dark; }
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.wrap{max-width:860px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:44px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:clamp(30px,5vw,42px);font-weight:650;letter-spacing:-.01em}
+h2{font-size:24px;font-weight:650;padding-bottom:8px;border-bottom:1px solid var(--rule)}
+h3{font-size:19px;font-weight:600}
+h4{margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+p{margin:0}
+a{color:var(--accent);text-underline-offset:2px}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+section{display:flex;flex-direction:column;gap:16px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.meta{display:flex;flex-wrap:wrap;gap:8px 24px;font-family:var(--f-mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.meta b{color:var(--ink);font-weight:500}
+.summary{display:grid;grid-template-columns:auto 1fr;gap:10px 16px;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:18px 20px}
+.summary dt{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding-top:2px}
+.summary dd{margin:0;min-width:0}
+.note{color:var(--muted);font-size:14px}
+.tag{display:inline-block;font-family:var(--f-mono);font-size:11px;font-weight:500;padding:1px 7px;border-radius:3px;vertical-align:1px;white-space:nowrap}
+.t-p{background:var(--p-bg);color:var(--p)} .t-l{background:var(--l-bg);color:var(--l)} .t-m{background:var(--m-bg);color:var(--m)} .t-x{background:var(--x-bg);color:var(--x)}
+.dossier{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:24px;display:flex;flex-direction:column;gap:22px;min-width:0}
+.dossier header{display:flex;flex-direction:column;gap:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chain{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;font-size:14px}
+.chain li{display:grid;grid-template-columns:52px 1fr;gap:10px;padding:7px 0;border-left:2px solid var(--rule);padding-left:12px;margin-left:6px;position:relative}
+.chain li::before{content:"";position:absolute;left:-6px;top:13px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+.chain li>span:last-child{min-width:0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+.tbl{overflow-x:auto}
+th,td{text-align:left;vertical-align:top;padding:10px 10px;border-bottom:1px solid var(--rule)}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td:first-child{font-weight:600;white-space:nowrap}
+blockquote{margin:6px 0 0;padding:6px 0 6px 12px;border-left:2px solid var(--p);font-size:14px}
+blockquote cite{display:block;font-style:normal;font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-top:3px}
+.verdicts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.verdict{border:1px solid var(--rule);border-radius:4px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.verdict .v{font-family:var(--f-display);font-size:17px;font-weight:600}
+ul.plain{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.pred{border:1px dashed var(--accent);border-radius:4px;padding:12px 14px;font-size:14px;display:flex;flex-direction:column;gap:4px}
+.pred .id{font-family:var(--f-mono);font-size:12px;color:var(--accent)}
+pre{background:var(--code-bg);border:1px solid var(--rule);border-radius:4px;padding:16px;overflow-x:auto;font-family:var(--f-mono);font-size:12px;line-height:1.5;margin:0}
+.copy{align-self:flex-start;font:500 13px var(--f-body);background:var(--surface);color:var(--ink);border:1px solid var(--rule);border-radius:4px;padding:6px 12px;cursor:pointer}
+.copy:hover{border-color:var(--accent)}
+@media (max-width:640px){.verdicts{grid-template-columns:1fr}.summary{grid-template-columns:1fr}.dossier{padding:18px}td:first-child{white-space:normal}}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:14px">
+  <span class="eyebrow">Weekly supply-chain evidence · AI data-center optics</span>
+  <h1>Chokepoint Watch: Photonics</h1>
+  <div class="meta">
+    <span>As of <b>2026-10-19</b></span>
+    <span>Edition <b>1</b></span>
+    <span>Previous edition: <b>first edition</b> (no earlier edition found)</span>
+  </div>
+  <dl class="summary">
+    <dt>Changed</dt><dd>First edition. This sets the baseline: two chokepoints, four open predictions, five rejections.</dd>
+    <dt>Top chokepoint</dt><dd><b>pho-1: InP laser-chip wafer-fab capacity</b> (EML and high-power CW). Lumentum says it is still shipping behind EML demand, and its next new fab has first revenue in early 2028.</dd>
+    <dt>Next dated</dt><dd>Lumentum fiscal Q1 2027 results on <b>2026-11-05</b>. Also due: AXT Q3 2026 results (date not yet confirmed) and the end of China's export-control suspensions on 2026-11-10 and 2026-11-27. Neither suspension covers indium.</dd>
+  </dl>
+  <p class="note">Evidence tags: <span class="tag t-p">P</span> primary source opened and quoted in this run · <span class="tag t-l">L</span> lead (trade press, unverified transcript, or snippet) · <span class="tag t-m">map</span> analyst's own map, not evidence. This page records evidence only. It makes no trade calls and uses no share prices.</p>
+</header>
+
+<section>
+  <h2>Predictions settled this week</h2>
+  <p>None. This is edition 1, so no predictions have come due. Four predictions open below.</p>
+</section>
+
+<section>
+  <h2>The board</h2>
+
+  <!-- PHO-1 -->
+  <article class="dossier" id="pho-1">
+    <header>
+      <span class="eyebrow">pho-1 · layer: chip · deep-dive</span>
+      <h3>InP laser-chip wafer-fab capacity: EML and high-power CW lasers</h3>
+      <div class="chips"><span class="tag t-m">status: new</span><span class="tag t-p">scarcity: supported</span><span class="tag t-l">capture: partial</span><span class="tag t-l">investability: mixed</span></div>
+    </header>
+
+    <div><h4>The chain</h4>
+    <ol class="chain">
+      <li><span><span class="tag t-m">map</span></span><span>800G and 1.6T pluggables use EMLs (or CW lasers with silicon-photonics modulators). CPO and NPO need high-power CW lasers.</span></li>
+      <li><span><span class="tag t-m">map</span></span><span>Lasers at these wavelengths are fabricated on InP wafers in a handful of qualified fabs: Lumentum (Japan), Coherent (Texas, Sweden, Zurich), Broadcom, Mitsubishi Electric, Sumitomo Electric.</span></li>
+      <li><span><span class="tag t-p">P</span></span><span>Lumentum's Japan InP wafer fabs are "fully allocated", and it ships behind EML demand (quotes below).</span></li>
+      <li><span><span class="tag t-p">P</span></span><span>New InP fab capacity arrives in steps: Coherent's 6-inch doubling by end of 2026 and again by 2027; Lumentum Greensboro first revenue early 2028.</span></li>
+    </ol></div>
+
+    <div><h4>Six steps</h4>
+    <div class="tbl"><table>
+      <thead><tr><th>Step</th><th>State</th><th>Evidence</th></tr></thead>
+      <tbody>
+      <tr><td>Constraint</td><td><span class="tag t-p">primary</span></td><td>InP laser-chip wafer starts (EML, CW), measured in chips shipped against orders. In May, Lumentum put its overall supply-demand gap above 30%.
+        <blockquote>"The supply-demand imbalance is probably even higher than we reported in our last call, somewhere greater than 30%."<cite>Michael Hurlston, CEO, Lumentum · Q3 FY26 call · 2026-05-05 · <a href="https://www.fool.com/earnings/call-transcripts/2026/05/06/lumentum-lite-q3-2026-earnings-transcript/">transcript</a></cite></blockquote>
+        <blockquote>"Our wafer capacity -- wafer fab capacity in Japan remains at a premium and is fully allocated to meet surging customer demand."<cite>Hurlston · same call · 2026-05-05</cite></blockquote></td></tr>
+      <tr><td>Demand vs supply</td><td><span class="tag t-p">primary</span></td><td>In August the EML gap was unchanged and the high-power-laser gap had widened.
+        <blockquote>"We're still shipping behind customer demand on EML."<cite>Hurlston · Q4 FY26 call · 2026-08-11 · <a href="https://www.investing.com/news/transcripts/earnings-call-transcript-lumentum-tops-q4-2026-forecasts-as-ai-demand-lifts-outlook-93CH-4852933">transcript</a></cite></blockquote>
+        <blockquote>"The demand signal has increased, and we are very much further behind relative to our ability to supply."<cite>Hurlston · same call (on high-powered lasers) · 2026-08-11</cite></blockquote>
+        <span class="tag t-l">L</span> Trade press (Digitimes 2026-10-12, Japan Times 2026-10-09) reports Lumentum capacity "sold out into 2029". I could not open either article. Treat it as unverified until the 2026-11-05 call.</td></tr>
+      <tr><td>Relief</td><td><span class="tag t-p">primary</span></td><td>Qualification of new tools and fabs is the binding term. Lumentum is qualifying CW and EML flows on new Japan tools, and Greensboro is a 2028 event. Coherent's 6-inch lines add capacity sooner.
+        <blockquote>"…we are expanding capacity across our two indium phosphide wafer fabs in Japan, qualifying both CW and EML process flows on our newest tools as they come online."<cite>Hurlston · Q4 FY26 call · 2026-08-11</cite></blockquote>
+        <blockquote>"I think we continue to say first revenue out of that in early 2028, and ramping through calendar 2028 into kind of a full pitch by the end of 2028 and into 2029."<cite>Hurlston on Greensboro · same call</cite></blockquote>
+        <blockquote>"On track to double internal InP output by year-end and more than double again by 2027"<cite>Coherent investor presentation, slide 6 · 2026-08-12 · <a href="https://www.coherent.com/content/dam/coherent/site/en/documents/investors/investor-presentations/2026/august-12/investor-presentation-20260812.pdf">PDF</a></cite></blockquote></td></tr>
+      <tr><td>Control</td><td><span class="tag t-m">unexamined</span></td><td>No primary market-share figure was found for InP datacom laser chips. The holder list comes from the analyst map. Share figures are a next-week question.</td></tr>
+      <tr><td>Capture</td><td><span class="tag t-p">primary (partial)</span></td><td>Lumentum Q4 FY26 non-GAAP gross margin was 50.4% and operating margin 36.6%, on revenue of $1.006bn, up 109% year on year (<a href="https://www.sec.gov/Archives/edgar/data/0001633978/000162828026055726/lite_ex991xq4fy26.htm">8-K Ex. 99.1</a>, 2026-08-11). Customers are co-funding capex, which shares the economics with them:
+        <blockquote>"To support the growth and scale across deployments, we have secured multiple long-term customer agreements that help offset our planned capital expenditures."<cite>Hurlston · Q4 FY26 call · 2026-08-11</cite></blockquote></td></tr>
+      <tr><td>Invalidation</td><td><span class="tag t-p">primary</span></td><td>Coherent says its 6-inch lines yield better than 3-inch ("…with higher yields than 3-inch lines", slide 6), and its first doubling lands a quarter early (<span class="tag t-l">L</span> unlabeled transcript). Lumentum says the EML gap "hasn't come down" but has not grown. Relief is under way at the second-largest holder.</td></tr>
+      </tbody>
+    </table></div></div>
+
+    <div><h4>Verdicts</h4>
+    <div class="verdicts">
+      <div class="verdict"><h4>Physical scarcity</h4><span class="v">Supported</span><span>Primary evidence of a gap over the next 6 to 18 months. Lumentum's own new fab only adds output from 2028.</span></div>
+      <div class="verdict"><h4>Economic capture</h4><span class="v">Partial</span><span>Margins expanded, but hyperscaler LTAs and capex offsets cap how much scarcity turns into price.</span></div>
+      <div class="verdict"><h4>Investability</h4><span class="v">Mixed</span><span>Holders are listed, and Lumentum and Coherent are pure enough to matter. The fabs sit outside China, but the substrate input depends on China permits (pho-2).</span></div>
+    </div></div>
+
+    <div><h4>Bear checks</h4>
+    <ul class="plain">
+      <li><b>Dilution:</b> Lumentum exchanged shares for convertible notes in Q4 FY26, booking a $7.8bn non-cash loss. About 14.0m shares of convertibles remain <span class="tag t-p">P</span>. The dilution is largely realised, not pending.</li>
+      <li><b>GAAP margins:</b> Lumentum had a GAAP net loss of $7.2bn in Q4 FY26, all from the one-time extinguishment loss. Non-GAAP gross margin was 50.4% <span class="tag t-p">P</span>. Coherent guides 39.5–41.5% non-GAAP gross margin for fiscal Q1 2027 <span class="tag t-p">P</span>.</li>
+      <li><b>Customer concentration:</b> unexamined this week.</li>
+      <li><b>Cash vs debt:</b> Lumentum had $2.04bn cash plus $0.69bn short-term investments against $1.64bn debt (current $1.60bn) at 2026-06-27 <span class="tag t-p">P</span>. The debt total is my sum of the two balance-sheet lines.</li>
+      <li><b>Second source qualifying:</b> Coherent is doubling 6-inch output. Chinese InP laser makers claim large capacity, and Lumentum says they "are not delivering in the market today" <span class="tag t-p">P</span>, which is a self-interested view. No customer filing shows a China vendor qualified.</li>
+      <li><b>Architecture bypass:</b> CPO and NPO shift demand from EML to high-power CW, and both are still InP. VCSEL (GaAs) covers only short reach. An external-laser-source design needs fewer lasers per terabit <span class="tag t-m">map</span>. That is a medium-term dampener, not a bypass.</li>
+      <li><b>Demand pull-forward:</b> unexamined. LTAs running to 2028 and beyond could reflect hoarding.</li>
+      <li><b>Policy reversal:</b> InP substrate supply runs through MOFCOM permits (see pho-2).</li>
+      <li><b>Layer error:</b> Lumentum's strongest "sold out" lines are about pump lasers and narrow-linewidth assemblies. Those are not datacom InP laser chips, so they are not used as evidence here. Only the EML and high-power CW statements are.</li>
+    </ul></div>
+
+    <div><h4>Kill criteria</h4>
+    <ul class="plain">
+      <li>Lumentum or Coherent says on any earnings call through 2027-04-30 that EML or CW supply meets or exceeds demand.</li>
+      <li>Coherent reports its second 6-inch doubling (stated for end of calendar 2027) done two or more quarters early.</li>
+      <li>A customer or competitor filing shows a China-based InP laser vendor qualified for 800G/1.6T EML or CPO CW at a US hyperscaler or a top-3 module maker.</li>
+      <li>Lumentum pulls Greensboro first revenue ahead of early 2028 while also saying the gap has closed.</li>
+    </ul></div>
+
+    <div style="display:flex;flex-direction:column;gap:10px"><h4>Predictions</h4>
+      <div class="pred"><span class="id">pho-p1 · deadline 2027-02-15 · open</span>By 2027-02-15, Lumentum management will state on its fiscal Q1 2027 (2026-11-05) or fiscal Q2 2027 earnings call that it is still shipping behind customer demand for EML or CW laser chips, as shown by the Lumentum earnings call transcript.</div>
+      <div class="pred"><span class="id">pho-p2 · deadline 2027-03-31 · open</span>By 2027-03-31, Coherent will state in an earnings release, call or investor presentation that its internal InP production output or capacity has at least doubled year over year, as shown by Coherent earnings materials.</div>
+    </div>
+
+    <p><b>Status since last edition:</b> new. First edition.</p>
+  </article>
+
+  <!-- PHO-2 -->
+  <article class="dossier" id="pho-2">
+    <header>
+      <span class="eyebrow">pho-2 · layer: substrate · deep-dive</span>
+      <h3>InP substrates shipped from China under MOFCOM export permits</h3>
+      <div class="chips"><span class="tag t-m">status: new</span><span class="tag t-l">scarcity: mixed</span><span class="tag t-l">capture: contested</span><span class="tag t-x">investability: export-gated</span></div>
+    </header>
+
+    <div><h4>The chain</h4>
+    <ol class="chain">
+      <li><span><span class="tag t-m">map</span></span><span>Every InP laser chip in pho-1 is grown on an InP substrate (3-inch moving to 6-inch).</span></li>
+      <li><span><span class="tag t-p">P</span></span><span>AXT makes InP substrates in Beijing through its subsidiary Tongmei. Export needs a permit from China's Ministry of Commerce.</span></li>
+      <li><span><span class="tag t-p">P</span></span><span>Fewer permits than expected were issued in Q4 2025, and AXT cut its revenue outlook as a result.</span></li>
+      <li><span><span class="tag t-p">P</span></span><span>Laser makers are locking in supply with prepaid LTSAs (Coherent, Casella), and Lumentum signed a separate agreement with AXT.</span></li>
+    </ol></div>
+
+    <div><h4>Six steps</h4>
+    <div class="tbl"><table>
+      <thead><tr><th>Step</th><th>State</th><th>Evidence</th></tr></thead>
+      <tbody>
+      <tr><td>Constraint</td><td><span class="tag t-p">primary</span></td><td>InP substrate wafers leaving China, gated by export permits, measured in wafers or substrate revenue.
+        <blockquote>"The company expects revenue to be in the range of $22.5 to $23.5 million, primarily due to fewer export control permits for indium phosphide being issued by China's Ministry of Commerce than previously expected."<cite>AXT press release (Morris Young, CEO) · 2026-01-08 · <a href="https://www.sec.gov/Archives/edgar/data/1051627/000121390026002690/ea027235801ex99-1_axtinc.htm">8-K Ex. 99.1</a></cite></blockquote>
+        <span class="tag t-l">L</span> Pillsbury (2025-11-13) lists MOFCOM 2025 Announcement No. 10 (indium-related items) as "still valid", not suspended. Fastmarkets (2026-10-19) says indium phosphide is on the list. I did not open the MOFCOM text.</td></tr>
+      <tr><td>Demand vs supply</td><td><span class="tag t-p">primary</span></td><td>The seller's own statement. Backlog is "well over $100 million" and runs into 2027.
+        <blockquote>"Customer demand continues to outpace supply no matter how fast we add capacity."<cite>Morris Young, CEO, AXT · Q2 2026 call · 2026-07-30 · <a href="https://www.webull.com/news/15341695014478848">transcript</a></cite></blockquote></td></tr>
+      <tr><td>Relief</td><td><span class="tag t-p">primary</span></td><td>Physical relief is fast. AXT expects about $60m a quarter of InP capacity at the end of 2026 and about $130m a quarter at the end of 2027. The binding term is the permit, not the furnace.
+        <blockquote>"Take our revenue to somewhere in the region of about $130 million a quarter. Exiting the year."<cite>Timothy Bettles, VP BD, AXT · Q2 2026 call · 2026-07-30 (on 2027)</cite></blockquote>
+        <blockquote>"But we do not want to stress we do want to stress that we cannot predict the future timing of permits or success in obtaining them for any specific customer or individual order."<cite>Gary Fischer, CFO, AXT · same call</cite></blockquote></td></tr>
+      <tr><td>Control</td><td><span class="tag t-l">lead</span></td><td>AXT's CEO says the expansion "will make AXT by far the largest indium phosphide producer in the world". That is a forward claim, and no share figure supports it. Sumitomo Electric and JX Advanced Metals hold non-China capacity of unknown share <span class="tag t-m">map</span>. Coherent makes some substrate in-house <span class="tag t-l">L</span>.</td></tr>
+      <tr><td>Capture</td><td><span class="tag t-p">primary (partial)</span></td><td>AXT booked Q2 2026 GAAP net income of $11.1m on $47.6m revenue (<a href="https://www.sec.gov/Archives/edgar/data/0001051627/000143774926025061/ex_974537.htm">8-K Ex. 99.1</a>). Customers prepay:
+        <blockquote>"Under the terms of these agreements, we receive prepayments for wafers of $22.3 million and $25.4 million respectively."<cite>Fischer, on the Casella and Coherent LTSAs · Q2 2026 call · 2026-07-30</cite></blockquote>
+        The Chinese state captures leverage through permit timing <span class="tag t-m">map</span>. Lumentum's deposits ($43.5m initial) are reported only in trade press <span class="tag t-l">L</span>.</td></tr>
+      <tr><td>Invalidation</td><td><span class="tag t-p">primary</span></td><td>The largest customer says it is covered for now. AXT's Q2 revenue of $47.6m was far above its ~$34m outlook, and AXT's VP of business development describes "more regularity" in permits.
+        <blockquote>"We feel we are good at this moment."<cite>Hurlston, CEO, Lumentum, on substrate supply · Q4 FY26 call · 2026-08-11</cite></blockquote></td></tr>
+      </tbody>
+    </table></div></div>
+
+    <div><h4>Verdicts</h4>
+    <div class="verdicts">
+      <div class="verdict"><h4>Physical scarcity</h4><span class="v">Mixed, easing</span><span>Tight now, but capacity is set to triple in 2026 and more than double in 2027. The constraint is mostly policy-timing, not physics.</span></div>
+      <div class="verdict"><h4>Economic capture</h4><span class="v">Contested</span><span>Split among AXT (earnings, prepayments), Beijing (the permit valve) and customers (deposits that lock in volume).</span></div>
+      <div class="verdict"><h4>Investability</h4><span class="v">Export-gated</span><span>Listed, and well funded after a $632m raise. But the capacity is in China, and sales outside China depend on permits AXT says it cannot predict.</span></div>
+    </div></div>
+
+    <div><h4>Bear checks</h4>
+    <ul class="plain">
+      <li><b>Dilution:</b> a $632m secondary offering closed on 2026-04-22 <span class="tag t-p">P</span>. Q3 share count is guided at about 66.5m, against 63.5m diluted in Q2 <span class="tag t-p">P</span>.</li>
+      <li><b>GAAP margins:</b> Q2 2026 GAAP net income was $11.1m on $47.6m revenue, about 23% (my calculation) <span class="tag t-p">P</span>.</li>
+      <li><b>Customer concentration:</b> "The top 5 customers generated approximately 30% of total revenue and no customers are over the 10% level." <span class="tag t-p">P</span></li>
+      <li><b>Cash vs debt:</b> $749m in cash and investments against $84m of short-term loans at 2026-06-30 <span class="tag t-p">P</span>. Tongmei's private-equity investors hold a $49m redemption right <span class="tag t-p">P</span>.</li>
+      <li><b>Second source qualifying:</b> Sumitomo Electric, JX Advanced Metals and Coherent's in-house substrate. Their capacities are unexamined.</li>
+      <li><b>Architecture bypass:</b> none for InP lasers. GaAs VCSELs serve only short reach <span class="tag t-m">map</span>.</li>
+      <li><b>Demand pull-forward:</b> multi-year prepaid LTSAs may front-load orders as a hedge against permit risk <span class="tag t-m">map</span>.</li>
+      <li><b>Policy reversal:</b> this cuts both ways. Lifting Announcement No. 10 would kill the chokepoint, and tightening it would sharpen it.</li>
+      <li><b>Layer error:</b> news of indium metal shortages (the DLA solicitation cancelled 2026-09-30) is about feedstock, not substrate. It is kept out of this chain and rejected below.</li>
+    </ul></div>
+
+    <div><h4>Kill criteria</h4>
+    <ul class="plain">
+      <li>MOFCOM removes indium-related items (2025 No. 10) from the dual-use control list.</li>
+      <li>AXT stops citing export permits as a gate to revenue in two consecutive earnings releases or calls.</li>
+      <li>Lumentum and Coherent both say on calls that InP substrates are not a constraint for calendar 2027.</li>
+      <li>Sumitomo Electric or JX Advanced Metals disclose a qualified InP substrate expansion large enough to cover non-China demand.</li>
+    </ul></div>
+
+    <div style="display:flex;flex-direction:column;gap:10px"><h4>Predictions</h4>
+      <div class="pred"><span class="id">pho-p3 · deadline 2027-03-15 · open</span>By 2027-03-15, AXT will report InP substrate revenue of at least $40 million in its Q3 2026 or Q4 2026 quarter, as shown by its earnings release or call transcript.</div>
+      <div class="pred"><span class="id">pho-p4 · deadline 2027-04-19 · open</span>By 2027-04-19, MOFCOM will not have removed or suspended the export licence requirement for indium-related items under 2025 Announcement No. 10, as shown by MOFCOM announcements.</div>
+    </div>
+
+    <p><b>Status since last edition:</b> new. First edition.</p>
+  </article>
+</section>
+
+<section>
+  <h2>Rejected</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Candidate</th><th>Reason and source</th></tr></thead>
+    <tbody>
+      <tr><td>Indium metal feedstock</td><td>Only leads: Fastmarkets (2026-10-19) on a US DLA stockpile solicitation cancelled without award on 2026-09-30. AXT says its Jingmei JV refines its own indium <span class="tag t-l">L</span>. Reopen if a substrate maker cites indium supply in a filing.</td></tr>
+      <tr><td>Faraday rotators / isolators</td><td>No primary source or dated lead named a shortage. One search only.</td></tr>
+      <tr><td>Transceiver DSPs</td><td>No primary statement of a DSP shortfall found. Not examined in depth.</td></tr>
+      <tr><td>Pump and narrow-linewidth lasers</td><td>Lumentum says these are sold out <span class="tag t-p">P</span>. They serve coherent DCI, OCS and amplifiers rather than 800G/1.6T IM-DD, and pumps sit on a different layer. Outside the three-chokepoint budget, so a candidate for a future week.</td></tr>
+      <tr><td>Gallium / germanium controls</td><td>The US-specific ban is suspended to 2026-11-27 <span class="tag t-l">L</span> (Pillsbury). Datacom InP lasers do not depend on it. Carried as a cross-theme hook.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Cross-theme hooks</h2>
+  <ul class="plain">
+    <li><b>MOFCOM dual-use controls:</b> indium items (2025 No. 10) are still licensed, and the Ga/Ge/antimony US-ban suspension ends 2026-11-27. The same notices hit defence IR, RF GaAs and power electronics.</li>
+    <li><b>Indium metal:</b> shared with ITO display coatings and solders. A US DLA stockpile buy was cancelled on 2026-09-30 <span class="tag t-l">L</span>.</li>
+    <li><b>III-V fab capacity:</b> Lumentum is converting a GaAs fab in Greensboro to InP <span class="tag t-p">P</span>, so datacom lasers now compete with RF and 3D sensing for compound-semiconductor fabs and MOCVD tools.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Next questions</h2>
+  <ul class="plain">
+    <li>Does Lumentum confirm the "sold out into 2029" press claim, and is the EML gap wider or narrower? <span class="note">Fiscal Q1 2027 call, 2026-11-05.</span></li>
+    <li>What was AXT's Q3 InP revenue and non-China share, and has the permit language changed? <span class="note">AXT Q3 2026 release and call (date not yet announced); AXT IR or the 8-K.</span></li>
+    <li>Did Coherent's first 6-inch doubling land, and has CW CPO revenue started? <span class="note">Coherent fiscal Q1 2027 release and call (early November).</span></li>
+    <li>Does MOFCOM extend the suspensions, or change anything touching indium items, around 2026-11-10 and 2026-11-27? <span class="note">mofcom.gov.cn announcements.</span></li>
+    <li>What share of InP substrate and laser-chip capacity do Sumitomo Electric, JX Advanced Metals and Mitsubishi Electric hold? <span class="note">Their November results decks and IR pages.</span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Run notes</h2>
+  <ul class="plain">
+    <li><b>No previous edition found</b> in the artifact list (all 64 artifacts checked), so this is edition 1.</li>
+    <li><b>Unreachable:</b> SEC EDGAR filing index (robots refusal), Globe and Mail transcript (robots), Seeking Alpha (robots), Japan Times 2026-10-09 (fetch error), Digitimes 2026-10-12 (paywall), MOFCOM primary announcement text (not located on the site), Coherent and Lumentum press-release lists (did not render).</li>
+    <li><b>Downgraded to lead:</b> the Coherent Q4 FY26 call transcript on Webull. It is unlabeled and appears to be translated (Zhitong), so it is not quoted as primary. Coherent primary evidence comes only from its press release and investor slides.</li>
+    <li><b>Partially read:</b> the Lumentum Q4 FY26 transcript was verbatim through roughly three-quarters of its length, and the AXT Q2 call through the main Q&amp;A. Later sections came back as summaries and are not quoted.</li>
+    <li><b>Unverified:</b> AXT market share, InP laser-chip shares by vendor, the exact MOFCOM control codes covering InP, the Lumentum–AXT deposit amount, and the Casella and Coherent prepayment mapping (the CFO said "respectively"; the trade press puts Casella at about $25.4m, which conflicts).</li>
+    <li><b>Tool calls:</b> about 30 top-level calls plus about 42 page fetches by helper agents, roughly 72 in all.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>The ledger</h2>
+  <p class="note">Machine-readable state for next week's run and the council. IDs are stable. Killed chokepoints stay; predictions are never deleted.</p>
+  <button class="copy" id="copy-ledger" type="button">Copy JSON</button>
+  <pre id="ledger"><code>```json
+{
+  "theme": "photonics",
+  "as_of": "2026-10-19",
+  "edition": 1,
+  "chokepoints": [
+    {
+      "id": "pho-1",
+      "name": "InP laser-chip wafer-fab capacity (EML and high-power CW lasers for 800G/1.6T and CPO/NPO)",
+      "layer": "chip",
+      "status": "new",
+      "verdicts": {
+        "scarcity": "supported (primary): the leading supplier says it ships behind EML demand and is further behind on high-power lasers; relief fabs come online through 2027-2028",
+        "capture": "partial: supplier non-GAAP margins rose, but customers fund capacity through long-term agreements, which caps pricing power",
+        "investability": "holders are listed (Lumentum, Coherent; Broadcom, Mitsubishi Electric, Sumitomo Electric are diversified); Lumentum already equitized most convertibles; fabs sit in US/Japan/Europe, but the substrate input depends on China permits (see pho-2)"
+      },
+      "holders": [
+        "Lumentum",
+        "Coherent",
+        "Broadcom",
+        "Mitsubishi Electric",
+        "Sumitomo Electric"
+      ],
+      "kill_criteria": [
+        "Lumentum or Coherent says on an earnings call (any call through 2027-04-30) that EML or CW laser supply meets or exceeds customer demand",
+        "Coherent reports its second 6-inch InP doubling (stated for end of calendar 2027) completed two or more quarters early",
+        "A customer or competitor filing shows a China-based InP laser vendor qualified for 800G/1.6T EML or CPO CW lasers at a US hyperscaler or top-3 module maker",
+        "Lumentum moves Greensboro first revenue earlier than early 2028 while also stating the supply gap has closed"
+      ],
+      "first_seen": "2026-10-19"
+    },
+    {
+      "id": "pho-2",
+      "name": "InP substrates shipped from China under MOFCOM export permits",
+      "layer": "substrate",
+      "status": "new",
+      "verdicts": {
+        "scarcity": "mixed: tight today and gated by export permits, but the largest producer is tripling capacity in 2026 and two large laser makers say they have secured supply",
+        "capture": "contested: split between AXT (prepayments, rising earnings), the Chinese state (permit timing) and customers (deposits and LTSAs)",
+        "investability": "AXT is Nasdaq-listed and cash-rich after a USD 632m raise, but its capacity is in Beijing and sales outside China depend on MOFCOM permits it cannot predict"
+      },
+      "holders": [
+        "AXT (Beijing Tongmei)",
+        "Sumitomo Electric",
+        "JX Advanced Metals",
+        "Coherent (internal)"
+      ],
+      "kill_criteria": [
+        "MOFCOM removes indium-related items (2025 Announcement No. 10) from the dual-use control list",
+        "AXT stops citing export permits as a gate to revenue in two consecutive earnings releases or calls",
+        "Lumentum and Coherent both state on calls that InP substrates are not a constraint for calendar 2027",
+        "Sumitomo Electric or JX Advanced Metals disclose a qualified InP substrate expansion large enough to cover non-China demand"
+      ],
+      "first_seen": "2026-10-19"
+    }
+  ],
+  "predictions": [
+    {
+      "id": "pho-p1",
+      "chokepoint": "pho-1",
+      "made": "2026-10-19",
+      "deadline": "2027-02-15",
+      "text": "By 2027-02-15, Lumentum management will state on its fiscal Q1 2027 (2026-11-05) or fiscal Q2 2027 earnings call that it is still shipping behind customer demand for EML or CW laser chips.",
+      "source_type": "Lumentum earnings call transcript",
+      "state": "open",
+      "settled_on": null,
+      "settlement_quote": null,
+      "settlement_url": null
+    },
+    {
+      "id": "pho-p2",
+      "chokepoint": "pho-1",
+      "made": "2026-10-19",
+      "deadline": "2027-03-31",
+      "text": "By 2027-03-31, Coherent will state in an earnings release, call or investor presentation that its internal InP production output or capacity has at least doubled year over year.",
+      "source_type": "Coherent earnings release, call transcript or investor presentation",
+      "state": "open",
+      "settled_on": null,
+      "settlement_quote": null,
+      "settlement_url": null
+    },
+    {
+      "id": "pho-p3",
+      "chokepoint": "pho-2",
+      "made": "2026-10-19",
+      "deadline": "2027-03-15",
+      "text": "By 2027-03-15, AXT will report InP substrate revenue of at least USD 40 million in its Q3 2026 or Q4 2026 quarter.",
+      "source_type": "AXT earnings release (8-K Ex. 99.1) or earnings call transcript",
+      "state": "open",
+      "settled_on": null,
+      "settlement_quote": null,
+      "settlement_url": null
+    },
+    {
+      "id": "pho-p4",
+      "chokepoint": "pho-2",
+      "made": "2026-10-19",
+      "deadline": "2027-04-19",
+      "text": "By 2027-04-19, MOFCOM will not have removed or suspended the export licence requirement for indium-related items under 2025 Announcement No. 10.",
+      "source_type": "MOFCOM announcement",
+      "state": "open",
+      "settled_on": null,
+      "settlement_quote": null,
+      "settlement_url": null
+    }
+  ],
+  "rejected": [
+    {
+      "name": "Indium metal feedstock",
+      "reason": "Only leads (Fastmarkets on the DLA stockpile solicitation cancelled 2026-09-30); AXT says its Jingmei JV refines its own indium. Reopen if a substrate maker cites indium supply as a constraint in a filing.",
+      "date": "2026-10-19"
+    },
+    {
+      "name": "Faraday rotators and optical isolators",
+      "reason": "No primary source or dated lead found naming a shortage; unexamined beyond one search.",
+      "date": "2026-10-19"
+    },
+    {
+      "name": "Transceiver DSPs (Broadcom, Marvell)",
+      "reason": "No primary statement of a DSP supply shortfall found; not examined in depth this week.",
+      "date": "2026-10-19"
+    },
+    {
+      "name": "Pump lasers and narrow-linewidth laser assemblies",
+      "reason": "Lumentum says these are sold out, but they serve coherent DCI, OCS and amplifiers rather than 800G/1.6T IM-DD links, and pump lasers sit on a different material layer; outside the 3-chokepoint budget. Candidate for a future week.",
+      "date": "2026-10-19"
+    },
+    {
+      "name": "Gallium and germanium export controls",
+      "reason": "The US-specific ban is suspended to 2026-11-27 (lead: Pillsbury summary); datacom InP lasers do not depend on Ga/Ge substrates. Carried as a cross-theme hook.",
+      "date": "2026-10-19"
+    }
+  ],
+  "cross_theme_hooks": [
+    "China MOFCOM dual-use controls: indium items (2025 No. 10) remain licensed; the Ga/Ge/antimony US ban suspension ends 2026-11-27. The same notices hit defence IR, RF GaAs and power electronics.",
+    "Indium metal: shared with ITO display coatings and solders; a US DLA stockpile solicitation was cancelled on 2026-09-30 without award (lead).",
+    "III-V fab capacity: Lumentum is converting a GaAs fab in Greensboro to InP, so datacom lasers now compete with RF and 3D-sensing for compound-semiconductor fabs and MOCVD tools."
+  ],
+  "primary_sources": [
+    {
+      "who": "Michael Hurlston, CEO, Lumentum",
+      "doc": "Q3 FY2026 earnings call transcript (Motley Fool)",
+      "date": "2026-05-05",
+      "url": "https://www.fool.com/earnings/call-transcripts/2026/05/06/lumentum-lite-q3-2026-earnings-transcript/",
+      "quote": "The supply-demand imbalance is probably even higher than we reported in our last call, somewhere greater than 30%."
+    },
+    {
+      "who": "Michael Hurlston, CEO, Lumentum",
+      "doc": "Q3 FY2026 earnings call transcript (Motley Fool)",
+      "date": "2026-05-05",
+      "url": "https://www.fool.com/earnings/call-transcripts/2026/05/06/lumentum-lite-q3-2026-earnings-transcript/",
+      "quote": "Our wafer capacity -- wafer fab capacity in Japan remains at a premium and is fully allocated to meet surging customer demand."
+    },
+    {
+      "who": "Michael Hurlston, CEO, Lumentum",
+      "doc": "Q4 FY2026 earnings call transcript (Investing.com)",
+      "date": "2026-08-11",
+      "url": "https://www.investing.com/news/transcripts/earnings-call-transcript-lumentum-tops-q4-2026-forecasts-as-ai-demand-lifts-outlook-93CH-4852933",
+      "quote": "We're still shipping behind customer demand on EML."
+    },
+    {
+      "who": "Michael Hurlston, CEO, Lumentum",
+      "doc": "Q4 FY2026 earnings call transcript (Investing.com)",
+      "date": "2026-08-11",
+      "url": "https://www.investing.com/news/transcripts/earnings-call-transcript-lumentum-tops-q4-2026-forecasts-as-ai-demand-lifts-outlook-93CH-4852933",
+      "quote": "The demand signal has increased, and we are very much further behind relative to our ability to supply."
+    },
+    {
+      "who": "Michael Hurlston, CEO, Lumentum",
+      "doc": "Q4 FY2026 earnings call transcript (Investing.com)",
+      "date": "2026-08-11",
+      "url": "https://www.investing.com/news/transcripts/earnings-call-transcript-lumentum-tops-q4-2026-forecasts-as-ai-demand-lifts-outlook-93CH-4852933",
+      "quote": "I think we continue to say first revenue out of that in early 2028, and ramping through calendar 2028 into kind of a full pitch by the end of 2028 and into 2029."
+    },
+    {
+      "who": "Michael Hurlston, CEO, Lumentum",
+      "doc": "Q4 FY2026 earnings call transcript (Investing.com)",
+      "date": "2026-08-11",
+      "url": "https://www.investing.com/news/transcripts/earnings-call-transcript-lumentum-tops-q4-2026-forecasts-as-ai-demand-lifts-outlook-93CH-4852933",
+      "quote": "To capture the coming 200G and 300G lane speed opportunities, we are expanding capacity across our two indium phosphide wafer fabs in Japan, qualifying both CW and EML process flows on our newest tools as they come online."
+    },
+    {
+      "who": "Michael Hurlston, CEO, Lumentum",
+      "doc": "Q4 FY2026 earnings call transcript (Investing.com)",
+      "date": "2026-08-11",
+      "url": "https://www.investing.com/news/transcripts/earnings-call-transcript-lumentum-tops-q4-2026-forecasts-as-ai-demand-lifts-outlook-93CH-4852933",
+      "quote": "We feel we are good at this moment."
+    },
+    {
+      "who": "Michael Hurlston, CEO, Lumentum",
+      "doc": "Q4 FY2026 earnings call transcript (Investing.com)",
+      "date": "2026-08-11",
+      "url": "https://www.investing.com/news/transcripts/earnings-call-transcript-lumentum-tops-q4-2026-forecasts-as-ai-demand-lifts-outlook-93CH-4852933",
+      "quote": "To support the growth and scale across deployments, we have secured multiple long-term customer agreements that help offset our planned capital expenditures."
+    },
+    {
+      "who": "Lumentum",
+      "doc": "Q4 FY2026 earnings release, 8-K Ex. 99.1",
+      "date": "2026-08-11",
+      "url": "https://www.sec.gov/Archives/edgar/data/0001633978/000162828026055726/lite_ex991xq4fy26.htm",
+      "quote": "The GAAP net loss was driven by the equitization of certain amounts of our convertible notes in the fourth quarter of fiscal year 2026, which contributed to a one-time, non-cash loss on debt extinguishment of $7.8 billion."
+    },
+    {
+      "who": "Lumentum",
+      "doc": "Reporting-date press release",
+      "date": "2026-10-05",
+      "url": "https://investor.lumentum.com/financial-news-releases/news-details/2026/Lumentum-Announces-Reporting-Date-for-Fiscal-First-Quarter-2027-Financial-Results/default.aspx",
+      "quote": "Lumentum Holdings Inc. (\"Lumentum\") today announced that it will release its fiscal first quarter 2027 financial results on Thursday, November 5th, 2026, after the market closes."
+    },
+    {
+      "who": "Coherent",
+      "doc": "Investor presentation, Q4 FY2026, slide 6",
+      "date": "2026-08-12",
+      "url": "https://www.coherent.com/content/dam/coherent/site/en/documents/investors/investor-presentations/2026/august-12/investor-presentation-20260812.pdf",
+      "quote": "On track to double internal InP output by year-end and more than double again by 2027"
+    },
+    {
+      "who": "Coherent",
+      "doc": "Investor presentation, Q4 FY2026, slide 6",
+      "date": "2026-08-12",
+      "url": "https://www.coherent.com/content/dam/coherent/site/en/documents/investors/investor-presentations/2026/august-12/investor-presentation-20260812.pdf",
+      "quote": "6-inch platform producing EMLs, CW lasers, and photodiodes, with higher yields than 3-inch lines"
+    },
+    {
+      "who": "Jim Anderson, CEO, Coherent",
+      "doc": "Q4 FY2026 earnings press release",
+      "date": "2026-08-12",
+      "url": "https://www.coherent.com/news/press-releases/fourth-quarter-and-fiscal-year-2026-results",
+      "quote": "We enter fiscal 2027 with exceptional customer demand, expanding production capacity, and multiple new growth platforms beginning to ramp."
+    },
+    {
+      "who": "Morris Young, CEO, AXT",
+      "doc": "Preliminary Q4 2025 revenue press release, 8-K Ex. 99.1",
+      "date": "2026-01-08",
+      "url": "https://www.sec.gov/Archives/edgar/data/1051627/000121390026002690/ea027235801ex99-1_axtinc.htm",
+      "quote": "The company expects revenue to be in the range of $22.5 to $23.5 million, primarily due to fewer export control permits for indium phosphide being issued by China's Ministry of Commerce than previously expected."
+    },
+    {
+      "who": "AXT",
+      "doc": "Q2 2026 earnings release, 8-K Ex. 99.1",
+      "date": "2026-07-30",
+      "url": "https://www.sec.gov/Archives/edgar/data/0001051627/000143774926025061/ex_974537.htm",
+      "quote": "These risks, uncertainties and assumptions include, but are not limited to, the receipt of export permits for our indium phosphide substrates, the withdrawal, cancellations or requests for redemptions by private equity funds in China of their investments in Tongmei..."
+    },
+    {
+      "who": "Morris Young, CEO, AXT",
+      "doc": "Q2 2026 earnings call transcript (Motley Fool via Webull)",
+      "date": "2026-07-30",
+      "url": "https://www.webull.com/news/15341695014478848",
+      "quote": "Customer demand continues to outpace supply no matter how fast we add capacity."
+    },
+    {
+      "who": "Gary Fischer, CFO, AXT",
+      "doc": "Q2 2026 earnings call transcript (Motley Fool via Webull)",
+      "date": "2026-07-30",
+      "url": "https://www.webull.com/news/15341695014478848",
+      "quote": "But we do not want to stress we do want to stress that we cannot predict the future timing of permits or success in obtaining them for any specific customer or individual order."
+    },
+    {
+      "who": "Timothy Bettles, VP Business Development, AXT",
+      "doc": "Q2 2026 earnings call transcript (Motley Fool via Webull)",
+      "date": "2026-07-30",
+      "url": "https://www.webull.com/news/15341695014478848",
+      "quote": "Take our revenue to somewhere in the region of about $130 million a quarter. Exiting the year."
+    },
+    {
+      "who": "Gary Fischer, CFO, AXT",
+      "doc": "Q2 2026 earnings call transcript (Motley Fool via Webull)",
+      "date": "2026-07-30",
+      "url": "https://www.webull.com/news/15341695014478848",
+      "quote": "Under the terms of these agreements, we receive prepayments for wafers of $22.3 million and $25.4 million respectively."
+    },
+    {
+      "who": "Gary Fischer, CFO, AXT",
+      "doc": "Q2 2026 earnings call transcript (Motley Fool via Webull)",
+      "date": "2026-07-30",
+      "url": "https://www.webull.com/news/15341695014478848",
+      "quote": "The top 5 customers generated approximately 30% of total revenue and no customers are over the 10% level."
+    },
+    {
+      "who": "Gary Fischer, CFO, AXT",
+      "doc": "Q2 2026 earnings call transcript (Motley Fool via Webull)",
+      "date": "2026-07-30",
+      "url": "https://www.webull.com/news/15341695014478848",
+      "quote": "This was primarily the result of our secondary public offering of common stock which closed on April 22 and generated approximately $632 million before expenses."
+    }
+  ]
+}
+```</code></pre>
+</section>
+
+</div>
+<script>
+(function(){
+  var b=document.getElementById('copy-ledger');
+  b.addEventListener('click',function(){
+    var t=document.getElementById('ledger').innerText.replace(/^```json\n?/,'').replace(/\n?```\s*$/,'');
+    function sel(){var r=document.createRange();r.selectNodeContents(document.getElementById('ledger'));var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected. Press Ctrl+C';}
+    try{navigator.clipboard.writeText(t).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy JSON'},1600)},sel);}catch(e){sel();}
+  });
+})();
+</script>
+
+</body></html>

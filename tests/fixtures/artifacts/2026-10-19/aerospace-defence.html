@@ -1,0 +1,405 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Chokepoint Watch: Aerospace and Defence</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single reading column styled like an engineering change log: header plate, numbered sections, one card per chokepoint with step table, ledger at the foot. */
+:root{
+  --bg:#f1f3f5; --surface:#ffffff; --ink:#161c22; --muted:#56616c; --rule:#cdd4db;
+  --accent:#1d5f7a; --accent-soft:#dfeef3;
+  --ok:#1f6b47; --ok-bg:#e1f1e8; --lead:#8a5c00; --lead-bg:#f8eed6; --bad:#a1352b; --bad-bg:#f7e2df; --un:#5d6670; --un-bg:#e7eaee;
+  --f-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1419; --surface:#161d24; --ink:#e2e8ee; --muted:#9aa6b1; --rule:#2a3540;
+  --accent:#7cc3de; --accent-soft:#16303b;
+  --ok:#7fd1a6; --ok-bg:#16322a; --lead:#e6bd63; --lead-bg:#382c12; --bad:#f19a8e; --bad-bg:#3c1f1b; --un:#aab3bd; --un-bg:#232c35; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1419; --surface:#161d24; --ink:#e2e8ee; --muted:#9aa6b1; --rule:#2a3540;
+  --accent:#7cc3de; --accent-soft:#16303b;
+  --ok:#7fd1a6; --ok-bg:#16322a; --lead:#e6bd63; --lead-bg:#382c12; --bad:#f19a8e; --bad-bg:#3c1f1b; --un:#aab3bd; --un-bg:#232c35; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 var(--f-body)}
+.wrap{max-width:900px;margin:0 auto;padding-block:36px 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:44px}
+h1,h2,h3{font-family:var(--f-display);margin:0;line-height:1.15;text-wrap:balance}
+h1{font-size:clamp(2rem,5.5vw,2.9rem);font-weight:700;letter-spacing:.005em}
+h2{font-size:1.5rem;font-weight:700;display:flex;gap:12px;align-items:baseline;border-bottom:2px solid var(--ink);padding-bottom:6px}
+h2 .n{font-family:var(--f-mono);font-size:.8rem;color:var(--accent);font-weight:600}
+h3{font-size:1.25rem;font-weight:700}
+h4{margin:0;font:600 .74rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+p{margin:0;max-width:72ch}
+section{display:flex;flex-direction:column;gap:16px;min-width:0}
+a{color:var(--accent);overflow-wrap:anywhere}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.eyebrow{font:600 .74rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 24px;font:.85rem var(--f-mono);color:var(--muted)}
+.meta b{color:var(--ink);font-weight:600}
+.scope{font-size:.95rem;color:var(--muted);border-left:3px solid var(--accent);padding-left:10px}
+.summary{background:var(--accent-soft);padding:14px 18px;display:grid;gap:8px}
+.summary div{display:grid;grid-template-columns:8rem 1fr;gap:12px}
+.summary b{font:600 .72rem var(--f-mono);text-transform:uppercase;letter-spacing:.07em;color:var(--accent);padding-top:4px}
+@media (max-width:560px){.summary div{grid-template-columns:1fr;gap:2px}}
+.chip{display:inline-block;font:600 .68rem/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;padding:3px 7px;border-radius:2px;white-space:nowrap;vertical-align:1px}
+.p{background:var(--ok-bg);color:var(--ok)} .l{background:var(--lead-bg);color:var(--lead)} .x{background:var(--bad-bg);color:var(--bad)} .u{background:var(--un-bg);color:var(--un)} .m{background:var(--accent-soft);color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--rule);padding:20px 22px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.card header{display:flex;flex-direction:column;gap:6px}
+.ids{font:.8rem var(--f-mono);color:var(--muted)}
+ol.chain{margin:0;padding-left:1.4rem;display:flex;flex-direction:column;gap:6px;font-size:.95rem}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;vertical-align:top;padding:9px 10px;border-bottom:1px solid var(--rule)}
+th{font:600 .7rem var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td:first-child{font-weight:600;white-space:nowrap}
+td > * + *{margin-top:8px}
+blockquote{margin:0;padding:4px 0 4px 12px;border-left:3px solid var(--ok);font-size:.93rem}
+blockquote.lq{border-left-color:var(--lead)}
+cite{display:block;font:normal .74rem/1.45 var(--f-mono);color:var(--muted);margin-top:3px}
+.vd{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;font-size:.92rem}
+.vd div{border-top:3px solid var(--rule);padding-top:6px;min-width:0;display:flex;flex-direction:column;gap:4px}
+@media (max-width:640px){.vd{grid-template-columns:1fr}}
+ul.plain{margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:6px}
+.pred{border:1px dashed var(--accent);padding:12px 14px;display:flex;flex-direction:column;gap:4px;font-size:.95rem}
+.pred .id{font:600 .76rem var(--f-mono);color:var(--accent)}
+.note{color:var(--muted);font-size:.92rem}
+dl.kv{display:grid;grid-template-columns:9rem 1fr;gap:6px 14px;margin:0;font-size:.94rem}
+dl.kv dt{font-weight:600}
+dl.kv dd{margin:0;min-width:0}
+@media (max-width:560px){dl.kv{grid-template-columns:1fr}dl.kv dd{margin-bottom:6px}}
+pre{background:var(--surface);border:1px solid var(--rule);padding:14px;overflow-x:auto;font:.74rem/1.5 var(--f-mono);margin:0;white-space:pre}
+.copy{align-self:flex-start;font:600 .85rem var(--f-body);background:var(--surface);color:var(--ink);border:1px solid var(--rule);padding:6px 12px;cursor:pointer}
+.copy:hover{border-color:var(--accent)}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:16px">
+  <span class="eyebrow">Weekly theme watch · evidence, not a trade</span>
+  <h1>Chokepoint Watch: Aerospace and Defence</h1>
+  <div class="meta"><span>As of <b>2026-10-19</b></span><span>Edition <b>1</b></span><span>Previous edition: <b>first edition</b></span></div>
+  <p class="scope">Engines, airframes and defence electronics. Munitions, energetics and rocket motors are out of scope.</p>
+  <p class="note">This is edition 1. No earlier artifact with this title exists, so nothing is carried forward and no predictions are due.</p>
+  <div class="summary">
+    <div><b>What changed</b><span>First edition. GE Aerospace agreed on 2026-09-08 to buy castings maker CPP for $11.75bn, saying casting capacity "is needed" for demand. That is customer-funded capacity at the casting layer.</span></div>
+    <div><b>Top chokepoint</b><span>aer-1: engine airfoil and structural investment castings (Howmet, PCC, CPP, DPC). Scarcity is supported by primary sources in direction but not in units. Capture is unproven.</span></div>
+    <div><b>Next dated</b><span>GE Aerospace and RTX Q3 2026 results on <b>2026-10-20</b>. Then Safran Q3 revenue on 10-23 and Howmet Q3 on 10-29.</span></div>
+  </div>
+  <p class="note">Marks: <span class="chip p">P</span> primary, <span class="chip l">L</span> lead, <span class="chip m">map</span> own knowledge, used only to draw the chain. Step states: <span class="chip p">primary</span> <span class="chip l">lead</span> <span class="chip u">unexamined</span> <span class="chip x">contradicted</span>.</p>
+</header>
+
+<section>
+  <h2><span class="n">2</span>Predictions settled this week</h2>
+  <p>None. This is the first edition, so no predictions exist yet.</p>
+</section>
+
+<section>
+  <h2><span class="n">3</span>The board</h2>
+  <p class="note">Two chokepoints are named and both get a deep dive. The other candidates did not reach primary evidence in this run (see Rejected).</p>
+
+  <!-- aer-1 -->
+  <article class="card">
+    <header>
+      <span class="ids">aer-1 · layer: casting (investment-cast airfoils and structural castings) · status: new</span>
+      <h3>Nickel-superalloy and titanium investment castings for engines</h3>
+    </header>
+
+    <div><h4>The chain</h4>
+    <ol class="chain">
+      <li>Aircraft makers raise narrowbody rates, and so engine deliveries rise. Safran: LEAP deliveries "reached 1,030 units, representing a 41% increase compared to the first half of 2025." <span class="chip p">P</span></li>
+      <li>Engine OEMs guide higher: LEAP "up high-teens (previously ~15%)" (Safran), "with LEAP deliveries up high teens from 15% previously" (GE). <span class="chip p">P</span> (engine layer)</li>
+      <li>Aftermarket: GE reports "spare parts delinquency, which represents shipments that have been delayed due to material availability constraints". <span class="chip p">P</span> (spare-part layer; castings not named)</li>
+      <li>Engine to casting: hot-section blades and vanes, and structural castings, are investment-cast by a small group of qualified foundries. <span class="chip m">map</span></li>
+      <li>Casting layer: GE says "Investing in mission-critical casting capacity is needed to support the strong simultaneous demand across commercial engines, aftermarket and defense." <span class="chip p">P</span></li>
+      <li>Holders: Howmet (listed), PCC (Berkshire Hathaway), CPP (being bought by GE) and DPC. Fool says these four "dominate the casting space." <span class="chip l">L</span></li>
+    </ol></div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Step</th><th>State</th><th>Evidence</th></tr></thead>
+      <tbody>
+        <tr><td>Constraint</td><td><span class="chip l">lead</span></td><td>
+          <p>No source gives a shortfall in parts a month or engines a year. GE ties delayed spares to "material availability constraints", but does not name castings in the part of the call that was read. Howmet's "We have one casting pit left" reached this run only through a fetch-tool summary, so it is downgraded to a lead here (the Council had cited it as P via Power Equipment).</p>
+          <blockquote>"spare parts delinquency, which represents shipments that have been delayed due to material availability constraints"<cite>Rahul Ghai, CFO, GE Aerospace · Q2 2026 earnings call · 2026-07-16 · <a href="https://gloom.sh/stocks/ge/transcripts/q2-2026">gloom.sh transcript</a> · verbatim page text (machine transcript)</cite></blockquote>
+        </td></tr>
+        <tr><td>Demand vs supply</td><td><span class="chip p">primary</span></td><td>
+          <p><b>Money committed at the casting layer.</b> This is customer-funded capacity, the strongest kind of evidence. The engine OEM is paying to own the capacity, and the holder is spending more capex.</p>
+          <blockquote>"Purchase price of $11.75 billion to be financed with $7 billion in cash, with the remainder in new debt."<cite>GE Aerospace · press release, Ex. 99.2 to 8-K · 2026-09-08 · <a href="https://www.sec.gov/Archives/edgar/data/0000040545/000095014226002501/eh260827362_ex9902.htm">SEC</a> · verbatim</cite></blockquote>
+          <blockquote>"Investing in mission-critical casting capacity is needed to support the strong simultaneous demand across commercial engines, aftermarket and defense."<cite>H. Lawrence Culp Jr., CEO, GE Aerospace · same release · <a href="https://www.geaerospace.com/news/press-releases/ge-aerospace-acquire-consolidated-precision-products-cpp-expanding-mission-critical">geaerospace.com</a> · verbatim</cite></blockquote>
+          <blockquote>"...while this year, we are now likely to exceed $500 million in capital spend, we are already seeing the need to further increase this in 2027."<cite>John Plant, CEO, Howmet · Q2 2026 call · 2026-08-06 · <a href="https://www.fool.com/earnings/call-transcripts/2026/08/13/howmet-aerospace-hwm-q2-2026-earnings-call-transcript/">fool.com</a> · verbatim</cite></blockquote>
+          <p>The GE deck shows "Growing airfoil demand &gt; 30 % growth" (Ex. 99.1, slide text, P). Defence demand: CPP is "~20% Defense" by revenue (Ex. 99.1). That demand is funded but not broken out by programme. Howmet's Engine Products revenue rose 32% y/y in Q2 2026 (release, P), which shows output rising, not a shortfall.</p>
+        </td></tr>
+        <tr><td>Relief</td><td><span class="chip p">primary</span></td><td>
+          <p>New capacity is coming but is slow. The CPP deal "is expected to close in the second half of 2027" (GE release, P), and GE plans "incremental planned capital investments over time" (IR update, P). Howmet cites "the new plant we built in Japan, the major expansion in Europe" and freed space in Virginia, and Plant signed off "the building of a new plant" (Q2 call, P). Customer qualification and first-article approval of new casting lines usually take 1–2 years. <span class="chip m">map</span>, not evidence.</p>
+        </td></tr>
+        <tr><td>Control</td><td><span class="chip l">lead</span></td><td>
+          <p>Four holders per press (Fool, 2026-09-27). No share figures were found in a primary source this run. CPP: "~$2.0B '27E revenue", "~70% of revenue from commercial and defense engines" (GE Ex. 99.1, P), "~6,600 employees across more than 20 facilities" (release, P). Howmet Engine Products: $1.37bn Q2 2026 revenue (release, P). PCC and DPC: unexamined. The Berkshire 10-Q could not be reached.</p>
+        </td></tr>
+        <tr><td>Capture</td><td><span class="chip u">unexamined</span></td><td>
+          <p>No price increase was found in the seller's own words this run. Howmet's only pricing-adjacent line is pass-through: "Higher metal pass-through diluted margins by approximately 360 basis points year-over-year, but had no material impact on EBITDA dollars." (Winterlich, Q2 call, P). The valuation GE pays, "~18x 2027 EBITDA including expected net synergies, multiple of ~26x without" (release, P), signals what the buyer thinks the capacity is worth. It is not pricing evidence. Cost share: castings are probably a low-single-digit percent of an engine's cost (<span class="chip m">estimate</span>). With no substitute, that favours price over redesign.</p>
+        </td></tr>
+        <tr><td>Invalidation</td><td><span class="chip p">primary</span></td><td>
+          <blockquote>"nine consecutive quarters with double-digit increases from our critical suppliers"<cite>Larry Culp · GE Q2 2026 call · 2026-07-16 · gloom.sh · verbatim (machine transcript)</cite></blockquote>
+          <p>Supplier input keeps rising quarter after quarter, which argues for relief in progress. In the verbatim half of RTX's Q2 call, no castings or forgings constraint is named. Safran's H1 release names only "supply chain production capabilities" as a watch item. GE says CPP is "a part of the solution, but we will continue to need all our partners and suppliers" (IR update, P), which is ambiguous.</p>
+        </td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="vd">
+      <div><h4>Physical scarcity</h4><span>Supported in direction (P: customer-funded capacity, rising capex, spares delayed by material). Not quantified, and no source names castings as today's binding limit.</span></div>
+      <div><h4>Economic capture</h4><span>Unproven. Sales to engine OEMs are usually long-term fixed-price agreements with metal pass-through <span class="chip m">map</span>. No price-increase quote this run.</span></div>
+      <div><h4>Investability</h4><span>Howmet is listed and is the only independent holder that is. CPP becomes captive to GE. PCC is captive in Berkshire. DPC is private.</span></div>
+    </div>
+
+    <div><h4>Bear checks</h4>
+    <ul class="plain">
+      <li><b>Dilution:</b> GE is financing with cash and debt and names no equity issue (P). Howmet's dilution was not examined.</li>
+      <li><b>Margins:</b> metal pass-through cut Howmet's margin by about 360bp (P). No fixed-price losses were found.</li>
+      <li><b>Concentration:</b> CPP is a "Key supplier to key GE Aerospace programs… LEAP, GEnx, T700, F110, F404" (Ex. 99.1, P). Concentration on LEAP is high.</li>
+      <li><b>Second source:</b> GE in-sourcing CPP may cut GE's buying from Howmet over time, or may tighten supply for other OEMs. Neither effect is evidenced.</li>
+      <li><b>Design bypass:</b> CMC parts replace some superalloy hot-section parts in new engines <span class="chip m">map</span>. That is slow and not a 36-month relief.</li>
+      <li><b>Rate cuts:</b> airframe rate risk was not examined this run.</li>
+      <li><b>Budget:</b> about 20% of CPP is defence. No CR or appropriations exposure was checked.</li>
+      <li><b>Layer error:</b> GE's "material availability" covers all supplier material, not castings alone. It supports the spare-part layer, not the casting layer.</li>
+    </ul></div>
+
+    <div><h4>Kill criteria</h4>
+    <ul class="plain">
+      <li>GE or RTX Q3 2026 materials (2026-10-20) or Q4 2026 materials (late Jan 2027) report spare-parts delinquency falling with supplier material input meeting demand.</li>
+      <li>Howmet Q3 2026 (2026-10-29) or Q4 2026 reports unused engine casting capacity, a capex cut or price concessions.</li>
+      <li>The GE–CPP deal is terminated without GE announcing other casting capacity.</li>
+      <li>Safran or GE cut 2027 LEAP delivery guidance for reasons other than castings.</li>
+    </ul></div>
+
+    <div class="pred"><span class="id">aer-p1 · made 2026-10-19 · deadline 2027-02-28 · open</span>By 2027-02-28, Howmet's Q4 2026 earnings release will report full-year 2026 capital expenditures above $500 million and state that 2027 capex will be higher than 2026, as shown by Howmet's earnings release.</div>
+    <div class="pred"><span class="id">aer-p2 · made 2026-10-19 · deadline 2027-04-19 · open</span>By 2027-04-19, GE Aerospace's FY2026 Form 10-K will name casting capacity or supplier material availability as a factor limiting engine deliveries or spare-parts output, as shown by the 10-K risk factors or MD&amp;A.</div>
+
+    <dl class="kv">
+      <dt>Status</dt><dd>New.</dd>
+      <dt>Consensus</dt><dd>Earliest primary evidence in this run: 2026-07-16 (GE Q2 call). It is <b>emerging</b>: the CPP deal was widely reported, but the press framed it as a capacity purchase, not as a castings shortage with figures.</dd>
+    </dl>
+  </article>
+
+  <!-- aer-2 -->
+  <article class="card">
+    <header>
+      <span class="ids">aer-2 · layer: rare-earth oxide/metal → SmCo alloy → magnet · status: new</span>
+      <h3>Samarium feedstock outside China for samarium-cobalt magnets, ahead of the 2027 DFARS cliff</h3>
+    </header>
+
+    <div><h4>The chain</h4>
+    <ol class="chain">
+      <li>US military aircraft and defence electronics programmes use SmCo magnets in actuators, motors, sensors and RF tubes. <span class="chip m">map</span></li>
+      <li>DFARS 252.225-7052 lists "Samarium-cobalt magnets" as covered material, and China is a covered country. <span class="chip p">P</span></li>
+      <li>From 2027-01-01, the rule covers "the entire supply chain from mining or production of a cobalt and samarium ore or feedstock, including recycled material, through production of finished magnets." <span class="chip p">P</span> (feedstock layer)</li>
+      <li>China controls samarium exports: in April 2025 it added "specific controls on alloys, compounds, metals, and oxides of samarium, gadolinium, terbium, dysprosium..." (USGS MCS 2026). <span class="chip p">P</span></li>
+      <li>Magnet layer: EEC (Permag group) calls itself "the only US-based producer of samarium cobalt (SmCo) magnets". <span class="chip p">P</span> (self-claim)</li>
+      <li>Feedstock outside China: magnet makers "are in negotiations to work with suppliers outside of China" (Permag, 2025). Ucore is developing samarium separation with DoW funding. <span class="chip p">P</span></li>
+    </ol></div>
+
+    <div class="tbl"><table>
+      <thead><tr><th>Step</th><th>State</th><th>Evidence</th></tr></thead>
+      <tbody>
+        <tr><td>Constraint</td><td><span class="chip l">lead</span></td><td>
+          <p>The constraint is regulatory-physical: DFARS-compliant samarium oxide or metal from 2027-01-01. No primary source gives tonnes of shortfall. Adamas (2026-06-05), citing an unlinked FT report, says contractors argue "a substantial supply gap remains because no Western alternative has yet scaled to required volumes" <span class="chip l">L</span>.</p>
+        </td></tr>
+        <tr><td>Demand vs supply</td><td><span class="chip l">lead</span></td><td>
+          <blockquote>"In addition to the materials listed below, the fiscal year (FY) 2025 potential acquisitions included 300 tons of neodymium-praseodymium oxide, 450 tons of neodymium-iron-boron magnet block, and 60 tons of samarium-cobalt alloy."<cite>USGS · Mineral Commodity Summaries 2026, Rare Earths · Feb 2026 · <a href="https://pubs.usgs.gov/periodicals/mcs2026/mcs2026-rare-earths.pdf">USGS PDF</a> · verbatim (text conversion)</cite></blockquote>
+          <p>The 60 t is a stockpile <i>potential acquisition</i>. That is a stated plan, not an award. Defence demand comes from the sourcing mandate, not from a quantified order book.</p>
+        </td></tr>
+        <tr><td>Relief</td><td><span class="chip p">primary</span></td><td>
+          <blockquote>"The additional funding supports samarium ("Sm") and gadolinium ("Gd") process development"<cite>Ucore Rare Metals · release (via INN) · 2026-09-14 · <a href="https://investingnews.com/ucore-secures-additional-us-4-6-million-from-u-s-department-of-war-to-advance-samarium-and-gadolinium-refining/">investingnews.com</a> · verbatim excerpt</cite></blockquote>
+          <p>The OTA now totals US$27.0m, through "U.S. Army Contracting Command-Orlando" (P). It gives no tonnage or start date. A regulatory relief valve also exists in the clause: a nonavailability determination that compliant material "cannot be procured as and when needed at a reasonable price" (DFARS (c)(2), P). The magnet layer is expanding too: EEC's plan "more than doubles its production capacity" (Permag, 2025-08-22, P). That relieves the magnet layer, not the feedstock layer.</p>
+        </td></tr>
+        <tr><td>Control</td><td><span class="chip l">lead</span></td><td>
+          <p>Feedstock: TechSpot (2025-12-24, summarising the NYT) says "China supplies nearly all of the world's samarium" <span class="chip l">L</span>. Non-China supply named in press: a Solvay stockpile in France, processed by Less Common Metals in the UK <span class="chip l">L</span>. Magnet: EEC is the sole US producer (self-claim, P). European SmCo makers were not examined.</p>
+        </td></tr>
+        <tr><td>Capture</td><td><span class="chip l">lead</span></td><td>
+          <p>Official statistics show samarium oxide (99.5%, FOB China, Argus) at $2.01/kg in 2024 and $2.82/kg in 2025e (USGS table, P). That is a rise of about 40%, but it is the Chinese price, not the price of compliant supply outside China, which was not found. Cost share: magnets are a tiny fraction of a system's cost (<span class="chip m">estimate</span>), so buyers will pay rather than redesign. The economics would sit with private or pre-revenue firms.</p>
+        </td></tr>
+        <tr><td>Invalidation</td><td><span class="chip p">primary</span></td><td>
+          <p>The clause exempts COTS end items under 50% covered material by weight, and "An electronic device, unless otherwise specified in the contract" (DFARS (c)(1)(iii), P). That narrows the demand the cliff hits. The magnet makers targeted compliance "by mid-2026" and are "actively working with compliant global suppliers" (Permag, 2025, P), which implies they have a route. USGS: "China began to issue general export licenses to selected exporters" (P). That eases supply before 2027, but Chinese-mined material is non-compliant from 2027.</p>
+        </td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="vd">
+      <div><h4>Physical scarcity</h4><span>Lead. A dated regulatory cliff (P) meets feedstock dominated by China (L). No tonnage gap is shown in a primary source.</span></div>
+      <div><h4>Economic capture</h4><span>Unproven. Price evidence covers only Chinese oxide. Defence buyers pay through cost-plus development and fixed-price production. The contract mix was not examined.</span></div>
+      <div><h4>Investability</h4><span>Weak. The magnet holder is private (Permag group). Ucore is small, grant-funded and likely to dilute (unexamined). Solvay's samarium is immaterial to the group.</span></div>
+    </div>
+
+    <div><h4>Bear checks</h4>
+    <ul class="plain">
+      <li><b>Dilution:</b> Ucore is pre-revenue (unexamined). EEC is private.</li>
+      <li><b>Second source:</b> DoW-funded entrants (Ucore, Louisiana) are qualifying. Timing is undisclosed.</li>
+      <li><b>Design bypass:</b> NdFeB with heavy rare earths can replace SmCo in lower-temperature uses <span class="chip m">map</span>. NdFeB faces the same 2027 rule.</li>
+      <li><b>Budget:</b> stockpile figures for FY2026 are "not available" (USGS, P). The Annual Materials Plan was not released.</li>
+      <li><b>Policy delay:</b> the strongest bear case. Contractors are lobbying to postpone the 2027 date (Adamas, L). The eCFR, current through 2026-10-15, still shows "Effective January 1, 2027" (P).</li>
+      <li><b>Layer error:</b> the stockpile line is SmCo <i>alloy</i>, not oxide. The price line is oxide.</li>
+    </ul></div>
+
+    <div><h4>Kill criteria</h4>
+    <ul class="plain">
+      <li>A Federal Register notice, DFARS class deviation or statute delays the 2027-01-01 supply-chain provision for SmCo magnets.</li>
+      <li>Broad nonavailability determinations are published for SmCo magnets.</li>
+      <li>A magnet maker or prime announces contracted DFARS-compliant samarium supply covering its 2027 needs.</li>
+    </ul></div>
+
+    <div class="pred"><span class="id">aer-p3 · made 2026-10-19 · deadline 2027-01-15 · open</span>By 2027-01-15, the eCFR text of DFARS 252.225-7052 will still contain the "Effective January 1, 2027" supply-chain restriction for samarium-cobalt magnets with no delay, as shown by the eCFR or the Federal Register.</div>
+    <div class="pred"><span class="id">aer-p4 · made 2026-10-19 · deadline 2027-04-19 · open</span>By 2027-04-19, the Department of War or DLA will announce at least one new award (contract, OTA or DPA Title III) whose stated purpose includes samarium oxide, samarium metal or SmCo magnet production, as shown by a DoW contract announcement, DLA notice or the awardee's release.</div>
+
+    <dl class="kv">
+      <dt>Status</dt><dd>New.</dd>
+      <dt>Consensus</dt><dd>Earliest primary evidence: the April 2025 Chinese controls (as reported by USGS, Feb 2026) and the DFARS clause (May 2024). It is <b>emerging</b>: NYT, FT and trade press cover it, and financial-analyst coverage is thin.</dd>
+    </dl>
+  </article>
+</section>
+
+<section>
+  <h2><span class="n">4</span>Rejected</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Candidate</th><th>Reason</th></tr></thead>
+    <tbody>
+      <tr><td>Large closed-die and isothermal forgings (presses)</td><td>Not examined this run, and no primary evidence was gathered. Reopen next week from Howmet Q3 and PCC.</td></tr>
+      <tr><td>GKN fan cases (part layer)</td><td>GE names GKN "to break constraints tied to rate performance" (GE Q2 call, P). That is one supplier's performance problem, not missing qualified capacity. Moved to next questions.</td></tr>
+      <tr><td>Pratt &amp; Whitney powder metal</td><td>The only verbatim reference is "powder metal-related compensation was approximately $150 million" (RTX Q2 call, 2026-07-23, P). That is a quality-recall cost, not a capacity constraint.</td></tr>
+      <tr><td>Germanium for IR optics</td><td>Leads only (vendor blogs, think-tank pages). No primary source was opened. It overlaps the Photonics theme.</td></tr>
+      <tr><td>GaN and GaAs for radar</td><td>No evidence was gathered this run. The Council question on quantified demand went unanswered (see below).</td></tr>
+      <tr><td>Tb/Dy NdFeB magnets</td><td>Carried by Robotics (rob-1). The defence side is quantified only as a 450 t stockpile potential acquisition (USGS, P). It is not named separately here to avoid double counting.</td></tr>
+      <tr><td>Munitions, rocket motors, energetics</td><td>Out of scope. RTX's Q2 call mentions munitions output and European AMRAAM suppliers. Noted only.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="n">5</span>Cross-theme hooks</h2>
+  <ul class="plain">
+    <li><b>Investment castings (Howmet, CPP, PCC):</b> shared with Power Equipment's IGT blades (pwr-2). CPP is "~20% Power and other" and Howmet allocates one capex pool to both (Council cst-1).</li>
+    <li><b>DFARS 252.225-7052 magnet rule, 2027-01-01:</b> it covers NdFeB as well as SmCo, so Robotics (rob-1) faces the same supply-chain cliff in defence-adjacent demand.</li>
+    <li><b>Chinese rare-earth and minor-metal export controls:</b> the April 2025 list (Sm, Gd, Tb, Dy...) sits beside the Ga/Ge controls that Photonics tracks. Licence changes move several themes at once.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">6</span>Council questions</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Question</th><th>Answer</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td>Do engine OEMs name castings or forgings as their delivery constraint (cst-1)?</td><td>Partly. GE names casting capacity as "needed" for demand (CPP release, 2026-09-08). It attributes delayed spares to "material availability constraints" without naming castings in the part of its Q2 call that was read. RTX's verbatim Q2 text names no castings or forgings. Safran's H1 release names only "supply chain production capabilities". The Q3 releases are not out yet: GE and RTX report 10-20, Safran 10-23.</td><td><span class="chip p">P</span> partial</td></tr>
+      <tr><td>Is Tb/Dy NdFeB or GaAs/GaN defence demand quantified in government documents (cst-2, cst-3)?</td><td>NdFeB: partly. The FY2025 stockpile potential acquisitions included 450 t of NdFeB magnet block and 60 t of SmCo alloy. They are not Tb/Dy-specific, and FY2026 figures were "not available" (USGS MCS 2026). GaAs/GaN: not found.</td><td><span class="chip p">P</span> NdFeB · not found GaAs/GaN</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2><span class="n">7</span>Next questions</h2>
+  <ul class="plain">
+    <li>Do GE and RTX name castings, forgings or a specific supplier in Q3 2026 results, and is GE's spare-parts delinquency rising or falling? Where: GE and RTX Q3 releases and calls, 2026-10-20.</li>
+    <li>Has Safran's "supply chain production capabilities" watch item changed, and does it name parts? Where: Safran Q3 revenue release, 2026-10-23.</li>
+    <li>What is Howmet's capacity and pricing, how does it split aero and IGT, and does it comment on GE–CPP? Where: Howmet Q3 release and call, 2026-10-29.</li>
+    <li>Has any DFARS 252.225-7052 delay, class deviation or nonavailability determination been published, and what came of the DIBC's February 2026 request on samarium? Where: Federal Register, DPC class deviations, DIBC and DoW releases.</li>
+    <li>What is the forging-press layer (PCC Wyman-Gordon, Howmet) and GKN's fan-case constraint? Where: Melrose H1 2026 results, Berkshire 10-Q (by another route), Howmet Q3.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">8</span>Run notes</h2>
+  <ul class="plain">
+    <li><b>Unreachable:</b> SEC EDGAR company browse (robots), so there is no Berkshire 10-Q or PCC text. The defense.gov releases list was also blocked by robots. The National Defense Magazine article returned empty. Globe and Mail was blocked by robots, and the Fool GE transcript URL failed.</li>
+    <li><b>Truncated transcripts:</b> GE (gloom.sh, about 66% read verbatim), RTX (Fool, about 49%) and Howmet (Fool, about 54%). Q&amp;A sections were mostly unread. Text from the summarised parts was not used as P.</li>
+    <li><b>Downgraded to lead:</b> Howmet's "one casting pit left" (summary only this run); Howmet's "sold out" remark (garbled transcription); GE's "We do not have a demand problem" (summary only).</li>
+    <li><b>Source caveats:</b> the GE transcript is machine-transcribed, with name errors. The Permag DFARS release shows two dates (20 May and 12 June 2025). GE's Q3 date (2026-10-20) comes from a third party (24/7 Wall St via Yahoo, 2026-10-19), and GE's IR site shows no date. The SEC 8-K filing date was not confirmed. Some fetched pages carried embedded instruction text, which was ignored.</li>
+    <li><b>Copies:</b> the GE CPP release on SEC and on geaerospace.com count as one source.</li>
+    <li><b>Tool calls:</b> about 30 (artifact list and read, 9 searches, 9 fetch agents making about 50 page fetches, skill load, publish).</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="n">9</span>The ledger</h2>
+  <button class="copy" id="copy-ledger" type="button">Copy JSON</button>
+<pre id="ledger">```json
+{
+  "theme": "aerospace-defence",
+  "as_of": "2026-10-19",
+  "edition": 1,
+  "chokepoints": [
+    {"id": "aer-1", "name": "Nickel-superalloy and titanium investment castings for engines (airfoils and structural castings)", "layer": "casting", "status": "new",
+     "verdicts": {"scarcity": "supported in direction (P: customer-funded capacity, rising capex, spares delayed by material); unquantified", "capture": "unproven; no price-increase evidence; LTA/pass-through structure", "investability": "Howmet listed; CPP becoming captive to GE; PCC captive (Berkshire); DPC private"},
+     "holders": ["Howmet Aerospace", "Precision Castparts (Berkshire Hathaway)", "Consolidated Precision Products (to GE Aerospace, close 2H 2027)", "DPC Holdings"],
+     "kill_criteria": ["GE or RTX Q3/Q4 2026 materials report falling spare-parts delinquency with supplier input meeting demand", "Howmet Q3/Q4 2026 reports unused engine casting capacity, capex cut or price concessions", "GE-CPP deal terminated without other casting capacity announced", "Safran or GE cut 2027 LEAP guidance for non-casting reasons"],
+     "first_seen": "2026-10-19", "earliest_evidence": "2026-07-16", "consensus": "emerging"},
+    {"id": "aer-2", "name": "Samarium feedstock outside China for SmCo magnets ahead of DFARS 2027 supply-chain rule", "layer": "rare-earth oxide/metal (feedstock) for SmCo alloy and magnet", "status": "new",
+     "verdicts": {"scarcity": "lead: dated regulatory cliff (P) meets China-dominated feedstock (L); no tonnage gap in P", "capture": "unproven; only China FOB oxide price (+~40% 2024-2025e, USGS)", "investability": "weak: magnet holder private, Ucore small and grant-funded"},
+     "holders": ["Electron Energy Corporation (Permag group, private)", "Ucore Rare Metals (developing)", "Solvay / Less Common Metals (non-China feedstock, lead)", "Chinese producers"],
+     "kill_criteria": ["Federal Register notice, DFARS class deviation or statute delays the 2027-01-01 SmCo provision", "Broad nonavailability determinations published for SmCo magnets", "Magnet maker or prime announces contracted DFARS-compliant samarium supply covering 2027"],
+     "first_seen": "2026-10-19", "earliest_evidence": "2024-05-30", "consensus": "emerging"}
+  ],
+  "predictions": [
+    {"id": "aer-p1", "chokepoint": "aer-1", "made": "2026-10-19", "deadline": "2027-02-28",
+     "text": "By 2027-02-28, Howmet's Q4 2026 earnings release will report full-year 2026 capital expenditures above $500 million and state that 2027 capex will be higher than 2026.",
+     "source_type": "company earnings release", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "aer-p2", "chokepoint": "aer-1", "made": "2026-10-19", "deadline": "2027-04-19",
+     "text": "By 2027-04-19, GE Aerospace's FY2026 Form 10-K will name casting capacity or supplier material availability as a factor limiting engine deliveries or spare-parts output.",
+     "source_type": "company 10-K (risk factors or MD&A)", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "aer-p3", "chokepoint": "aer-2", "made": "2026-10-19", "deadline": "2027-01-15",
+     "text": "By 2027-01-15, the eCFR text of DFARS 252.225-7052 will still contain the 'Effective January 1, 2027' supply-chain restriction for samarium-cobalt magnets with no delay.",
+     "source_type": "eCFR / Federal Register", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null},
+    {"id": "aer-p4", "chokepoint": "aer-2", "made": "2026-10-19", "deadline": "2027-04-19",
+     "text": "By 2027-04-19, the Department of War or DLA will announce at least one new award (contract, OTA or DPA Title III) whose stated purpose includes samarium oxide, samarium metal or SmCo magnet production.",
+     "source_type": "DoW contract announcement, DLA notice or awardee release", "state": "open", "settled_on": null, "settlement_quote": null, "settlement_url": null}
+  ],
+  "rejected": [
+    {"name": "Large closed-die and isothermal forgings (presses)", "reason": "Not examined this run; no primary evidence gathered; reopen", "date": "2026-10-19"},
+    {"name": "GKN fan cases", "reason": "GE names a single supplier's rate-performance constraint (P), not missing qualified capacity", "date": "2026-10-19"},
+    {"name": "Pratt & Whitney powder metal", "reason": "Only a ~$150m compensation line (RTX Q2 2026 call); quality recall cost, not a capacity constraint", "date": "2026-10-19"},
+    {"name": "Germanium for IR optics", "reason": "Leads only; overlaps Photonics theme", "date": "2026-10-19"},
+    {"name": "GaN/GaAs for radar", "reason": "No evidence gathered this run", "date": "2026-10-19"},
+    {"name": "Tb/Dy NdFeB magnets", "reason": "Carried by Robotics rob-1; defence side only a 450 t stockpile potential acquisition (USGS)", "date": "2026-10-19"},
+    {"name": "Munitions, rocket motors, energetics", "reason": "out of scope", "date": "2026-10-19"}
+  ],
+  "cross_theme_hooks": [
+    "Investment castings (Howmet, CPP, PCC) shared with Power Equipment IGT blades (pwr-2, Council cst-1); CPP ~20% power and other",
+    "DFARS 252.225-7052 2027 supply-chain rule covers NdFeB as well as SmCo; shared with Robotics rob-1",
+    "Chinese April 2025 rare-earth export controls (Sm, Gd, Tb, Dy...) sit beside the Ga/Ge controls tracked by Photonics"
+  ],
+  "council_answers": [
+    {"question": "Do engine OEMs name castings or forgings as their delivery constraint (cst-1)?", "answer": "Partly: GE says casting capacity is needed for demand (CPP release 2026-09-08) and cites spares delayed by material availability; RTX verbatim Q2 text names no castings/forgings; Safran H1 names only supply chain production capabilities. Q3 releases due 10-20 (GE, RTX) and 10-23 (Safran).", "evidence": "P"},
+    {"question": "Is Tb/Dy NdFeB or GaAs/GaN defence demand quantified in government documents (cst-2, cst-3)?", "answer": "NdFeB partly: FY2025 NDS potential acquisitions 450 t NdFeB magnet block and 60 t SmCo alloy (USGS MCS 2026), not Tb/Dy-specific; FY2026 not available. GaAs/GaN not found.", "evidence": "P"}
+  ],
+  "primary_sources": [
+    {"who": "Safran", "doc": "Safran reports its first-half 2026 results (press release)", "date": "2026-07-28", "url": "https://www.safran-group.com/pressroom/safran-reports-its-first-half-2026-results-2026-07-28", "quote": "Over the first half of the year, LEAP deliveries reached 1,030 units, representing a 41% increase compared to the first half of 2025."},
+    {"who": "Safran", "doc": "H1 2026 results press release, outlook", "date": "2026-07-28", "url": "https://www.safran-group.com/pressroom/safran-reports-its-first-half-2026-results-2026-07-28", "quote": "Watch items: supply chain production capabilities, potential impact of the Middle East conflict."},
+    {"who": "Rahul Ghai, CFO, GE Aerospace", "doc": "Q2 2026 earnings call transcript (gloom.sh, machine transcript)", "date": "2026-07-16", "url": "https://gloom.sh/stocks/ge/transcripts/q2-2026", "quote": "spare parts delinquency, which represents shipments that have been delayed due to material availability constraints"},
+    {"who": "Larry Culp, CEO, GE Aerospace", "doc": "Q2 2026 earnings call transcript (gloom.sh)", "date": "2026-07-16", "url": "https://gloom.sh/stocks/ge/transcripts/q2-2026", "quote": "nine consecutive quarters with double-digit increases from our critical suppliers"},
+    {"who": "GE Aerospace", "doc": "Press release, Ex. 99.2 to Form 8-K (CPP acquisition)", "date": "2026-09-08", "url": "https://www.sec.gov/Archives/edgar/data/0000040545/000095014226002501/eh260827362_ex9902.htm", "quote": "Purchase price of $11.75 billion to be financed with $7 billion in cash, with the remainder in new debt."},
+    {"who": "H. Lawrence Culp Jr., CEO, GE Aerospace", "doc": "CPP acquisition press release", "date": "2026-09-08", "url": "https://www.geaerospace.com/news/press-releases/ge-aerospace-acquire-consolidated-precision-products-cpp-expanding-mission-critical", "quote": "Investing in mission-critical casting capacity is needed to support the strong simultaneous demand across commercial engines, aftermarket and defense."},
+    {"who": "GE Aerospace", "doc": "CPP acquisition press release", "date": "2026-09-08", "url": "https://www.geaerospace.com/news/press-releases/ge-aerospace-acquire-consolidated-precision-products-cpp-expanding-mission-critical", "quote": "The transaction is expected to close in the second half of 2027 and will be subject to regulatory approvals and other customary closing conditions."},
+    {"who": "GE Aerospace", "doc": "IR update on CPP acquisition", "date": "2026-09-08", "url": "https://www.geaerospace.com/news/investor-relations/ir-updates/ge-aerospace-acquire-consolidated-precision-products", "quote": "We're mindful CPP is a part of the solution, but we will continue to need all our partners and suppliers, and remain committed to deepening relationships with them, technically and operationally, in order to increase capacity."},
+    {"who": "Howmet Aerospace", "doc": "Q2 2026 results press release", "date": "2026-08-06", "url": "https://www.howmet.com/press-release/2026-08-06/howmet-aerospace-reports-second-quarter-2026-results/", "quote": "Revenue was driven by 28% growth in the commercial aerospace market, 11% growth in the defense aerospace market and 38% growth in the gas turbines market."},
+    {"who": "John Plant, CEO, Howmet", "doc": "Q2 2026 earnings call transcript (Motley Fool)", "date": "2026-08-06", "url": "https://www.fool.com/earnings/call-transcripts/2026/08/13/howmet-aerospace-hwm-q2-2026-earnings-call-transcript/", "quote": "...while this year, we are now likely to exceed $500 million in capital spend, we are already seeing the need to further increase this in 2027."},
+    {"who": "Patrick Winterlich, CFO, Howmet", "doc": "Q2 2026 earnings call transcript (Motley Fool)", "date": "2026-08-06", "url": "https://www.fool.com/earnings/call-transcripts/2026/08/13/howmet-aerospace-hwm-q2-2026-earnings-call-transcript/", "quote": "Higher metal pass-through diluted margins by approximately 360 basis points year-over-year, but had no material impact on EBITDA dollars."},
+    {"who": "Neil Mitchill, CFO, RTX", "doc": "Q2 2026 earnings call transcript (Motley Fool)", "date": "2026-07-23", "url": "https://www.fool.com/earnings/call-transcripts/2026/07/24/rtx-rtx-q2-2026-earnings-call-transcript/", "quote": "And powder metal-related compensation was approximately $150 million."},
+    {"who": "USGS", "doc": "Mineral Commodity Summaries 2026, Rare Earths", "date": "2026-02-01", "url": "https://pubs.usgs.gov/periodicals/mcs2026/mcs2026-rare-earths.pdf", "quote": "In April 2025, China tightened its export controls on rare-earth elements, adding specific controls on alloys, compounds, metals, and oxides of samarium, gadolinium, terbium, dysprosium, lutetium, scandium, and yttrium."},
+    {"who": "USGS", "doc": "Mineral Commodity Summaries 2026, Rare Earths", "date": "2026-02-01", "url": "https://pubs.usgs.gov/periodicals/mcs2026/mcs2026-rare-earths.pdf", "quote": "In addition to the materials listed below, the fiscal year (FY) 2025 potential acquisitions included 300 tons of neodymium-praseodymium oxide, 450 tons of neodymium-iron-boron magnet block, and 60 tons of samarium-cobalt alloy."},
+    {"who": "DoD (eCFR)", "doc": "DFARS 252.225-7052 (May 2024), eCFR current through 2026-10-15", "date": "2024-05-30", "url": "https://www.ecfr.gov/current/title-48/chapter-2/subchapter-H/part-252/subpart-252.2/section-252.225-7052", "quote": "Effective January 1, 2027, for samarium-cobalt magnets this restriction includes the entire supply chain from mining or production of a cobalt and samarium ore or feedstock, including recycled material, through production of finished magnets."},
+    {"who": "Permag / Electron Energy Corporation", "doc": "Release on SmCo capacity expansion (PR Newswire)", "date": "2025-08-22", "url": "https://www.permag.com/leaders-in-rare-earth-magnets-invests-to-expand-domestic-samarium-cobalt-magnet-manufacturing/", "quote": "EEC intends to further invest in additional SmCo production capacity to help meet growing demand."},
+    {"who": "Ucore Rare Metals", "doc": "Release: additional US$4.6m from US Department of War (via INN)", "date": "2026-09-14", "url": "https://investingnews.com/ucore-secures-additional-us-4-6-million-from-u-s-department-of-war-to-advance-samarium-and-gadolinium-refining/", "quote": "China's April 2025 export controls included samarium- and gadolinium-related metals, oxides, and compounds."}
+  ]
+}
+```</pre>
+</section>
+
+</div>
+<script>
+(function(){
+  var b=document.getElementById('copy-ledger');
+  b.addEventListener('click',function(){
+    var el=document.getElementById('ledger');
+    var t=el.textContent.replace(/^```json\n?/,'').replace(/\n?```\s*$/,'');
+    function sel(){var r=document.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected. Press Ctrl+C';}
+    try{navigator.clipboard.writeText(t).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy JSON'},1600)},sel);}catch(e){sel();}
+  });
+})();
+</script>
+
+</body></html>
