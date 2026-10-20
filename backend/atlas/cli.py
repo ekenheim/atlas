@@ -319,9 +319,16 @@ def run_record_import(
                 "same_as_of_differs": edition.same_as_of_differs,
                 "parse_error": edition.parse_error,
                 "page_uri": edition.page_uri,
+                "rewrites_found": imported.rewrites_found,
             }
         )
     )
+    if imported.rewrites_found:
+        print(
+            f"atlas: the page rewrites {imported.rewrites_found} thing(s) the previous edition"
+            " said; read them at GET /api/v1/editions/<id>/rewrites",
+            file=sys.stderr,
+        )
     if edition.parse_error is not None:
         print(f"atlas: the page has no readable ledger: {edition.parse_error}", file=sys.stderr)
     return 0

@@ -1372,6 +1372,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/editions/{edition_id}/rewrites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Edition Rewrites */
+        get: operations["edition_rewrites_api_v1_editions__edition_id__rewrites_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/editions/{edition_id}/page": {
         parameters: {
             query?: never;
@@ -1381,6 +1398,23 @@ export interface paths {
         };
         /** Edition Page */
         get: operations["edition_page_api_v1_editions__edition_id__page_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rewrites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rewrites */
+        get: operations["rewrites_api_v1_rewrites_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5669,6 +5703,12 @@ export interface components {
         EditionImported: {
             outcome: components["schemas"]["ImportOutcome"];
             edition: components["schemas"]["Edition"];
+            /**
+             * Rewrites Found
+             * @description the differences the rewrite check found against the theme's previous parsed edition (`GET /api/v1/editions/{id}/rewrites`); 0 when nothing changed
+             * @default 0
+             */
+            rewrites_found: number;
         };
         /** @enum {string} */
         EditionSource: "drop_box" | "manual";
@@ -9388,6 +9428,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[RewriteRecord] */
+        Page_RewriteRecord_: {
+            /** Items */
+            items: components["schemas"]["RewriteRecord"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** Page[SessionSummary] */
         Page_SessionSummary_: {
             /** Items */
@@ -11572,6 +11623,66 @@ export interface components {
         RetainStatus: "pending" | "submitted" | "completed" | "failed";
         /** @enum {string} */
         ReviewState: "committed" | "pending" | "confirmed" | "rejected";
+        /** @enum {string} */
+        RewriteKind: "prediction_changed" | "prediction_removed" | "prediction_unsettled" | "chokepoint_vanished" | "id_reused" | "date_moved_later" | "edition_not_increasing";
+        /** RewriteRecord */
+        RewriteRecord: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Edition Id
+             * Format: uuid
+             * @description the edition that rewrote an earlier one
+             */
+            edition_id: string;
+            /**
+             * Previous Edition Id
+             * Format: uuid
+             * @description the edition it was compared with
+             */
+            previous_edition_id: string;
+            /**
+             * Theme
+             * @description the theme's slug; `council` for the council's
+             */
+            theme: string;
+            /**
+             * As Of
+             * Format: date
+             * @description the edition's as-of day
+             */
+            as_of: string;
+            kind: components["schemas"]["RewriteKind"];
+            /**
+             * Subject Id
+             * @description the prediction, chokepoint, board item or contradiction it is about (the theme's slug for an edition number)
+             */
+            subject_id: string;
+            /**
+             * Field
+             * @description the field that differs, when one does
+             */
+            field: string | null;
+            /**
+             * Before
+             * @description the previous edition's value
+             */
+            before: unknown;
+            /**
+             * After
+             * @description this edition's value; null when it is gone
+             */
+            after: unknown;
+            /**
+             * Found At
+             * Format: date-time
+             * @description when Atlas stored the edition and found it
+             */
+            found_at: string;
+        };
         /**
          * RoleCallRecord
          * @description One call of a role. A quarantined or truncated call's outputs are visible in its
@@ -17651,6 +17762,51 @@ export interface operations {
             };
         };
     };
+    edition_rewrites_api_v1_editions__edition_id__rewrites_get: {
+        parameters: {
+            query?: {
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                edition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_RewriteRecord_"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     edition_page_api_v1_editions__edition_id__page_get: {
         parameters: {
             query?: never;
@@ -17685,6 +17841,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rewrites_api_v1_rewrites_get: {
+        parameters: {
+            query?: {
+                theme?: string | null;
+                since?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_RewriteRecord_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

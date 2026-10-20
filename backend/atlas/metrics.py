@@ -25,6 +25,7 @@ from sqlalchemy import Connection, Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from atlas.jobs import JobQueue
+from atlas.record.rewrites import REWRITE_KINDS
 from atlas.retention.coverage import GAP_REASONS, version_states
 from atlas.retention.reconciliation import DRIFT_KINDS
 from atlas.retention.triage import LATEST_TRIAGE_JOBS
@@ -131,6 +132,7 @@ class StateCollector(Collector):
             yield from self._candidates(connection)
             yield from self._investigations(connection)
             yield from self._snapshots(connection)
+            yield from self._ledger_rewrites(connection)
             yield from self._financials(connection)
 
     def _pause(self) -> Iterator[Metric]:
@@ -759,6 +761,23 @@ class StateCollector(Collector):
         for reason in _STOP_REASONS:
             stops.add_metric([reason], by_reason.get(reason, 0))
         yield stops
+
+    def _ledger_rewrites(self, connection: Connection) -> Iterator[Metric]:
+        # The rewrite check's findings (atlas-record ticket 02): insert-only rows, by kind.
+        rewrites = CounterMetricFamily(
+            "atlas_ledger_rewrites",
+            "Differences the rewrite check found between a stored edition and the theme's"
+            " previous one, by kind (a task rewrote what it had said)",
+            labels=["kind"],
+        )
+        by_kind = dict(
+            connection.execute(
+                text("SELECT kind, count(*) FROM ledger_rewrite GROUP BY kind")
+            ).all()
+        )
+        for kind in REWRITE_KINDS:
+            rewrites.add_metric([kind], by_kind.get(kind, 0))
+        yield rewrites
 
     def _snapshots(self, connection: Connection) -> Iterator[Metric]:
         # Research Snapshots are insert-only rows (one per published Hypothesis version).

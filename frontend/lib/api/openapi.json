@@ -6625,6 +6625,86 @@
         }
       }
     },
+    "/api/v1/editions/{edition_id}/rewrites": {
+      "get": {
+        "tags": [
+          "editions"
+        ],
+        "summary": "Edition Rewrites",
+        "operationId": "edition_rewrites_api_v1_editions__edition_id__rewrites_get",
+        "parameters": [
+          {
+            "name": "edition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Edition Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_RewriteRecord_"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/editions/{edition_id}/page": {
       "get": {
         "tags": [
@@ -6667,6 +6747,99 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/rewrites": {
+      "get": {
+        "tags": [
+          "editions"
+        ],
+        "summary": "Rewrites",
+        "operationId": "rewrites_api_v1_rewrites_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_RewriteRecord_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -19613,6 +19786,12 @@
           },
           "edition": {
             "$ref": "#/components/schemas/Edition"
+          },
+          "rewrites_found": {
+            "type": "integer",
+            "title": "Rewrites Found",
+            "description": "the differences the rewrite check found against the theme's previous parsed edition (`GET /api/v1/editions/{id}/rewrites`); 0 when nothing changed",
+            "default": 0
           }
         },
         "type": "object",
@@ -29925,6 +30104,37 @@
         ],
         "title": "Page[ResearchSnapshotRecord]"
       },
+      "Page_RewriteRecord_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RewriteRecord"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[RewriteRecord]"
+      },
       "Page_SessionSummary_": {
         "properties": {
           "items": {
@@ -35584,6 +35794,99 @@
           "confirmed",
           "rejected"
         ]
+      },
+      "RewriteKind": {
+        "type": "string",
+        "enum": [
+          "prediction_changed",
+          "prediction_removed",
+          "prediction_unsettled",
+          "chokepoint_vanished",
+          "id_reused",
+          "date_moved_later",
+          "edition_not_increasing"
+        ]
+      },
+      "RewriteRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "edition_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Edition Id",
+            "description": "the edition that rewrote an earlier one"
+          },
+          "previous_edition_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Previous Edition Id",
+            "description": "the edition it was compared with"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme",
+            "description": "the theme's slug; `council` for the council's"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date",
+            "title": "As Of",
+            "description": "the edition's as-of day"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RewriteKind"
+          },
+          "subject_id": {
+            "type": "string",
+            "title": "Subject Id",
+            "description": "the prediction, chokepoint, board item or contradiction it is about (the theme's slug for an edition number)"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field",
+            "description": "the field that differs, when one does"
+          },
+          "before": {
+            "title": "Before",
+            "description": "the previous edition's value"
+          },
+          "after": {
+            "title": "After",
+            "description": "this edition's value; null when it is gone"
+          },
+          "found_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Found At",
+            "description": "when Atlas stored the edition and found it"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "edition_id",
+          "previous_edition_id",
+          "theme",
+          "as_of",
+          "kind",
+          "subject_id",
+          "field",
+          "before",
+          "after",
+          "found_at"
+        ],
+        "title": "RewriteRecord"
       },
       "RoleCallRecord": {
         "properties": {

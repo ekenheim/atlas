@@ -3,7 +3,9 @@
 `Editions.import_page` is the one way in (the CLI, `POST /api/v1/editions` and, in ticket 03, the
 drop-box pull call it). It parses the page, puts the bytes in the archive (content-addressed),
 and inserts one `ledger_edition` row with the audit event `edition.imported`, in one
-transaction. The same bytes again change nothing (`outcome: unchanged`, no audit event); another
+transaction. The rewrite check (`atlas.record.rewrite_store`) runs in that transaction for a
+parsed edition and records its findings insert-only (audited `edition.rewrites_found` when there
+are any). The same bytes again change nothing (`outcome: unchanged`, no audit event); another
 edition of the same theme and `as_of` with different bytes is kept and marked
 `same_as_of_differs`. A page that does not parse is recorded with its error.
 
@@ -27,6 +29,7 @@ from atlas.audit import Actor, record
 from atlas.jobs.pacing import Clock, utc_now
 from atlas.record.ledger import COUNCIL, CouncilLedger, Ledger, ThemeLedger
 from atlas.record.parse import Parsed, parse_page
+from atlas.record.rewrite_store import check_rewrites
 
 type EditionSource = Literal["drop_box", "manual"]
 type ImportOutcome = Literal["imported", "unchanged"]
@@ -86,6 +89,11 @@ class Edition(EditionSummary):
 class EditionImported(BaseModel):
     outcome: ImportOutcome
     edition: Edition
+    rewrites_found: int = Field(
+        default=0,
+        description="the differences the rewrite check found against the theme's previous"
+        " parsed edition (`GET /api/v1/editions/{id}/rewrites`); 0 when nothing changed",
+    )
 
 
 def _ledger(raw: object) -> Ledger | None:
@@ -198,7 +206,22 @@ class Editions:
                 entity_id=str(edition_id),
                 new_hash=digest,
             )
-        return EditionImported(outcome="imported", edition=_edition(row))
+            # The rewrite check, in the same transaction: an edition never exists without it.
+            found = (
+                []
+                if parsed.ledger is None
+                else check_rewrites(connection, edition_id, theme, parsed.ledger, row.read_at)
+            )
+            if found:
+                record(
+                    connection,
+                    self._actor,
+                    "edition.rewrites_found",
+                    entity_type="ledger_edition",
+                    entity_id=str(edition_id),
+                    new_hash=digest,
+                )
+        return EditionImported(outcome="imported", edition=_edition(row), rewrites_found=len(found))
 
 
 def _by_hash(connection: Connection, digest: str) -> Any | None:

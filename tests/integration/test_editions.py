@@ -306,13 +306,21 @@ def test_an_unknown_edition_is_not_found(atlas: Atlas) -> None:
 def test_an_edition_cannot_be_changed_or_removed(atlas: Atlas) -> None:
     cli_import(atlas, "photonics", page("photonics"))
 
+    # Since migration 0123 `ledger_rewrite` references the table, so a plain TRUNCATE is refused
+    # by the foreign key before the trigger; the CASCADE form reaches the triggers.
     for statement in (
         "UPDATE ledger_edition SET theme = 'robotics'",
         "UPDATE ledger_edition SET same_as_of_differs = true",
         "DELETE FROM ledger_edition",
         "TRUNCATE ledger_edition",
+        "TRUNCATE ledger_edition CASCADE",
     ):
-        with pytest.raises(DBAPIError, match="insert-only"), atlas.engine.begin() as connection:
+        message = (
+            "cannot truncate|insert-only"
+            if statement == "TRUNCATE ledger_edition"
+            else ("insert-only")
+        )
+        with pytest.raises(DBAPIError, match=message), atlas.engine.begin() as connection:
             connection.execute(text(statement))
     assert row_count(atlas) == 1
 
