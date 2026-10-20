@@ -15,7 +15,7 @@ Connectors run outside the sandbox, so a private GitHub repository can serve as 
 1. **The owner** creates:
    - a private repository, suggested name `ekenheim/atlas-ledgers` (not `atlas`, so that repo's CI and fixtures stay clean);
    - a fine-grained token with read-only Contents access to that repository alone, stored as a Secret in the `development` namespace.
-2. **The lead** writes the collector task's prompt. The task:
+2. **The lead** writes the collector task's prompt (done: `../collector-prompt.md`). The task:
    1. reads the eight artifacts (URLs in the spec) with the Artifact tool;
    2. commits each page as `<theme>/<as_of>.html`;
    3. commits each page's ledger, extracted as in ticket 01, as `<theme>/<as_of>.json`;
