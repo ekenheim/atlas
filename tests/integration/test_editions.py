@@ -310,7 +310,7 @@ def test_an_edition_cannot_be_changed_or_removed(atlas: Atlas) -> None:
         "UPDATE ledger_edition SET theme = 'robotics'",
         "UPDATE ledger_edition SET same_as_of_differs = true",
         "DELETE FROM ledger_edition",
-        "TRUNCATE ledger_edition",
+        "TRUNCATE ledger_edition CASCADE",
     ):
         with pytest.raises(DBAPIError, match="insert-only"), atlas.engine.begin() as connection:
             connection.execute(text(statement))

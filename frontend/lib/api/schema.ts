@@ -1389,6 +1389,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ledger-predictions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ledger Predictions */
+        get: operations["ledger_predictions_api_v1_ledger_predictions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ledger-predictions/{prediction_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ledger Prediction */
+        get: operations["ledger_prediction_api_v1_ledger_predictions__prediction_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hypotheses/{hypothesis_id}/predictions": {
         parameters: {
             query?: never;
@@ -8489,6 +8523,8 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** @enum {string} */
+        LedgerPredictionState: "open" | "lapsed" | "met" | "missed";
         /** LedgerSource */
         LedgerSource: {
             /** Who */
@@ -9348,6 +9384,17 @@ export interface components {
         Page_ReconciliationSummary_: {
             /** Items */
             items: components["schemas"]["ReconciliationSummary"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[RecordedPrediction] */
+        Page_RecordedPrediction_: {
+            /** Items */
+            items: components["schemas"]["RecordedPrediction"][];
             /** Total */
             total: number;
             /** Limit */
@@ -10625,6 +10672,93 @@ export interface components {
             output_tokens: number;
             /** Cached Tokens */
             cached_tokens: number;
+        };
+        /** RecordedPrediction */
+        RecordedPrediction: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Theme
+             * @description the theme's slug; `council` for the council's
+             */
+            theme: string;
+            /**
+             * Prediction Id
+             * @description the ledger's ID, such as `pho-p1`
+             */
+            prediction_id: string;
+            /**
+             * Chokepoint
+             * @description the chokepoint's ID; the council's name none
+             */
+            chokepoint: string | null;
+            /**
+             * Made
+             * @description the day made, as the ledger wrote it
+             */
+            made: string | null;
+            /**
+             * Deadline
+             * @description the deadline, as the ledger wrote it
+             */
+            deadline: string | null;
+            /**
+             * Deadline On
+             * @description the deadline as a day (a month is its last day); null when it reads as none: such a prediction never lapses
+             */
+            deadline_on: string | null;
+            /** Text */
+            text: string;
+            /** Source Type */
+            source_type: string | null;
+            /**
+             * Edition Id
+             * Format: uuid
+             * @description the edition that first named it
+             */
+            edition_id: string;
+            /** @description open before the deadline; lapsed after it with no settlement; met or missed once an edition settled it. Derived on every read. */
+            state: components["schemas"]["LedgerPredictionState"];
+            settlement: components["schemas"]["RecordedSettlement"] | null;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+        };
+        /** RecordedSettlement */
+        RecordedSettlement: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "met" | "missed";
+            /**
+             * Settled On
+             * @description the day the edition says it settled, as it wrote it
+             */
+            settled_on: string;
+            /**
+             * Quote
+             * @description the settlement quote, as the edition wrote it
+             */
+            quote: string | null;
+            /** Url */
+            url: string | null;
+            /**
+             * Edition Id
+             * Format: uuid
+             * @description the first edition that carried the settlement
+             */
+            edition_id: string;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
         };
         /** ReflectAccepted */
         ReflectAccepted: {
@@ -17668,6 +17802,86 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ledger_predictions_api_v1_ledger_predictions_get: {
+        parameters: {
+            query?: {
+                /** @description open, lapsed, met or missed */
+                state?: components["schemas"]["LedgerPredictionState"] | null;
+                /** @description a theme's slug; `council` for the council's */
+                theme?: string | null;
+                /** @description deadline day on or before this day */
+                due_before?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_RecordedPrediction_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    ledger_prediction_api_v1_ledger_predictions__prediction_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                prediction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordedPrediction"];
+                };
             };
             /** @description Not Found */
             404: {

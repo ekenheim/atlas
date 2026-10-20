@@ -5,7 +5,9 @@ drop-box pull call it). It parses the page, puts the bytes in the archive (conte
 and inserts one `ledger_edition` row with the audit event `edition.imported`, in one
 transaction. The same bytes again change nothing (`outcome: unchanged`, no audit event); another
 edition of the same theme and `as_of` with different bytes is kept and marked
-`same_as_of_differs`. A page that does not parse is recorded with its error.
+`same_as_of_differs`. A page that does not parse is recorded with its error. In the same
+transaction the edition's new predictions and first settlements are recorded
+(`atlas.record.predictions`, ticket 05).
 
 The theme is the ledger's own (`council` for the council's). A page whose ledger names another
 theme than the one given is refused (`theme_mismatch`), so a file imported under the wrong theme
@@ -27,6 +29,7 @@ from atlas.audit import Actor, record
 from atlas.jobs.pacing import Clock, utc_now
 from atlas.record.ledger import COUNCIL, CouncilLedger, Ledger, ThemeLedger
 from atlas.record.parse import Parsed, parse_page
+from atlas.record.predictions import record_predictions
 
 type EditionSource = Literal["drop_box", "manual"]
 type ImportOutcome = Literal["imported", "unchanged"]
@@ -178,6 +181,7 @@ class Editions:
             if existing is not None:
                 return EditionImported(outcome="unchanged", edition=_edition(existing))
             edition_id = uuid.uuid4()
+            read_at = self._clock()
             row = _insert(
                 connection,
                 edition_id,
@@ -188,7 +192,7 @@ class Editions:
                 len(page),
                 source,
                 commit_sha,
-                self._clock(),
+                read_at,
             )
             record(
                 connection,
@@ -198,6 +202,10 @@ class Editions:
                 entity_id=str(edition_id),
                 new_hash=digest,
             )
+            if parsed.ledger is not None:
+                record_predictions(
+                    connection, self._actor, edition_id, theme, parsed.ledger, read_at
+                )
         return EditionImported(outcome="imported", edition=_edition(row))
 
 
