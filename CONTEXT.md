@@ -115,3 +115,25 @@ _Avoid_: Amendment, alert
 **Replay Bank**:
 An isolated Hindsight bank populated only with material available before a cutoff, used to evaluate the pipeline. It does not reproduce a past run.
 _Avoid_: Historical bank, backtest
+
+### The record of the scheduled research
+
+**Edition**:
+One page a scheduled task published, as Atlas read it on a day: the theme (or the council), the as-of day, the edition number, the page's bytes in the archive and its parsed ledger. Editions are kept insert-only; the same bytes again change nothing, and a page that does not parse is kept with its error.
+_Avoid_: Version (a Source Version is a document's copy), snapshot (a Research Snapshot is a published Hypothesis's), report, run
+
+**Ledger**:
+The machine-readable JSON at the foot of an edition's page: a theme's chokepoints, predictions and primary sources, or the council's board, stacks and predictions. It is what Atlas parses, compares and checks; the page's prose is not.
+_Avoid_: Table, board (the Watch's board is the pipeline's), card
+
+**Rewrite**:
+A later edition changing what an earlier one said without saying so: a past prediction's text, deadline or range altered, a prediction removed, a chokepoint gone without being killed, an ID reused, a first-seen day moved later, a settled prediction un-settled. Each is recorded insert-only. A same-day edition with other bytes is marked `same_as_of_differs`.
+_Avoid_: Update, revision (a Source Version's revision is the publisher's), correction (a Hypothesis's)
+
+**Quote check**:
+The result for one (URL, quote) pair of a ledger's primary sources: the URL fetched once through the fetch gate and archived, the quote located in the parsed text with the typographic fold, and one outcome: `verified`, `not_found` (the page was read and the quote is not in it) or `unreachable` (with the reason), beside the source's tier. A quote verified in a third party's transcript is verified against that transcript, not the company's own words.
+_Avoid_: Verification (unqualified), fact check, Assertion (an Assertion is Atlas's own ledger record)
+
+**Drop box**:
+The private GitHub repository through which the editions reach Atlas, which stays on the LAN. A collector task writes each page and its extracted ledger to it through its connector, and Atlas pulls it outbound with a read-only token. Git's history is a second copy a later edition cannot rewrite.
+_Avoid_: Inbox, relay, webhook

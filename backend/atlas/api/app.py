@@ -20,6 +20,7 @@ from atlas.api.claims import claims_router
 from atlas.api.common import invalid_request
 from atlas.api.discovery import discovery_router
 from atlas.api.dossier import dossier_router
+from atlas.api.editions import editions_router
 from atlas.api.evaluations import evaluations_router
 from atlas.api.facts import facts_router
 from atlas.api.financials import financials_router
@@ -174,6 +175,7 @@ def create_app(settings: Settings, *, clock: Clock = utc_now) -> FastAPI:
     app.include_router(calls_router(engine))
     app.include_router(chokepoints_router(engine, Actor.from_settings(settings), clock))
     app.include_router(watch_runs_router(engine, Actor.from_settings(settings), clock))
+    app.include_router(editions_router(engine, archive, Actor.from_settings(settings), clock))
     app.include_router(predictions_router(engine, Actor.from_settings(settings), clock))
     app.include_router(identity_router(engine, Actor.from_settings(settings)))
     app.include_router(relationships_router(engine, Actor.from_settings(settings)))

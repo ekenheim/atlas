@@ -6397,6 +6397,280 @@
         }
       }
     },
+    "/api/v1/editions": {
+      "post": {
+        "tags": [
+          "editions"
+        ],
+        "summary": "Import Edition",
+        "operationId": "import_edition_api_v1_editions_post",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "the theme's slug; `council` for the council's",
+              "title": "Theme"
+            },
+            "description": "the theme's slug; `council` for the council's"
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/EditionSource",
+              "default": "manual"
+            }
+          },
+          {
+            "name": "commit_sha",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the drop box commit; required with `drop_box`",
+              "title": "Commit Sha"
+            },
+            "description": "the drop box commit; required with `drop_box`"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditionImported"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Atlas already holds these bytes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditionImported"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "editions"
+        ],
+        "summary": "Editions",
+        "operationId": "editions_api_v1_editions_get",
+        "parameters": [
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Theme"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_EditionSummary_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/editions/{edition_id}": {
+      "get": {
+        "tags": [
+          "editions"
+        ],
+        "summary": "Edition",
+        "operationId": "edition_api_v1_editions__edition_id__get",
+        "parameters": [
+          {
+            "name": "edition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Edition Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Edition"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/editions/{edition_id}/page": {
+      "get": {
+        "tags": [
+          "editions"
+        ],
+        "summary": "Edition Page",
+        "operationId": "edition_page_api_v1_editions__edition_id__page_get",
+        "parameters": [
+          {
+            "name": "edition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Edition Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The page as stored"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/hypotheses/{hypothesis_id}/predictions": {
       "post": {
         "tags": [
@@ -17870,6 +18144,108 @@
         ],
         "title": "Contradiction"
       },
+      "CouncilLedger": {
+        "properties": {
+          "council_as_of": {
+            "type": "string",
+            "format": "date",
+            "title": "Council As Of"
+          },
+          "edition": {
+            "type": "integer",
+            "title": "Edition"
+          },
+          "themes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Themes",
+            "default": {}
+          },
+          "board": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerBoardItem"
+            },
+            "type": "array",
+            "title": "Board"
+          },
+          "stacks": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Stacks",
+            "default": []
+          },
+          "contradictions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Contradictions",
+            "default": []
+          },
+          "predictions": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerPrediction"
+            },
+            "type": "array",
+            "title": "Predictions",
+            "default": []
+          },
+          "assignments": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "items": {},
+                "type": "array"
+              }
+            ],
+            "title": "Assignments",
+            "default": {}
+          },
+          "assignments_answered": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Assignments Answered",
+            "default": []
+          },
+          "subagents": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Subagents",
+            "default": []
+          },
+          "primary_sources": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerSource"
+            },
+            "type": "array",
+            "title": "Primary Sources",
+            "default": []
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "council_as_of",
+          "edition",
+          "board"
+        ],
+        "title": "CouncilLedger"
+      },
       "CounterRelationOut": {
         "properties": {
           "counter_fact_id": {
@@ -19101,6 +19477,257 @@
           "narrows",
           "requires"
         ]
+      },
+      "Edition": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme",
+            "description": "the theme's slug; `council` for the council's"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of",
+            "description": "the ledger's as-of day; null when it did not parse"
+          },
+          "edition": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edition",
+            "description": "the ledger's edition number; null when it did not parse"
+          },
+          "source": {
+            "$ref": "#/components/schemas/EditionSource"
+          },
+          "commit_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Sha",
+            "description": "the drop box commit the page came from"
+          },
+          "page_sha256": {
+            "type": "string",
+            "title": "Page Sha256"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "parse_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parse Error",
+            "description": "why the page has no ledger, when it has none"
+          },
+          "same_as_of_differs": {
+            "type": "boolean",
+            "title": "Same As Of Differs",
+            "description": "an edition of this theme and as-of day with other bytes was kept before: the task rewrote its edition the same day"
+          },
+          "read_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Read At",
+            "description": "when Atlas read the page"
+          },
+          "ledger": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ThemeLedger"
+              },
+              {
+                "$ref": "#/components/schemas/CouncilLedger"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ledger",
+            "description": "the parsed ledger, with every field the page wrote"
+          },
+          "page_uri": {
+            "type": "string",
+            "title": "Page Uri",
+            "description": "the page in the archive (content-addressed)"
+          },
+          "page_href": {
+            "type": "string",
+            "title": "Page Href",
+            "description": "the page as a download, `GET /api/v1/editions/{id}/page`"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "theme",
+          "as_of",
+          "edition",
+          "source",
+          "commit_sha",
+          "page_sha256",
+          "page_size",
+          "parse_error",
+          "same_as_of_differs",
+          "read_at",
+          "ledger",
+          "page_uri",
+          "page_href"
+        ],
+        "title": "Edition"
+      },
+      "EditionImported": {
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/ImportOutcome"
+          },
+          "edition": {
+            "$ref": "#/components/schemas/Edition"
+          }
+        },
+        "type": "object",
+        "required": [
+          "outcome",
+          "edition"
+        ],
+        "title": "EditionImported"
+      },
+      "EditionSource": {
+        "type": "string",
+        "enum": [
+          "drop_box",
+          "manual"
+        ]
+      },
+      "EditionSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme",
+            "description": "the theme's slug; `council` for the council's"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of",
+            "description": "the ledger's as-of day; null when it did not parse"
+          },
+          "edition": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edition",
+            "description": "the ledger's edition number; null when it did not parse"
+          },
+          "source": {
+            "$ref": "#/components/schemas/EditionSource"
+          },
+          "commit_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Sha",
+            "description": "the drop box commit the page came from"
+          },
+          "page_sha256": {
+            "type": "string",
+            "title": "Page Sha256"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "parse_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parse Error",
+            "description": "why the page has no ledger, when it has none"
+          },
+          "same_as_of_differs": {
+            "type": "boolean",
+            "title": "Same As Of Differs",
+            "description": "an edition of this theme and as-of day with other bytes was kept before: the task rewrote its edition the same day"
+          },
+          "read_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Read At",
+            "description": "when Atlas read the page"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "theme",
+          "as_of",
+          "edition",
+          "source",
+          "commit_sha",
+          "page_sha256",
+          "page_size",
+          "parse_error",
+          "same_as_of_differs",
+          "read_at"
+        ],
+        "title": "EditionSummary"
       },
       "EntitiesHealth": {
         "properties": {
@@ -24030,6 +24657,13 @@
         ],
         "title": "IdentityMapping"
       },
+      "ImportOutcome": {
+        "type": "string",
+        "enum": [
+          "imported",
+          "unchanged"
+        ]
+      },
       "IngestPlan": {
         "properties": {
           "id": {
@@ -26129,6 +26763,318 @@
           "last_seen_at"
         ],
         "title": "Lead"
+      },
+      "LedgerBoardItem": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "chokepoint_id": {
+            "type": "string",
+            "title": "Chokepoint Id"
+          },
+          "earliest_evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earliest Evidence"
+          },
+          "consensus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consensus"
+          },
+          "why": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Why"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "rank",
+          "theme",
+          "chokepoint_id"
+        ],
+        "title": "LedgerBoardItem"
+      },
+      "LedgerChokepoint": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "verdicts": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Verdicts",
+            "default": {}
+          },
+          "holders": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Holders",
+            "default": []
+          },
+          "kill_criteria": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Kill Criteria",
+            "default": []
+          },
+          "first_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen"
+          },
+          "earliest_evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earliest Evidence"
+          },
+          "consensus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consensus"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "LedgerChokepoint"
+      },
+      "LedgerPrediction": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "chokepoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chokepoint"
+          },
+          "made": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Made"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "source_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Type"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "settled_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settled On"
+          },
+          "settlement_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settlement Quote"
+          },
+          "settlement_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settlement Url"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "LedgerPrediction"
+      },
+      "LedgerSource": {
+        "properties": {
+          "who": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Who"
+          },
+          "doc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "url",
+          "quote"
+        ],
+        "title": "LedgerSource"
       },
       "LineResult": {
         "properties": {
@@ -28451,6 +29397,37 @@
           "offset"
         ],
         "title": "Page[Discovery]"
+      },
+      "Page_EditionSummary_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EditionSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[EditionSummary]"
       },
       "Page_EvaluationRunSummary_": {
         "properties": {
@@ -38173,6 +39150,91 @@
           "companies"
         ],
         "title": "ThemeLayer"
+      },
+      "ThemeLedger": {
+        "properties": {
+          "theme": {
+            "type": "string",
+            "title": "Theme"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date",
+            "title": "As Of"
+          },
+          "edition": {
+            "type": "integer",
+            "title": "Edition"
+          },
+          "chokepoints": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerChokepoint"
+            },
+            "type": "array",
+            "title": "Chokepoints"
+          },
+          "predictions": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerPrediction"
+            },
+            "type": "array",
+            "title": "Predictions",
+            "default": []
+          },
+          "rejected": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Rejected",
+            "default": []
+          },
+          "cross_theme_hooks": {
+            "items": {},
+            "type": "array",
+            "title": "Cross Theme Hooks",
+            "default": []
+          },
+          "council_answers": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Council Answers"
+          },
+          "primary_sources": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerSource"
+            },
+            "type": "array",
+            "title": "Primary Sources",
+            "default": []
+          },
+          "notes": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "theme",
+          "as_of",
+          "edition",
+          "chokepoints"
+        ],
+        "title": "ThemeLedger"
       },
       "ThemeMapView": {
         "properties": {

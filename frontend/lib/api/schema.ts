@@ -1337,6 +1337,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/editions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Editions */
+        get: operations["editions_api_v1_editions_get"];
+        put?: never;
+        /** Import Edition */
+        post: operations["import_edition_api_v1_editions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/editions/{edition_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Edition */
+        get: operations["edition_api_v1_editions__edition_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/editions/{edition_id}/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Edition Page */
+        get: operations["edition_page_api_v1_editions__edition_id__page_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hypotheses/{hypothesis_id}/predictions": {
         parameters: {
             query?: never;
@@ -5041,6 +5093,72 @@ export interface components {
             /** Counterevidence Id */
             counterevidence_id: string | null;
         };
+        /** CouncilLedger */
+        CouncilLedger: {
+            /**
+             * Council As Of
+             * Format: date
+             */
+            council_as_of: string;
+            /** Edition */
+            edition: number;
+            /**
+             * Themes
+             * @default {}
+             */
+            themes: {
+                [key: string]: string;
+            };
+            /** Board */
+            board: components["schemas"]["LedgerBoardItem"][];
+            /**
+             * Stacks
+             * @default []
+             */
+            stacks: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Contradictions
+             * @default []
+             */
+            contradictions: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Predictions
+             * @default []
+             */
+            predictions: components["schemas"]["LedgerPrediction"][];
+            /**
+             * Assignments
+             * @default {}
+             */
+            assignments: {
+                [key: string]: unknown;
+            } | unknown[];
+            /**
+             * Assignments Answered
+             * @default []
+             */
+            assignments_answered: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Subagents
+             * @default []
+             */
+            subagents: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Primary Sources
+             * @default []
+             */
+            primary_sources: components["schemas"]["LedgerSource"][];
+        } & {
+            [key: string]: unknown;
+        };
         /** CounterRelationOut */
         CounterRelationOut: {
             /**
@@ -5483,6 +5601,126 @@ export interface components {
         EdgeDirection: "parent" | "child";
         /** @enum {string} */
         EdgeKind: "narrows" | "requires";
+        /** Edition */
+        Edition: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Theme
+             * @description the theme's slug; `council` for the council's
+             */
+            theme: string;
+            /**
+             * As Of
+             * @description the ledger's as-of day; null when it did not parse
+             */
+            as_of: string | null;
+            /**
+             * Edition
+             * @description the ledger's edition number; null when it did not parse
+             */
+            edition: number | null;
+            source: components["schemas"]["EditionSource"];
+            /**
+             * Commit Sha
+             * @description the drop box commit the page came from
+             */
+            commit_sha: string | null;
+            /** Page Sha256 */
+            page_sha256: string;
+            /** Page Size */
+            page_size: number;
+            /**
+             * Parse Error
+             * @description why the page has no ledger, when it has none
+             */
+            parse_error: string | null;
+            /**
+             * Same As Of Differs
+             * @description an edition of this theme and as-of day with other bytes was kept before: the task rewrote its edition the same day
+             */
+            same_as_of_differs: boolean;
+            /**
+             * Read At
+             * Format: date-time
+             * @description when Atlas read the page
+             */
+            read_at: string;
+            /**
+             * Ledger
+             * @description the parsed ledger, with every field the page wrote
+             */
+            ledger: components["schemas"]["ThemeLedger"] | components["schemas"]["CouncilLedger"] | null;
+            /**
+             * Page Uri
+             * @description the page in the archive (content-addressed)
+             */
+            page_uri: string;
+            /**
+             * Page Href
+             * @description the page as a download, `GET /api/v1/editions/{id}/page`
+             */
+            page_href: string;
+        };
+        /** EditionImported */
+        EditionImported: {
+            outcome: components["schemas"]["ImportOutcome"];
+            edition: components["schemas"]["Edition"];
+        };
+        /** @enum {string} */
+        EditionSource: "drop_box" | "manual";
+        /** EditionSummary */
+        EditionSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Theme
+             * @description the theme's slug; `council` for the council's
+             */
+            theme: string;
+            /**
+             * As Of
+             * @description the ledger's as-of day; null when it did not parse
+             */
+            as_of: string | null;
+            /**
+             * Edition
+             * @description the ledger's edition number; null when it did not parse
+             */
+            edition: number | null;
+            source: components["schemas"]["EditionSource"];
+            /**
+             * Commit Sha
+             * @description the drop box commit the page came from
+             */
+            commit_sha: string | null;
+            /** Page Sha256 */
+            page_sha256: string;
+            /** Page Size */
+            page_size: number;
+            /**
+             * Parse Error
+             * @description why the page has no ledger, when it has none
+             */
+            parse_error: string | null;
+            /**
+             * Same As Of Differs
+             * @description an edition of this theme and as-of day with other bytes was kept before: the task rewrote its edition the same day
+             */
+            same_as_of_differs: boolean;
+            /**
+             * Read At
+             * Format: date-time
+             * @description when Atlas read the page
+             */
+            read_at: string;
+        };
         /** EntitiesHealth */
         EntitiesHealth: {
             /**
@@ -7389,6 +7627,8 @@ export interface components {
              */
             created_at: string;
         };
+        /** @enum {string} */
+        ImportOutcome: "imported" | "unchanged";
         /** IngestPlan */
         IngestPlan: {
             /**
@@ -8171,6 +8411,99 @@ export interface components {
             calendar?: components["schemas"]["CalendarEvent"] | null;
             signal?: components["schemas"]["Signal"] | null;
         };
+        /** LedgerBoardItem */
+        LedgerBoardItem: {
+            /** Rank */
+            rank: number;
+            /** Theme */
+            theme: string;
+            /** Chokepoint Id */
+            chokepoint_id: string;
+            /** Earliest Evidence */
+            earliest_evidence?: string | null;
+            /** Consensus */
+            consensus?: string | null;
+            /** Why */
+            why?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LedgerChokepoint */
+        LedgerChokepoint: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Layer */
+            layer?: string | null;
+            /** Status */
+            status?: string | null;
+            /**
+             * Verdicts
+             * @default {}
+             */
+            verdicts: {
+                [key: string]: unknown;
+            };
+            /**
+             * Holders
+             * @default []
+             */
+            holders: string[];
+            /**
+             * Kill Criteria
+             * @default []
+             */
+            kill_criteria: string[];
+            /** First Seen */
+            first_seen?: string | null;
+            /** Earliest Evidence */
+            earliest_evidence?: string | null;
+            /** Consensus */
+            consensus?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LedgerPrediction */
+        LedgerPrediction: {
+            /** Id */
+            id: string;
+            /** Chokepoint */
+            chokepoint?: string | null;
+            /** Made */
+            made?: string | null;
+            /** Deadline */
+            deadline?: string | null;
+            /** Text */
+            text: string;
+            /** Source Type */
+            source_type?: string | null;
+            /** State */
+            state?: string | null;
+            /** Settled On */
+            settled_on?: string | null;
+            /** Settlement Quote */
+            settlement_quote?: string | null;
+            /** Settlement Url */
+            settlement_url?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LedgerSource */
+        LedgerSource: {
+            /** Who */
+            who?: string | null;
+            /** Doc */
+            doc?: string | null;
+            /** Date */
+            date?: string | null;
+            /** Url */
+            url: string;
+            /** Quote */
+            quote: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** LineResult */
         LineResult: {
             /** Value */
@@ -8861,6 +9194,17 @@ export interface components {
         Page_Discovery_: {
             /** Items */
             items: components["schemas"]["Discovery"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[EditionSummary] */
+        Page_EditionSummary_: {
+            /** Items */
+            items: components["schemas"]["EditionSummary"][];
             /** Total */
             total: number;
             /** Limit */
@@ -12619,6 +12963,48 @@ export interface components {
             covers: string;
             /** Companies */
             companies: components["schemas"]["ThemeCompany"][];
+        };
+        /** ThemeLedger */
+        ThemeLedger: {
+            /** Theme */
+            theme: string;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Edition */
+            edition: number;
+            /** Chokepoints */
+            chokepoints: components["schemas"]["LedgerChokepoint"][];
+            /**
+             * Predictions
+             * @default []
+             */
+            predictions: components["schemas"]["LedgerPrediction"][];
+            /**
+             * Rejected
+             * @default []
+             */
+            rejected: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Cross Theme Hooks
+             * @default []
+             */
+            cross_theme_hooks: unknown[];
+            /** Council Answers */
+            council_answers?: unknown[] | null;
+            /**
+             * Primary Sources
+             * @default []
+             */
+            primary_sources: components["schemas"]["LedgerSource"][];
+            /** Notes */
+            notes?: unknown | null;
+        } & {
+            [key: string]: unknown;
         };
         /** ThemeMapView */
         ThemeMapView: {
@@ -17112,6 +17498,176 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WatchRun"];
                 };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    editions_api_v1_editions_get: {
+        parameters: {
+            query?: {
+                theme?: string | null;
+                /** @description page size */
+                limit?: number;
+                /** @description items to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EditionSummary_"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    import_edition_api_v1_editions_post: {
+        parameters: {
+            query: {
+                /** @description the theme's slug; `council` for the council's */
+                theme: string;
+                source?: components["schemas"]["EditionSource"];
+                /** @description the drop box commit; required with `drop_box` */
+                commit_sha?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Atlas already holds these bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditionImported"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditionImported"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    edition_api_v1_editions__edition_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Edition"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edition_page_api_v1_editions__edition_id__page_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The page as stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not Found */
             404: {

@@ -278,6 +278,55 @@ def enqueue_settle_calls(settings: Settings, key: str | None, *, backfill: bool)
     _print_enqueued(enqueued)
 
 
+def run_record_import(
+    settings: Settings, theme: str, file: Path, source: str, commit_sha: str | None
+) -> int:
+    """`atlas record import`: keep one scheduled task's page as an edition (insert-only, audited
+    `edition.imported`). The same bytes again change nothing; a page with no readable ledger is
+    kept with its error (a warning on stderr, exit 0)."""
+    import json
+    from typing import cast
+
+    from atlas.archive import open_archive
+    from atlas.audit import Actor
+    from atlas.db import create_engine
+    from atlas.record.editions import EditionError, Editions, EditionSource
+
+    try:
+        page = file.read_bytes()
+    except OSError as error:
+        print(f"atlas: cannot read {file}: {error}", file=sys.stderr)
+        return 2
+    engine = create_engine(settings)
+    try:
+        imported = Editions(
+            engine, open_archive(settings), Actor.from_settings(settings)
+        ).import_page(theme, page, source=cast("EditionSource", source), commit_sha=commit_sha)
+    except EditionError as error:
+        print(f"atlas: {error.code}: {error}", file=sys.stderr)
+        return 2
+    finally:
+        engine.dispose()
+    edition = imported.edition
+    print(
+        json.dumps(
+            {
+                "outcome": imported.outcome,
+                "id": str(edition.id),
+                "theme": edition.theme,
+                "as_of": None if edition.as_of is None else edition.as_of.isoformat(),
+                "edition": edition.edition,
+                "same_as_of_differs": edition.same_as_of_differs,
+                "parse_error": edition.parse_error,
+                "page_uri": edition.page_uri,
+            }
+        )
+    )
+    if edition.parse_error is not None:
+        print(f"atlas: the page has no readable ledger: {edition.parse_error}", file=sys.stderr)
+    return 0
+
+
 def run_memory_reconcile(
     settings: Settings, key: str | None, *, wait: bool, timeout: float, poll_seconds: float
 ) -> int:
@@ -1535,6 +1584,26 @@ def main(argv: list[str] | None = None) -> None:
     )
     calls_settle.add_argument("--key", help="idempotency key (default: a new run each time)")
     calls_settle.add_argument("--backfill", action="store_true", help="backfill class")
+    record = commands.add_parser(
+        "record", help="the record of the scheduled research: each edition kept unchanged"
+    )
+    record_commands = record.add_subparsers(dest="record_command", required=True)
+    record_import = record_commands.add_parser(
+        "import",
+        help="keep one scheduled task's artifact page as an edition (insert-only; the same bytes"
+        " again change nothing)",
+    )
+    record_import.add_argument(
+        "--theme", required=True, help="the theme's slug (`council` for the council's page)"
+    )
+    record_import.add_argument("--file", required=True, type=Path, help="the page (HTML)")
+    record_import.add_argument(
+        "--source",
+        choices=["manual", "drop_box"],
+        default="manual",
+        help="where the page came from (default manual)",
+    )
+    record_import.add_argument("--commit-sha", help="the drop box commit; required for drop_box")
     tradingview = commands.add_parser(
         "tradingview",
         help="the owner-override TradingView source (off by default; docs/runbooks.md)",
@@ -1742,6 +1811,10 @@ def main(argv: list[str] | None = None) -> None:
         )
     elif args.command == "calls":
         enqueue_settle_calls(settings, args.key, backfill=args.backfill)
+    elif args.command == "record":
+        raise SystemExit(
+            run_record_import(settings, args.theme, args.file, args.source, args.commit_sha)
+        )
     elif args.command == "companies" and args.companies_command == "resolve":
         raise SystemExit(resolve_companies(settings, args.slugs))
     elif args.command == "sources" and args.sources_command == "fetch":
