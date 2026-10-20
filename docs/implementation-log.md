@@ -4538,3 +4538,8 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 
 - **Merged** `ticket/r01-edition-store`, `ticket/r02-rewrite-check` and `ticket/r05-prediction-record` on `integrate/record`. Migrations chained `0122` (ledger_edition) → `0123` (ledger_rewrite) → `0124` (ledger_prediction, was `0123` on its branch); the migration test's head is `0124`. `Editions.import_page` runs the rewrite check and records the predictions in the same transaction.
 - **Changed at integration (lead's decision):** an item leaving the council's board is no finding. The board is the council's ranking of the moment, so a drop-off is a re-ranking, not a rewrite; ticket 02 reported each as `chokepoint_vanished`. Items on both boards are still compared (`theme`, `earliest_evidence`). `test_the_council_is_compared_the_same_way_but_leaving_the_board_is_no_finding`.
+
+## atlas-record: 0.6.22 released and deployed (2026-10-20)
+
+- **Release:** `v0.6.22` on `616cbad` (CI run 39395330028; release run 39397722181, `publish` success). Home-ops #7844 (images, agents' kept in step) merged by the owner; production reports `atlas_build_info{version="0.6.22"}` and `/health/ready` all `ok`.
+- **Imports:** the eight 2026-10-19 pages (`tests/fixtures/artifacts/2026-10-19/`) posted to `POST /api/v1/editions?source=manual`: eight 201s, all parsed, 0 rewrites (no previous editions); `GET /api/v1/ledger-predictions` lists 31 (27 theme, 4 council), all `open`, each with a deadline day; a repeat post is 200 `unchanged`.

@@ -36,3 +36,7 @@ Expose:
 
 - [x] A test finds each kind.
 - [ ] The 2026-10-26 editions are checked on production.
+
+## Comments
+
+- 2026-10-20, lead: live in 0.6.22. Changed at integration: an item leaving the council's board is no finding (the board is a ranking); items on both boards are still compared. The 2026-10-19 imports found 0 rewrites (no previous edition). The second box waits for 2026-10-26.

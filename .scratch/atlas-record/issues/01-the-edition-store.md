@@ -1,7 +1,7 @@
 # The edition store: a ledger parsed and kept insert-only
 
 Type: task
-Status: ready-for-human
+Status: resolved
 Blocked by: none
 
 ## What to build
@@ -51,4 +51,8 @@ Two ways in, both audited as `edition.imported`:
 
 - [x] The eight fixtures import.
 - [x] `CONTEXT.md` defines the new words: edition, ledger, rewrite, quote check and drop box.
-- [ ] Production holds them: once this is released, the lead imports them with `--source manual`.
+- [x] Production holds them: once this is released, the lead imports them with `--source manual`.
+
+## Comments
+
+- 2026-10-20, lead: released in 0.6.22 (with 02 and 05; migrations 0122–0124) and live. The eight 2026-10-19 pages imported on production through `POST /api/v1/editions?source=manual`: all 201, parsed, no parse error; the same page again is 200 `unchanged`.

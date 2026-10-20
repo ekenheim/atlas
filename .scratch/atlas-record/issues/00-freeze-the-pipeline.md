@@ -30,9 +30,11 @@ A home-ops PR on `kubernetes/apps/development/atlas/app/`. The owner merges it.
 
 ## Done when
 
-- [ ] The PR is open, says what is frozen and why, and the owner has merged it.
+- [x] The PR is open, says what is frozen and why, and the owner has merged it.
 - [ ] A day after the deploy, `GET /api/v1/queue` shows no new pipeline jobs, and the CronJobs show `SUSPEND True`.
 
 ## Comments
 
 - 2026-10-20, the lead: home-ops PR https://github.com/ekenheim/home-ops-upgrade/pull/7842 is open for the owner to merge.
+
+- 2026-10-20, lead: the owner merged #7842 at 08:30 UTC. The second box is checked on 2026-10-21.

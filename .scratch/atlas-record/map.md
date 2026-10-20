@@ -39,6 +39,7 @@ The research pipeline is retired. The spec is `spec.md`.
 
 <!-- one line per closed ticket -->
 - The pivot, 2026-10-20: the scheduled tasks research, and Atlas keeps the record (ADR 0004). The scorecard (ticket 29a) is retired, and the prospective record replaces it.
+- 01 and 05, 2026-10-20: live in 0.6.22 (home-ops #7844). Production holds the eight 2026-10-19 editions and their 31 predictions. 02 is live too: an item leaving the council's board is no finding, decided at integration; its last box waits for 2026-10-26.
 
 ## Not yet specified
 

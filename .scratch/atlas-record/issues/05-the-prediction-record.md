@@ -1,7 +1,7 @@
 # The prediction record
 
 Type: task
-Status: ready-for-human
+Status: resolved
 Blocked by: 01
 
 ## What to build
@@ -44,7 +44,7 @@ Holders that do not resolve are left unpriced, and that is not an error. This in
 
 ## Done when
 
-- [ ] Production lists the 2026-10-19 predictions with their deadlines.
+- [x] Production lists the 2026-10-19 predictions with their deadlines.
 
 
 ## Comments
@@ -71,3 +71,5 @@ What I found reading `atlas.calls` and `atlas.identity.service`:
 4. **Holder strings** are names, sometimes with notes and states (`holders: list[str]`); the resolver takes a `Mention(name, ...)`. Unresolved ones are left unpriced with `call_unpriced` (`no_symbol`), which already exists and is not an error.
 
 A small version that fits: widen the origin; run a job after an edition import that resolves each holder with `find_in_universe` only (no network), makes one call per chokepoint when at least one holder is a researched company with a symbol, and leaves the rest unpriced; defer the external resolver and the TradingView mapping.
+
+- 2026-10-20, lead: live in 0.6.22 (migration re-chained to `0124` at integration). Production lists 31 predictions (27 of the themes, 4 of the council), all `open`, each with a deadline day.
