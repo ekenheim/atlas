@@ -1,7 +1,7 @@
 # The prediction record
 
 Type: task
-Status: open
+Status: ready-for-agent
 Blocked by: 01
 
 ## What to build

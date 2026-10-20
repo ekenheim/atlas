@@ -1,7 +1,7 @@
 # The drop box: a collector task writes, Atlas pulls
 
 Type: research (spike), then task
-Status: open
+Status: ready-for-human
 Blocked by: none
 
 ## Why

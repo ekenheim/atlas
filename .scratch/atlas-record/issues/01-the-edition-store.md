@@ -1,7 +1,7 @@
 # The edition store: a ledger parsed and kept insert-only
 
 Type: task
-Status: open
+Status: ready-for-agent
 Blocked by: none
 
 ## What to build
@@ -50,4 +50,5 @@ Two ways in, both audited as `edition.imported`:
 ## Done when
 
 - [ ] The eight fixtures import.
+- [ ] `CONTEXT.md` defines the new words: edition, ledger, rewrite, quote check and drop box.
 - [ ] Production holds them: once this is released, the lead imports them with `--source manual`.

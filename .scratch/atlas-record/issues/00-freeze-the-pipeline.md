@@ -1,7 +1,7 @@
 # Freeze the research pipeline
 
 Type: task
-Status: open
+Status: ready-for-human
 Blocked by: none
 
 ## Why

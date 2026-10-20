@@ -1,7 +1,7 @@
 # The pages
 
 Type: task
-Status: open
+Status: ready-for-agent
 Blocked by: 01, 02, 04, 05
 
 ## What to build

@@ -1,7 +1,7 @@
 # Authentication before any external route
 
 Type: task
-Status: open
+Status: ready-for-agent
 Blocked by: 03, and needed only if the drop box fails and the owner chooses an external import route
 
 ## Why

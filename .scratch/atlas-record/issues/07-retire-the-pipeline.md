@@ -1,7 +1,7 @@
 # Retire the pipeline
 
 Type: task
-Status: open
+Status: ready-for-human
 Blocked by: 00, 03, and two Mondays of editions imported and checked on production
 
 ## What

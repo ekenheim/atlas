@@ -1,7 +1,7 @@
 # The quotes checked against their sources
 
 Type: task
-Status: open
+Status: needs-info
 Blocked by: 01, and the owner's answer to the spec's open question 1
 
 ## What to build
@@ -39,7 +39,7 @@ The row also records the tier of what was read, from a small host map in config:
 
 ### The council
 
-The council's board items are linked to the theme quotes their IDs cite. The council gets no fetch of its own.
+The council's board items are linked to the theme quotes their IDs cite. The council's own quotes (nine in edition 2) are only in its page's prose, not in its ledger. If the owner adds the proposed prompt line, they arrive as the council ledger's `primary_sources` and are checked like a theme's. Until then they are not checked, and the page says so.
 
 ### Reads
 

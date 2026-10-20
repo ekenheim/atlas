@@ -1,6 +1,6 @@
 # Atlas as the record of the scheduled research
 
-Status: ready-for-agent (tickets 01, 02, 04 to 06); 00, 03 and 07 need the owner's acts.
+Status: tickets 01, 02 and 05 are ready for an agent, and 06 and 08 follow them. 00, 03 and 07 need the owner's acts; 04 waits on the owner's answer to open question 1.
 Approved by the owner on 2026-10-20 ("I approve the project change").
 
 ## Why
@@ -37,7 +37,7 @@ The ledger is JSON in a `<pre>` near the foot of the page. The snapshots of 2026
 - `rejected`, `cross_theme_hooks` and `council_answers`;
 - `primary_sources`, each with who, doc, date, url and quote.
 
-**The council's ledger has:** `board`, `stacks`, `contradictions`, `predictions`, `assignments`, `assignments_answered` and `subagents`. It cites theme IDs and carries no `primary_sources` of its own.
+**The council's ledger has:** `board`, `stacks`, `contradictions`, `predictions`, `assignments`, `assignments_answered` and `subagents`. It cites theme IDs and has no `primary_sources`. The council's own quotes (nine in edition 2, such as Howmet's Virginia floor space) are only in the page's prose. The lead proposes to the owner a council prompt line that lists them as `primary_sources` in its ledger, so ticket 04 can check them.
 
 ## How the ledgers reach Atlas
 
@@ -73,7 +73,7 @@ Missing optional fields are no finding: four theme prompts predate `earliest_evi
 - The quote is then located in the parsed text with the typographic fold, which `atlas.mcp.locate` already uses.
 - Each (URL, quote) pair has one result: `verified`, `not_found` (the page was read and the quote is not in it), or `unreachable` (gate block, robots, error), with the reason.
 - The result records the document's tier. A verified quote in a Motley Fool or Investing.com transcript is verified against a third party's transcript, not the company's own words.
-- The council's items are checked through the theme ledgers they cite.
+- The council's items are checked through the theme ledgers they cite, and its own quotes once its ledger lists them.
 
 **The predictions.** Each prediction becomes a record with its deadline:
 - open, met, missed or lapsed;
