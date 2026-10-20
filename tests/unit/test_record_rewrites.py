@@ -268,7 +268,7 @@ def test_an_edition_number_that_did_not_rise_is_found() -> None:
     assert (finding.before, finding.after) == (1, 1)
 
 
-def test_the_council_is_compared_the_same_way() -> None:
+def test_the_council_is_compared_the_same_way_but_leaving_the_board_is_no_finding() -> None:
     def vanish(data: dict[str, Any]) -> None:
         data["board"].pop(0)
 
@@ -289,8 +289,7 @@ def test_the_council_is_compared_the_same_way() -> None:
 
     previous = raw("council")
     first = previous["board"][0]
-    assert only(edited("council", vanish)).kind == "chokepoint_vanished"
-    assert only(edited("council", vanish)).subject_id == first["chokepoint_id"]
+    assert first["chokepoint_id"] and edited("council", vanish) == []
     reused = only(edited("council", retheme))
     assert (reused.kind, reused.field, reused.after) == ("id_reused", "theme", "robotics")
     assert only(edited("council", later)).kind == "date_moved_later"

@@ -6844,6 +6844,174 @@
         }
       }
     },
+    "/api/v1/ledger-predictions": {
+      "get": {
+        "tags": [
+          "ledger-predictions"
+        ],
+        "summary": "Ledger Predictions",
+        "operationId": "ledger_predictions_api_v1_ledger_predictions_get",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/LedgerPredictionState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "open, lapsed, met or missed",
+              "title": "State"
+            },
+            "description": "open, lapsed, met or missed"
+          },
+          {
+            "name": "theme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "a theme's slug; `council` for the council's",
+              "title": "Theme"
+            },
+            "description": "a theme's slug; `council` for the council's"
+          },
+          {
+            "name": "due_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "deadline day on or before this day",
+              "title": "Due Before"
+            },
+            "description": "deadline day on or before this day"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "page size",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "items to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_RecordedPrediction_"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/ledger-predictions/{prediction_id}": {
+      "get": {
+        "tags": [
+          "ledger-predictions"
+        ],
+        "summary": "Ledger Prediction",
+        "operationId": "ledger_prediction_api_v1_ledger_predictions__prediction_id__get",
+        "parameters": [
+          {
+            "name": "prediction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Prediction Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordedPrediction"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/hypotheses/{hypothesis_id}/predictions": {
       "post": {
         "tags": [
@@ -27203,6 +27371,15 @@
         ],
         "title": "LedgerPrediction"
       },
+      "LedgerPredictionState": {
+        "type": "string",
+        "enum": [
+          "open",
+          "lapsed",
+          "met",
+          "missed"
+        ]
+      },
       "LedgerSource": {
         "properties": {
           "who": {
@@ -30010,6 +30187,37 @@
           "offset"
         ],
         "title": "Page[ReconciliationSummary]"
+      },
+      "Page_RecordedPrediction_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RecordedPrediction"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[RecordedPrediction]"
       },
       "Page_Relationship_": {
         "properties": {
@@ -33200,6 +33408,192 @@
           "cached_tokens"
         ],
         "title": "ReconciliationUsageRow"
+      },
+      "RecordedPrediction": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "theme": {
+            "type": "string",
+            "title": "Theme",
+            "description": "the theme's slug; `council` for the council's"
+          },
+          "prediction_id": {
+            "type": "string",
+            "title": "Prediction Id",
+            "description": "the ledger's ID, such as `pho-p1`"
+          },
+          "chokepoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chokepoint",
+            "description": "the chokepoint's ID; the council's name none"
+          },
+          "made": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Made",
+            "description": "the day made, as the ledger wrote it"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline",
+            "description": "the deadline, as the ledger wrote it"
+          },
+          "deadline_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline On",
+            "description": "the deadline as a day (a month is its last day); null when it reads as none: such a prediction never lapses"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "source_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Type"
+          },
+          "edition_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Edition Id",
+            "description": "the edition that first named it"
+          },
+          "state": {
+            "$ref": "#/components/schemas/LedgerPredictionState",
+            "description": "open before the deadline; lapsed after it with no settlement; met or missed once an edition settled it. Derived on every read."
+          },
+          "settlement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordedSettlement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Recorded At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "theme",
+          "prediction_id",
+          "chokepoint",
+          "made",
+          "deadline",
+          "deadline_on",
+          "text",
+          "source_type",
+          "edition_id",
+          "state",
+          "settlement",
+          "recorded_at"
+        ],
+        "title": "RecordedPrediction"
+      },
+      "RecordedSettlement": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "met",
+              "missed"
+            ],
+            "title": "State"
+          },
+          "settled_on": {
+            "type": "string",
+            "title": "Settled On",
+            "description": "the day the edition says it settled, as it wrote it"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote",
+            "description": "the settlement quote, as the edition wrote it"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "edition_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Edition Id",
+            "description": "the first edition that carried the settlement"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Recorded At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "settled_on",
+          "quote",
+          "url",
+          "edition_id",
+          "recorded_at"
+        ],
+        "title": "RecordedSettlement"
       },
       "ReflectAccepted": {
         "properties": {

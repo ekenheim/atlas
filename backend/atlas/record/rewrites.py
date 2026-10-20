@@ -14,8 +14,8 @@ The kinds:
   `settled_on`, `settlement_quote`, `settlement_url`) changed. A prediction that was open and is
   now settled is the point of the record, never a finding.
 - `chokepoint_vanished`: a chokepoint's ID is gone and the previous edition had not marked it
-  `killed`. The council's board is compared by its items' `chokepoint_id` the same way (the
-  board has no status to read, so every item that leaves it is reported).
+  `killed`. The council's board is a ranking, so an item that leaves it is no finding; an item
+  on both boards is compared by its `chokepoint_id`.
 - `id_reused`: an ID's `name` or `layer` (the board's `theme`) changed beyond wording. Two values
   equal after normalising case, punctuation and whitespace are the same; any other is reported
   for the reviewer to read.
@@ -193,13 +193,7 @@ def _council(ledger: CouncilLedger, previous: CouncilLedger) -> list[Rewrite]:
     for old in previous.board:
         new = board.get(old.chokepoint_id)
         if new is None:
-            found.append(
-                Rewrite(
-                    kind="chokepoint_vanished",
-                    subject_id=old.chokepoint_id,
-                    before=old.model_dump(mode="json"),
-                )
-            )
+            # Leaving the top of the board is a re-ranking, not a rewrite.
             continue
         found += _reworded(old.chokepoint_id, "theme", old.theme, new.theme)
         found += _later(

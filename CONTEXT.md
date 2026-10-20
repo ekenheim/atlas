@@ -130,6 +130,10 @@ _Avoid_: Table, board (the Watch's board is the pipeline's), card
 A later edition changing what an earlier one said without saying so: a past prediction's text, deadline or range altered, a prediction removed, a chokepoint gone without being killed, an ID reused, a first-seen day moved later, a settled prediction un-settled. Each is recorded insert-only. A same-day edition with other bytes is marked `same_as_of_differs`.
 _Avoid_: Update, revision (a Source Version's revision is the publisher's), correction (a Hypothesis's)
 
+**Ledger prediction**:
+A dated prediction an edition made, kept the first time its ID is seen in a theme's (or the council's) ledger and never changed. Its state is derived, never stored: `open` before its deadline, `lapsed` after it with no settlement, `met` or `missed` once a later edition settles it (a settlement is kept insert-only, the first one only).
+_Avoid_: Prediction (unqualified: a Hypothesis's prediction is another record), forecast, call (a call is Atlas's own dated claim, priced against closes)
+
 **Quote check**:
 The result for one (URL, quote) pair of a ledger's primary sources: the URL fetched once through the fetch gate and archived, the quote located in the parsed text with the typographic fold, and one outcome: `verified`, `not_found` (the page was read and the quote is not in it) or `unreachable` (with the reason), beside the source's tier. A quote verified in a third party's transcript is verified against that transcript, not the company's own words.
 _Avoid_: Verification (unqualified), fact check, Assertion (an Assertion is Atlas's own ledger record)
