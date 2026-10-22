@@ -36,6 +36,21 @@
     },
     {
       "description": [
+        "Python minor and patch updates (pyproject and uv.lock, through the pep621 manager) merge themselves once CI is green, three days after release so a compromised fresh PyPI publish has time to be pulled. The runtime Python stays manual: the last two rules override this one"
+      ],
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "minimumReleaseAge": "3 days",
+      "automerge": true,
+      "automergeType": "branch"
+    },
+    {
+      "description": [
         "Lock file maintenance merges itself once CI is green"
       ],
       "matchUpdateTypes": [
