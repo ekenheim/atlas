@@ -116,6 +116,8 @@ jobs:
             mkdir -p "$HOME/.docker/cli-plugins"
             curl -fsSL -o "$HOME/.docker/cli-plugins/docker-compose" \
               "https://github.com/docker/compose/releases/download/v2.39.4/docker-compose-linux-x86_64"
+            # The release asset's digest (GitHub API), so a swapped binary fails here.
+            echo "7af95166a730b87e172d4fc9aefea8725d3c6c7327d59149267b452114ddb7d4  $HOME/.docker/cli-plugins/docker-compose" | sha256sum -c -
             chmod +x "$HOME/.docker/cli-plugins/docker-compose"
           fi
           docker compose version
