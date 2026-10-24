@@ -1,0 +1,685 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "China export controls indium gallium germanium raw materials sole source limited number of suppliers",
+  "terms": [
+    "china",
+    "export",
+    "control",
+    "indium",
+    "gallium",
+    "germanium",
+    "raw",
+    "material",
+    "sole",
+    "source",
+    "limited",
+    "number",
+    "supplier"
+  ],
+  "companies": [
+    "lumentum",
+    "coherent"
+  ],
+  "window": {
+    "since": "2025-04-07T12:22:53+00:00",
+    "as_of": "2026-10-07T12:22:53+00:00"
+  },
+  "documents": 98,
+  "documents_skipped": {
+    "not a text document": 2,
+    "outside the window": 481
+  },
+  "requests": 112,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 33.24,
+      "terms": [
+        "raw",
+        "material",
+        "sole",
+        "source",
+        "limited",
+        "number",
+        "supplier"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 55475,
+      "char_end": 57077,
+      "text": "We depend on a limited number of suppliers for raw materials, packages and components, and any failure or delay by these suppliers in meeting our requirements could have an adverse effect on our business and results of operations.\nWe purchase raw materials, packages and components from a limited number of suppliers, who are often small and specialized. Additionally, some of our suppliers are our sole sources for certain materials, equipment and components. We depend on the timely and continued supply and quality of the materials, packages and components that our suppliers supply to us. While we have entered into advanced payments to secure orders from some of these suppliers, we have not entered into long-term agreements with many of these suppliers. We do not have a guarantee of supply from many of these suppliers and, as a result, there is no assurance that we would be able to secure the equipment or components that we require, in sufficient quantity, quality and on reasonable terms. Our business and results of operations have been, and could continue to be, adversely affected by this dependency. Alternative sources to mitigate the risk that the failure of any sole supplier will adversely affect our business are not feasible in all circumstances. If we were to lose any one of these or other critical sources, or if there is an industry-wide increase in demand for, or the discontinuation of, raw materials used in our products, it could be difficult or impossible for us, to find an alternative supplier or raw material, in which case our operations could be adversely affected. ",
+      "also_in": [
+        {
+          "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+          "available_at": "2026-05-06T10:00:00Z"
+        },
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        },
+        {
+          "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+          "available_at": "2025-05-07T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 32.1813,
+      "terms": [
+        "china",
+        "export",
+        "control",
+        "indium",
+        "gallium",
+        "germanium"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 83886,
+      "char_end": 84333,
+      "text": "\u2022the imposition of government controls, inclusive of critical infrastructure protection;\n\u2022changes in or limitations imposed by trade protection laws or other regulatory orders or requirements in the United States or in other countries;\n\u2022the restrictions in China on the export of indium, gallium, germanium and other rare earth metals and critical minerals; and other retaliatory responses in the trade policies of the U.S. or foreign governments;",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 28.393,
+      "terms": [
+        "raw",
+        "material",
+        "sole",
+        "source",
+        "limited",
+        "supplier"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 29902,
+      "char_end": 31091,
+      "text": "Sources of Supply\nIn our production processes, we use certain substrates, along with numerous optical, electrical, and mechanical parts that are sourced from third-party suppliers. These include InP substrates, ICs, DSPs, mechanical housings, and optical components, and we commonly refer to them as raw materials. Raw materials or subcomponents required in the manufacturing process are generally available from several sources. However, in the Industrial segment, we currently purchase several key components and materials used in the manufacture of our products, including exotic materials, crystals, and optics, from sole-source or limited-source suppliers. We also purchase assemblies and turnkey solutions from contract manufacturers, based on our proprietary designs. We rely on our own production and design capability to manufacture and specify certain strategic components, crystals, fibers, semiconductor lasers, and laser-based systems. We use rare-earth materials in some of our production processes. Like with other materials, we continuously work to strengthen and diversify our supply chain, including maintaining buffer inventory and developing multiple sources of supply.",
+      "also_in": [
+        {
+          "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+          "company": "coherent",
+          "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+          "available_at": "2025-12-16T21:05:10Z"
+        },
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 25.6756,
+      "terms": [
+        "raw",
+        "material",
+        "sole",
+        "source",
+        "limited",
+        "supplier"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 33698,
+      "char_end": 34766,
+      "text": "Our significant contract manufacturing partners are located primarily in Thailand, Taiwan, Malaysia and the Philippines. We rely on the capabilities of our contract manufacturers to plan and procure components and manage the inventory in these locations.\nSources and Availability of Raw Materials\nWe use various suppliers and contract manufacturers to supply parts and components for manufacturing and support of multiple product lines. Although our intention is to establish at least two sources of supply for materials whenever possible, for certain components we have sole or limited source supply arrangements. We may not be able to procure these components from alternate sources at acceptable prices and quality within a reasonable time, or at all, therefore, the risk of loss or interruption of such supply could impact our ability to deliver certain products on a timely basis. Risks associated with reliance on third parties for the timely and reliable delivery of raw materials are discussed in greater detail in Item 1A \u201cRisk Factors\u201d of this Annual Report.",
+      "also_in": [
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 25.6154,
+      "terms": [
+        "export",
+        "control",
+        "germanium",
+        "material",
+        "limited",
+        "supplier"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 87963,
+      "char_end": 88791,
+      "text": "In the event of a disruption of our customers\u2019 supply chain, orders from our customers could decrease or be delayed.\nWe use rare earth minerals and produce and use high-purity and relatively uncommon materials and compounds to manufacture our products, including, but not limited to, ZnS, GaAs, yttrium aluminum garnet, yttrium lithium fluoride, calcium fluoride, germanium, selenium, telluride, Bi2Te3, and SiC. A significant failure of our internal production processes or our suppliers to deliver sufficient quantities of these necessary materials (including, in the case of rare earth minerals, as a consequence of their limited diminished availability or as a result of export controls on such materials) on a timely basis could have a material adverse effect on our business, results of operations, or financial condition.",
+      "also_in": [
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 24.6919,
+      "terms": [
+        "indium",
+        "material",
+        "source",
+        "limited",
+        "number",
+        "supplier"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 92246,
+      "char_end": 93168,
+      "text": "We purchase a significant amount of the materials and components used in our products from a limited number of suppliers.\nOur manufacturing processes and those of our contract manufacturers rely on many materials, including precious and rare earth metals, indium phosphide (\u201cInP\u201d) and certain lasers and laser components that may be difficult to source, may only be available from a single or limited number of suppliers. We have historically not had long-term contracts with our materials suppliers and a significant amount of our purchases are on a purchase order basis. Suppliers have previously, and may in the future, extend lead times, limit suppliers and place products on allocation, increase prices, or prioritize supplies for other customers, any of which could disrupt supply or increase demand in the industry and negatively impact our results of operations and our ability to fully meet our customers\u2019 demand.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 22.4655,
+      "terms": [
+        "china",
+        "export",
+        "germanium",
+        "raw",
+        "material",
+        "supplier"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-Q filed 2025-05-07",
+      "available_at": "2025-05-07T20:10:55Z",
+      "source_version_id": "5d0fea47-da41-4e49-bef7-cf15b61091ad",
+      "char_start": 131619,
+      "char_end": 132906,
+      "text": "We are exposed to a variety of market risks, including the effects of increases in commodity prices and diminished availability of rare earth minerals and noble gases. Our businesses purchase, produce, and sell raw materials based upon quoted market prices from minor metal exchanges. Trade disputes, geopolitical tensions, economic circumstances, or political conditions may limit our ability to obtain certain materials. Although rare earth and other materials are generally available from multiple suppliers, China is the predominant producer of certain of these materials. China recently imposed export restrictions on certain rare earth minerals such as yttrium and germanium, which disrupted and may continue to disrupt global supply chains, driving up costs. The effect of these actions on the market on these critical rare earth minerals could have a material impact on the cost and availability of such minerals, which could have a material adverse effect on our results of operations and financial condition. The negative impact from increases in commodity prices and diminished availability of rare earth minerals and noble gases might not be recovered through our product sales, which could have a material adverse effect on our results of operations and financial condition.",
+      "also_in": [
+        {
+          "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2026-08-14",
+          "available_at": "2026-08-14T12:10:05Z"
+        },
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 22.1114,
+      "terms": [
+        "china",
+        "export",
+        "control",
+        "gallium",
+        "germanium"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+      "available_at": "2026-05-06T10:00:00Z",
+      "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+      "char_start": 280983,
+      "char_end": 281948,
+      "text": "\u2022the imposition of government controls, inclusive of critical infrastructure protection;\n\u2022changes in or limitations imposed by trade protection laws or other regulatory orders or requirements in the United States or in other countries, including changes in the trade policies of the U.S. and its trading partners, heightened, scheduled, or threatened tariffs, sanctions, or other costs or requirements which may affect our ability to import or export our products from various countries or increase the cost to do so, including government action to restrict our ability to sell to foreign customers where sales of products may require export licenses (See Risk Factor entitled \u201cOur ability to sell our products to a significant customer has been restricted\u201d); the restrictions in China on the export of gallium and germanium and other rare earth metals and critical minerals; and other retaliatory responses in the trade policies of the U.S. or foreign governments;",
+      "also_in": [
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        },
+        {
+          "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+          "available_at": "2025-05-07T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 22.0464,
+      "terms": [
+        "raw",
+        "material",
+        "source",
+        "limited",
+        "number",
+        "supplier"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+      "available_at": "2026-05-06T10:00:00Z",
+      "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+      "char_start": 145130,
+      "char_end": 146260,
+      "text": "LUMENTUM HOLDINGS INC.\nNOTES TO CONDENSED CONSOLIDATED FINANCIAL STATEMENTS (Continued)\n(Unaudited)\nWe depend on a limited number of contract manufacturers, subcontractors and suppliers for raw materials, packages and standard components. We generally purchase these single or limited source products through standard purchase orders or one-year supply agreements and have no significant long-term guaranteed supply agreements with these vendors. While we seek to maintain a sufficient safety stock of such products and maintain on-going communications with our suppliers to guard against interruptions or cessation of supply, our business and results of operations could be adversely affected by a stoppage or delay of supply, substitution of more expensive or less reliable products, receipt of defective parts or contaminated materials, increases in the price of such supplies, or our inability to obtain reduced pricing from our suppliers in response to competitive pressures. In addition, the imposition of tariffs on certain imported goods and materials may increase our costs and place upward pressure on the cost of sales.",
+      "also_in": [
+        {
+          "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+          "available_at": "2026-08-17T20:03:17Z"
+        },
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        },
+        {
+          "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+          "available_at": "2025-05-07T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 19.619,
+      "terms": [
+        "china",
+        "export",
+        "control",
+        "number"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-Q filed 2026-02-04",
+      "available_at": "2026-02-04T21:06:11Z",
+      "source_version_id": "86715055-3d84-4a78-bcbd-e33b9954781c",
+      "char_start": 86458,
+      "char_end": 87193,
+      "text": "See Note 18. Assets Held-for-Sale and Sale of Business for further information.\nMacroeconomic Conditions - Tariffs and Export Controls\nIn early 2025, the United States implemented significant new tariffs and export restrictions affecting a broad range of countries, commodities and industries. These actions have prompted retaliatory measures from certain foreign governments, including the imposition of tariffs and export controls. As of December 2025, while some of these measures have been delayed, a number of the new tariffs remain in effect, including substantial trade sanctions between the United States and China. China has imposed restrictions on the export of certain rare earth minerals which are critical to our products.",
+      "also_in": [
+        {
+          "source_version_id": "845c9792-c06a-4929-a565-57cfb41bbb5d",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T21:16:03Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 19.5541,
+      "terms": [
+        "china",
+        "export",
+        "control",
+        "raw",
+        "material"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+      "available_at": "2026-02-04T11:00:00Z",
+      "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+      "char_start": 238631,
+      "char_end": 239194,
+      "text": "Supplies for such raw materials have from time to time become restricted, or general market factors and conditions have in the past affected and may in the future affect pricing of such commodities (including, in particular, due to changes in applicable tariffs, inflation, trade restrictions, or other supply chain constraints). For example, China\u2019s recent export controls affected the availability and price of rare earth metals and other critical minerals for us as well as our supply chain and customers, adversely affecting our operations, margins and sales.",
+      "also_in": [
+        {
+          "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+          "available_at": "2026-08-17T20:03:17Z"
+        },
+        {
+          "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+          "available_at": "2026-05-06T10:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 19.001,
+      "terms": [
+        "china",
+        "export",
+        "indium",
+        "raw"
+      ],
+      "company": "coherent",
+      "title": "Status update",
+      "available_at": "2026-03-17T20:00:00Z",
+      "source_version_id": "ddc57678-3fcf-4929-98af-a0c8d4768544",
+      "char_start": 66749,
+      "char_end": 67331,
+      "text": "Meta Marshall (Managing Director, Morgan Stanley): That's good.\nMatthew Niknam (Director and Equity Research, Deutsche Bank): Hi. Matthew Niknam from Deutsche Bank. You're expanding indium phosphide capacity, but the raw indium feedstock is roughly 70% sourced from Chinese zinc smelters, which are now subject to export permit requirements with multi-month processing times. I guess my question is, how much visibility do you have on indium supply for the next 12-24 months? And are you actively diversifying sourcing away from China or do you hold strategic inventory as a buffer?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 17.7186,
+      "terms": [
+        "china",
+        "export",
+        "control",
+        "material"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+      "available_at": "2026-05-06T10:00:00Z",
+      "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+      "char_start": 248612,
+      "char_end": 249548,
+      "text": "Outside of the U.S., retaliatory measures from various countries also have in the past, and may in the future, adversely impact business operations. Such measures include tariffs on imports from the U.S. into countries such as China, as well as export control measures. For example, China imposed new export control measures affecting exports of rare earth metals and other critical minerals, limiting our ability to access these materials, which may limit our ability to produce products, increase our selling and/or manufacturing costs, decrease margins, reduce the competitiveness of our products, reduce customer demand for our products, or inhibit our ability to sell products or purchase necessary equipment and supplies. Additional changes to the trade policies of the U.S. and China are impossible to predict, and further changes or escalations in the trade policies of one or both countries may continue to affect our business.",
+      "also_in": [
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 17.3596,
+      "terms": [
+        "sole",
+        "source",
+        "limited",
+        "supplier"
+      ],
+      "company": "lumentum",
+      "title": "Q4 2025",
+      "available_at": "2025-08-12T21:00:00Z",
+      "source_version_id": "c335d479-f416-41b9-86fb-2baa8fb2b371",
+      "char_start": 17277,
+      "char_end": 17913,
+      "text": "Michael Hurlston (President and CEO, Lumentum Holdings Inc): We're trying to ramp this thing very quickly to see a tremendous level of demand, but we are limited by how much we can supply.\nSimon Leopold (MD, Raymond James): Thanks. As a follow-up, I wanted to check in on the CPO opportunity as well. It sounds like it's progressing. Last we spoke, it sounded like you were the only approved supplier in the ecosystem for the high-powered laser. Wondering how you're thinking about your position in that market in terms of quantifying as well as your ability to remain a sole source supplier. How's the competitive landscape? Thank you.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 17.2186,
+      "terms": [
+        "control",
+        "material",
+        "source",
+        "limited"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2025-08-15",
+      "available_at": "2025-08-15T10:00:00Z",
+      "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+      "char_start": 10259,
+      "char_end": 10755,
+      "text": "\u2022Global economic downturns may adversely affect our business, results of operations, and financial condition.\n\u2022We depend on highly complex manufacturing processes that require strategic materials, components, and products from limited sources of supply.\n\u2022Significant political, trade, regulatory developments, and other circumstances beyond our control, including as a result of recently announced tariffs, could have a material adverse effect on our financial condition or results of operations.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 17.1688,
+      "terms": [
+        "raw",
+        "material",
+        "source"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+      "available_at": "2025-12-16T21:05:10Z",
+      "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+      "char_start": 12570,
+      "char_end": 13370,
+      "text": "The continued high quality of and access to these raw materials are critical to the stability and predictability of our manufacturing yields. We specify and test these raw materials at the onset of and throughout the production process. Additional research and capital investment are sometimes needed to better define future raw materials specifications. We continue to develop strategic second sources as part of our overall business continuity planning, and occasionally experience problems associated with raw materials not meeting contract specifications for quality or purity. Risks associated with reliance on third parties for the timely and reliable delivery of raw materials are discussed in greater detail in Item 1A. Risk Factors of our Annual Report on Form 10-K filed on August 15, 2025.",
+      "also_in": [
+        {
+          "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2026-08-14",
+          "available_at": "2026-08-14T12:10:05Z"
+        },
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 16.9787,
+      "terms": [
+        "export",
+        "control",
+        "supplier"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+      "available_at": "2025-05-07T10:00:00Z",
+      "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+      "char_start": 314830,
+      "char_end": 315423,
+      "text": "In addition, certain of our significant customers and suppliers have products that are subject to U.S. export controls, and therefore these customers and suppliers may also be subject to legal and regulatory consequences if they do not comply with applicable export control laws and regulations. Such regulatory consequences could disrupt our ability to obtain components from our suppliers, or to sell our products to major customers, which could significantly increase our costs, reduce our revenue and materially adversely affect our business, financial condition and results of operations.",
+      "also_in": [
+        {
+          "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+          "available_at": "2026-08-17T20:03:17Z"
+        },
+        {
+          "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+          "available_at": "2026-05-06T10:00:00Z"
+        },
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 16.0214,
+      "terms": [
+        "china",
+        "export",
+        "control",
+        "raw",
+        "material"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2025-08-15",
+      "available_at": "2025-08-15T10:00:00Z",
+      "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+      "char_start": 110329,
+      "char_end": 111698,
+      "text": "We cannot predict what actions may be taken with respect to export regulations, tariffs, or other trade regulations between the United States and other countries, what products or companies may be subject to such actions, or what actions may be taken by other countries in retaliation. Further changes in trade policy, tariffs, restrictions on exports or other trade barriers, or restrictions on supplies, equipment, and raw materials including rare earth minerals, may limit our ability to produce products, increase our selling and/or manufacturing costs, decrease margins, reduce the competitiveness of our products, or inhibit our ability to sell products or purchase necessary equipment and supplies. For example, increasing geopolitical tensions could result in new export controls associated with products that support or enable AI Applications which could, in turn, restrict future sales of certain products to China or other markets. Such changes may also result in reputational harm to us, the development or adoption of technologies that compete with our products, long-term changes in global trade and technology supply chains, or negative impacts on our customers\u2019 products which incorporate our solutions. Any of the effects described in this risk factor could have a material adverse effect on our business, results of operations, or financial condition.",
+      "also_in": [
+        {
+          "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2026-08-14",
+          "available_at": "2026-08-14T12:10:05Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 15.8231,
+      "terms": [
+        "export",
+        "control",
+        "raw",
+        "material"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-Q filed 2026-05-06",
+      "available_at": "2026-05-06T20:10:46Z",
+      "source_version_id": "5d690313-f983-4678-bcc3-a93b0bb6d736",
+      "char_start": 94269,
+      "char_end": 95302,
+      "text": "See Note 7. Assets Held-for-Sale and Sale of Business for further information.\nMacroeconomic Conditions - Tariffs and Export Controls\nIn early 2025, the United States implemented significant new tariffs and export restrictions affecting a broad range of countries, commodities and industries. These actions have prompted retaliatory measures from certain foreign governments, including the imposition of tariffs and export controls. On February 20, 2026, the U.S. Supreme Court ruled that tariffs imposed under the International Emergency Economic Powers Act (\u201cEEPA\u201d) were not authorized by the statute. The Company is the importer of record for certain raw materials and products that were previously subject to such tariffs under IEEPA. Significant uncertainty remains regarding how and when any amounts may be recovered. We are evaluating the ruling and potential actions available to us. Because the process, timing, and amount of any recovery are uncertain, we have not recorded any potential benefit from a refund at this time.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 15.7604,
+      "terms": [
+        "indium",
+        "gallium",
+        "sole",
+        "source"
+      ],
+      "company": "coherent",
+      "title": "Investor Day 2025",
+      "available_at": "2025-05-28T13:00:00Z",
+      "source_version_id": "bb8b007b-0708-4c02-bfcd-6634da34e7ef",
+      "char_start": 48551,
+      "char_end": 49368,
+      "text": "Julie Eng (CTO, Coherent): We made a decision to do that along with a couple of other key decisions that allowed us to have that sole source position for 18 months. In addition, we're working on photodetectors for 200 gig per lane, 400 gig per lane. This is another case where we have technology and scale. We've actually shipped over a billion gallium arsenide and indium phosphide photodetectors for data com. Another of our deep expertise that I believe gives us a competitive advantage that maybe we haven't talked as much about externally, but I have an opportunity to share with you today, is passive optics. What is passive optics? Basically, passive optics is anything inside the transceiver or the CPO that doesn't generate or detect light. It moves the light around, helps guide the light, things like that.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}

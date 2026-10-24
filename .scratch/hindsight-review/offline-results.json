@@ -1,0 +1,183 @@
+{
+  "unique_submission": [
+    {
+      "number": 2,
+      "id": "one-entity-per-company",
+      "ticket": "04",
+      "promise": "The filer is one entity across its documents, and a company named in another's document is the same entity.",
+      "source": "Spec, 'What a retained section says': the item's entities are the filer's canonical name and the universe companies the section names, sent with resolve_entities false; feature matrix: a given entity is on every fact of its item, as written.",
+      "verdict": "passed",
+      "reason": null,
+      "evidence": {
+        "companies": {
+          "lumentum": {
+            "filer_name": "Lumentum",
+            "entities_with_that_name": 1,
+            "mention_count": 2,
+            "facts_of_own_sections": 1,
+            "sections_of_others_naming_it": [
+              "cross"
+            ],
+            "facts_of_those_sections": 1
+          },
+          "coherent": {
+            "filer_name": "Coherent",
+            "entities_with_that_name": 1,
+            "mention_count": 2,
+            "facts_of_own_sections": 2,
+            "sections_of_others_naming_it": [],
+            "facts_of_those_sections": 0
+          }
+        }
+      }
+    },
+    {
+      "number": 8,
+      "id": "entity-hop",
+      "ticket": "09",
+      "promise": "The entity lookup returns the other company's section that names the filer.",
+      "source": "Spec, 'The entity hop': Atlas lists the theme's facts that carry a company's entity and come from another company's documents (the memory list by entity_id).",
+      "verdict": "passed",
+      "reason": null,
+      "evidence": {
+        "companies": {
+          "lumentum": {
+            "entity": "Lumentum",
+            "facts_listed": 1,
+            "other_sections_naming_it": [
+              "cross"
+            ],
+            "found": [
+              "cross"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "identical_document_resubmitted": [
+    {
+      "number": 2,
+      "id": "one-entity-per-company",
+      "ticket": "04",
+      "promise": "The filer is one entity across its documents, and a company named in another's document is the same entity.",
+      "source": "Spec, 'What a retained section says': the item's entities are the filer's canonical name and the universe companies the section names, sent with resolve_entities false; feature matrix: a given entity is on every fact of its item, as written.",
+      "verdict": "failed",
+      "reason": "lumentum: 'Lumentum' is on 2 facts; its own and the naming sections' facts are 3; coherent: 'Coherent' is on 2 facts; its own and the naming sections' facts are 3",
+      "evidence": {
+        "companies": {
+          "lumentum": {
+            "filer_name": "Lumentum",
+            "entities_with_that_name": 1,
+            "mention_count": 2,
+            "facts_of_own_sections": 1,
+            "sections_of_others_naming_it": [
+              "cross",
+              "cross"
+            ],
+            "facts_of_those_sections": 2
+          },
+          "coherent": {
+            "filer_name": "Coherent",
+            "entities_with_that_name": 1,
+            "mention_count": 2,
+            "facts_of_own_sections": 3,
+            "sections_of_others_naming_it": [],
+            "facts_of_those_sections": 0
+          }
+        }
+      }
+    },
+    {
+      "number": 8,
+      "id": "entity-hop",
+      "ticket": "09",
+      "promise": "The entity lookup returns the other company's section that names the filer.",
+      "source": "Spec, 'The entity hop': Atlas lists the theme's facts that carry a company's entity and come from another company's documents (the memory list by entity_id).",
+      "verdict": "failed",
+      "reason": "lumentum: the lookup missed 1 sections",
+      "evidence": {
+        "companies": {
+          "lumentum": {
+            "entity": "Lumentum",
+            "facts_listed": 1,
+            "other_sections_naming_it": [
+              "cross",
+              "cross"
+            ],
+            "found": [
+              "cross"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "correctly_attributed_cfo_answer": [
+    {
+      "number": 3,
+      "id": "analyst-question-not-company-statement",
+      "ticket": "04",
+      "promise": "A call transcript's analyst question is not stored as the company's statement.",
+      "source": "Spec, 'What a retained section says': for a call transcript, the context says that management and analysts speak and an analyst's question is not the company's statement.",
+      "verdict": "failed",
+      "reason": "1 facts state the analyst's question unattributed",
+      "evidence": {
+        "transcript_sections": [
+          "transcript"
+        ],
+        "facts_examined": 1,
+        "contexts_not_naming_analysts": [],
+        "analyst_question_as_company_statement": [
+          {
+            "memory_id": "cfo-answer",
+            "text": "Casey Placeholder stated that Lumentum does not break out how much demand comes from its largest customer, but that its backlog is broad and spread across several customers. | Involving: Casey Placeholder (CFO, Lumentum); Lumentum"
+          }
+        ]
+      }
+    }
+  ],
+  "valid_layer_labels": [
+    {
+      "number": 4,
+      "id": "layer-labels",
+      "ticket": "05",
+      "promise": "Facts carry a layer label where the text names a layer, and a recall filtered by the label returns only those.",
+      "source": "Hindsight docs (entity labels): a label group with tag: true writes its values as tags; spec, 'The bank template': one group for the supply-chain layer.",
+      "verdict": "passed",
+      "reason": null,
+      "evidence": {
+        "sections_naming_a_layer": 1,
+        "sections_with_labelled_facts_by_label": {
+          "layer:chip-laser": 1
+        },
+        "sections_naming_a_layer_without_a_label": [],
+        "recall_by_label": {
+          "label": "layer:chip-laser",
+          "returned": 1,
+          "without_the_label": []
+        }
+      }
+    }
+  ],
+  "valid_layer_labels_plus_neutral_cover": [
+    {
+      "number": 4,
+      "id": "layer-labels",
+      "ticket": "05",
+      "promise": "Facts carry a layer label where the text names a layer, and a recall filtered by the label returns only those.",
+      "source": "Hindsight docs (entity labels): a label group with tag: true writes its values as tags; spec, 'The bank template': one group for the supply-chain layer.",
+      "verdict": "failed",
+      "reason": "1 sections name a layer and carry no label",
+      "evidence": {
+        "sections_naming_a_layer": 2,
+        "sections_with_labelled_facts_by_label": {
+          "layer:chip-laser": 1
+        },
+        "sections_naming_a_layer_without_a_label": [
+          "cover"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,569 @@
+{
+  "version": {
+    "http_status": 404
+  },
+  "stats": {
+    "bank_id": "atlas-ai-infrastructure",
+    "total_nodes": 45449,
+    "total_links": 1844053,
+    "total_documents": 2228,
+    "nodes_by_fact_type": {
+      "world": 44705,
+      "experience": 1,
+      "observation": 743
+    },
+    "links_by_link_type": {
+      "entity": 20559,
+      "semantic": 1017416,
+      "temporal": 805440,
+      "caused_by": 638
+    },
+    "links_by_fact_type": {},
+    "links_breakdown": {},
+    "pending_operations": 0,
+    "failed_operations": 4,
+    "operations_by_status": {
+      "failed": 4,
+      "cancelled": 532,
+      "completed": 2530,
+      "processing": 1
+    },
+    "last_consolidated_at": "2026-10-03T13:46:33.234148+00:00",
+    "last_memory_write_at": "2026-10-03T13:46:51.245657+00:00",
+    "pending_consolidation": 42946,
+    "failed_consolidation": 0,
+    "total_observations": 743
+  },
+  "scopes": {
+    "scopes": [
+      {
+        "tags": [
+          "company:552b3120-cb7a-5d85-91e4-ec0f6d1a3148",
+          "doctype:filing",
+          "form:10-K",
+          "source:sec_edgar",
+          "theme:photonics"
+        ],
+        "count": 277
+      },
+      {
+        "tags": [
+          "company:6aed559f-3bc4-5b32-8640-69835afa9d40",
+          "doctype:filing",
+          "form:10-K",
+          "source:sec_edgar",
+          "theme:photonics"
+        ],
+        "count": 226
+      },
+      {
+        "tags": [
+          "company:552b3120-cb7a-5d85-91e4-ec0f6d1a3148",
+          "doctype:filing",
+          "form:10-Q",
+          "source:sec_edgar",
+          "theme:photonics"
+        ],
+        "count": 174
+      },
+      {
+        "tags": [
+          "theme:photonics"
+        ],
+        "count": 69
+      }
+    ],
+    "total": 4,
+    "limit": 100,
+    "offset": 0
+  },
+  "operations": {
+    "bank_id": "atlas-ai-infrastructure",
+    "total": 3067,
+    "limit": 12,
+    "offset": 0,
+    "operations": [
+      {
+        "id": "3319d1ca-6351-4439-adfe-f55b333430e6",
+        "task_type": "batch_retain",
+        "operation_id": "3319d1ca-6351-4439-adfe-f55b333430e6",
+        "operation_type": "batch_retain",
+        "items_count": 4,
+        "document_id": null,
+        "filename": null,
+        "mental_model_id": null,
+        "details": null,
+        "created_at": "2026-10-03T13:46:45.730256+00:00",
+        "updated_at": "2026-10-03T13:46:51.476008+00:00",
+        "status": "completed",
+        "error_message": null,
+        "retry_count": 0,
+        "next_retry_at": null,
+        "progress": null
+      },
+      {
+        "id": "96ecc0ed-1bcd-4cfa-af79-a8b5f49e9783",
+        "task_type": "retain",
+        "operation_id": "96ecc0ed-1bcd-4cfa-af79-a8b5f49e9783",
+        "operation_type": "retain",
+        "items_count": 4,
+        "document_id": null,
+        "filename": null,
+        "mental_model_id": null,
+        "details": null,
+        "created_at": "2026-10-03T13:46:45.730256+00:00",
+        "updated_at": "2026-10-03T13:46:51.476008+00:00",
+        "status": "completed",
+        "error_message": null,
+        "retry_count": 0,
+        "next_retry_at": null,
+        "progress": {
+          "stage": "storing",
+          "at": "2026-10-03T13:46:51.318701+00:00",
+          "processed": 1,
+          "total": 1,
+          "detail": {
+            "facts_committed": 1
+          }
+        }
+      },
+      {
+        "id": "2761c44e-1fc7-407a-a8b2-74067afe870b",
+        "task_type": "batch_retain",
+        "operation_id": "2761c44e-1fc7-407a-a8b2-74067afe870b",
+        "operation_type": "batch_retain",
+        "items_count": 22,
+        "document_id": null,
+        "filename": null,
+        "mental_model_id": null,
+        "details": null,
+        "created_at": "2026-10-03T13:40:44.452125+00:00",
+        "updated_at": "2026-10-03T13:46:45.155808+00:00",
+        "status": "completed",
+        "error_message": null,
+        "retry_count": 0,
+        "next_retry_at": null,
+        "progress": null
+      },
+      {
+        "id": "b3f19fe0-530b-42bb-b6a9-47c050da5a04",
+        "task_type": "retain",
+        "operation_id": "b3f19fe0-530b-42bb-b6a9-47c050da5a04",
+        "operation_type": "retain",
+        "items_count": 1,
+        "document_id": "srcv:cf16ed6e-5748-4475-a219-8e867671c58a:part-i-item-1",
+        "filename": null,
+        "mental_model_id": null,
+        "details": null,
+        "created_at": "2026-10-03T13:40:44.452125+00:00",
+        "updated_at": "2026-10-03T13:45:33.041785+00:00",
+        "status": "completed",
+        "error_message": null,
+        "retry_count": 0,
+        "next_retry_at": null,
+        "progress": {
+          "stage": "storing",
+          "at": "2026-10-03T13:45:32.935869+00:00",
+          "processed": 4,
+          "total": 4,
+          "detail": {
+            "facts_committed": 18
+          }
+        }
+      },
+      {
+        "id": "08958ec5-75d2-425f-9ad7-d3bf629d4bf9",
+        "task_type": "retain",
+        "operation_id": "08958ec5-75d2-425f-9ad7-d3bf629d4bf9",
+        "operation_type": "retain",
+        "items_count": 1,
+        "document_id": "srcv:cf16ed6e-5748-4475-a219-8e867671c58a:part-ii-item-7",
+        "filename": null,
+        "mental_model_id": null,
+        "details": null,
+        "created_at": "2026-10-03T13:40:44.452125+00:00",
+        "updated_at": "2026-10-03T13:44:48.375098+00:00",
+        "status": "completed",
+        "error_message": null,
+        "retry_count": 0,
+        "next_retry_at": null,
+        "progress": {
+          "stage": "storing",
+          "at": "2026-10-03T13:44:48.138458+00:00",
+          "processed": 3,
+          "total": 3,
+          "detail": {
+            "facts_committed": 18
+          }
+        }
+      },
+      {
+        "id": "4e6ed49d-139a-4119-bdd9-9c6ba6d17099",
+        "task_type": "retain",
+        "operation_id": "4e6ed49d-139a-4119-bdd9-9c6ba6d17099",
+        "operation_type": "retain",
+        "items_count": 1,
+        "document_id": "srcv:cf16ed6e-5748-4475-a219-8e867671c58a:part-ii-item-7a",
+        "filename": null,
+        "mental_model_id": null,
+        "details": null,
+        "created_at": "2026-10-03T13:40:44.452125+00:00",
+        "updated_at": "2026-10-03T13:40:52.360395+00:00",
+        "status": "completed",
+        "error_message": null,
+        "retry_count": 0,
+        "next_retry_at": null,
+        "progress": {
+          "stage": "storing",
+          "at": "2026-10-03T13:40:52.307301+00:00",
+          "processed": 1,
+          "total": 1,
+          "detail": {
+            "facts_committed": 3
+          }
+        }
+      },
+      {
+        "id": "4ddedd52-7b0f-4e97-bde4-21fa73832311",
+        "task_type": "retain",
+        "operation_id": "4ddedd52-7b0f-4e97-bde4-21fa73832311",
+        "operation_type": "retain",
+        "items_count": 1,
+        "document_id": "srcv:cf16ed6e-5748-4475-a219-8e867671c58a:part-i-item-1a",
+        "filename": null,
+        "mental_model_id": null,
+        "details": null,
+        "created_at": "2026-10-03T13:40:44.452125+00:00",
+        "updated_at": "2026-10-03T13:44:56.645926+00:00",
+        "status": "completed",
+        "error_message": null,
+        "retry_count": 0,
+        "next_retry_at": null,
+        "progress": {
+          "stage": "storing",
+          "at": "2026-10-03T13:44:56.574513+00:00",
+          "processed": 10,
+          "total": 10,
+          "detail": {
+            "facts_committed": 20
+          }
+        }
+      },
+      {
+        "id": "8faad522-14fa-4562-a38b-7329bd248e54",
+        "task_type": "retain",
+        "operation_id": "8faad522-14fa-4562-a38b-7329bd248e54",
+        "operation_type": "retain",
+        "items_count": 6,
+        "document_id": null,
+        "filename": null,
+        "mental_model_id": null,
+        "details": null,
+        "created_at": "2026-10-03T13:40:44.452125+00:00",
+        "updated_at": "2026-10-03T13:41:09.237315+00:00",
+        "status": "completed",
+        "error_message": null,
+        "retry_count": 0,
+        "next_retry_at": null,
+        "progress": {
+          "stage": "storing",
+          "at": "2026-10-03T13:41:09.155185+00:00",
+          "processed": 2,
+          "total": 2,
+          "detail": {
+            "facts_committed": 9
+          }
+        }
+      },
+      {
+        "id": "c4dab418-b832-427b-90c2-320f4f5257e5",
+        "task_type": "retain",
+        "operation_id": "c4dab418-b832-427b-90c2-320f4f5257e5",
+        "operation_type": "retain",
+        "items_count": 1,
+        "document_id": "srcv:cf16ed6e-5748-4475-a219-8e867671c58a:cover",
+        "filename": null,
+        "mental_model_id": null,
+        "details": null,
+        "created_at": "2026-10-03T13:40:44.452125+00:00",
+        "updated_at": "2026-10-03T13:41:47.885149+00:00",
+        "status": "completed",
+        "error_message": null,
+        "retry_count": 0,
+        "next_retry_at": null,
+        "progress": {
+          "stage": "storing",
+          "at": "2026-10-03T13:41:47.374884+00:00",
+          "processed": 6,
+          "total": 6,
+          "detail": {
+            "facts_committed": 25
+          }
+        }
+      },
+      {
+        "id": "4f73f784-e133-4ed5-b9e8-14516a4b63a6",
+        "task_type": "retain",
+        "operation_id": "4f73f784-e133-4ed5-b9e8-14516a4b63a6",
+        "operation_type": "retain",
+        "items_count": 10,
+        "document_id": null,
+        "filename": null,
+        "mental_model_id": null,
+        "details": null,
+        "created_at": "2026-10-03T13:40:44.452125+00:00",
+        "updated_at": "2026-10-03T13:41:05.106448+00:00",
+        "status": "completed",
+        "error_message": null,
+        "retry_count": 0,
+        "next_retry_at": null,
+        "progress": {
+          "stage": "storing",
+          "at": "2026-10-03T13:41:05.068513+00:00",
+          "processed": 1,
+          "total": 1,
+          "detail": {
+            "facts_committed": 1
+          }
+        }
+      },
+      {
+        "id": "51541925-bb98-41ab-abfc-421883f1b879",
+        "task_type": "retain",
+        "operation_id": "51541925-bb98-41ab-abfc-421883f1b879",
+        "operation_type": "retain",
+        "items_count": 1,
+        "document_id": "srcv:cf16ed6e-5748-4475-a219-8e867671c58a:part-ii-item-8",
+        "filename": null,
+        "mental_model_id": null,
+        "details": null,
+        "created_at": "2026-10-03T13:40:44.452125+00:00",
+        "updated_at": "2026-10-03T13:46:45.155808+00:00",
+        "status": "completed",
+        "error_message": null,
+        "retry_count": 0,
+        "next_retry_at": null,
+        "progress": {
+          "stage": "storing",
+          "at": "2026-10-03T13:46:44.987583+00:00",
+          "processed": 4,
+          "total": 4,
+          "detail": {
+            "facts_committed": 11
+          }
+        }
+      },
+      {
+        "id": "eb827505-ba78-46d7-8181-3bd0b4b1e7af",
+        "task_type": "batch_retain",
+        "operation_id": "eb827505-ba78-46d7-8181-3bd0b4b1e7af",
+        "operation_type": "batch_retain",
+        "items_count": 3,
+        "document_id": null,
+        "filename": null,
+        "mental_model_id": null,
+        "details": null,
+        "created_at": "2026-10-03T13:39:33.741523+00:00",
+        "updated_at": "2026-10-03T13:39:40.581460+00:00",
+        "status": "completed",
+        "error_message": null,
+        "retry_count": 0,
+        "next_retry_at": null,
+        "progress": null
+      }
+    ]
+  },
+  "config": {
+    "bank_id": "atlas-ai-infrastructure",
+    "config": {
+      "enable_graph_retrieval": true,
+      "recall_budget_adaptive_low": 0.025,
+      "recall_budget_fixed_mid": 300,
+      "recall_budget_min": 20,
+      "recall_chunks_max_tokens": 1000,
+      "entities_allow_free_form": true,
+      "recall_budget_max": 2000,
+      "observation_scope_limits": null,
+      "mental_model_min_refresh_interval_seconds": 0,
+      "recall_max_tokens": 2048,
+      "enable_observations": true,
+      "disposition_skepticism": 4,
+      "retain_custom_instructions": null,
+      "retain_strategies": null,
+      "retain_chunk_size": 3000,
+      "retain_structured_chunk_size": null,
+      "reflect_default_options": null,
+      "enable_reranking": true,
+      "recall_budget_adaptive_mid": 0.075,
+      "store_document_text": true,
+      "retain_max_attachments_per_chunk": 8,
+      "memory_defense": null,
+      "retain_mission": "Extract economically material facts about optical and AI-infrastructure supply chains: capacity and utilization, supply agreements and their terms, who supplies whom, customers and customer concentration, product specifications and qualifications, manufacturing sites and constraints, lead times and shortages, demand and its forecasts, pricing, capital expenditure, and risks that name a product, a counterparty, a site or a figure. Attribute each statement to who made it: the company whose document it is, a named executive, an analyst asking a question on a call, or a third party the document quotes; an analyst's question is not the company's statement. Preserve the difference between what was explicitly stated and what was inferred, and keep hedged and forward-looking statements hedged: a plan, an expectation or a risk is not something that happened. Keep figures, units, currencies and reporting periods exactly as stated. Ignore: safe-harbor and forward-looking-statement disclaimers; officer certifications and signature blocks; exhibit lists, exhibit indexes, tables of contents and cross-references to other parts of a filing; generic risk language that names no product, counterparty, site or figure (for example that the company may fail to compete, that the economy may weaken or that its systems may be attacked); legal and accounting boilerplate about the filing itself; and call logistics such as operator instructions, greetings and thanks.",
+      "consolidation_source_facts_max_tokens": 4096,
+      "knowledge_page_default_trigger": null,
+      "audit_log_enabled": false,
+      "entity_labels": [
+        {
+          "key": "layer",
+          "tag": true,
+          "type": "multi-values",
+          "fields": {},
+          "values": [
+            {
+              "value": "substrate",
+              "description": "bare wafers and substrates (InP, GaAs, SOI)"
+            },
+            {
+              "value": "epi",
+              "description": "epitaxial wafers grown on substrates"
+            },
+            {
+              "value": "chip-laser",
+              "description": "laser and photonic chips: EML, DML, CW and VCSEL lasers, PICs, photodiodes"
+            },
+            {
+              "value": "dsp",
+              "description": "DSPs, drivers, TIAs and other electrical ICs for optics"
+            },
+            {
+              "value": "module",
+              "description": "optical transceivers and modules"
+            },
+            {
+              "value": "contract-manufacturing",
+              "description": "assembly, test and contract manufacturing of optics"
+            },
+            {
+              "value": "system",
+              "description": "systems built from modules: optical transport, switches, AI clusters"
+            }
+          ],
+          "optional": true,
+          "description": "The optical supply-chain layer or layers the fact concerns. Give every layer the fact is about, and none when it concerns none of them; a material named alone (indium phosphide, gallium arsenide, silicon photonics) is no layer, and neither is a raw material, metal or mineral (indium, gallium, germanium, rare earths) or its supply, prices or export controls: a layer is a product or a manufacturing step."
+        }
+      ],
+      "consolidation_source_facts_max_tokens_per_observation": 256,
+      "reflect_mission": "Form source-grounded research syntheses. Distinguish factual statements, third-party claims, model assumptions and hypotheses. Seek disconfirmation.",
+      "enable_temporal_retrieval": true,
+      "observations_mission": "Observations are durable, specific statements about a company, or about the optical and AI-infrastructure industry, each grounded in the facts that support it. Keep one observation per company and subject (its capacity, a supply relationship, a customer dependency, a product, a constraint); make an industry-level observation only of what the facts of several companies show, and name those companies. Record who supplies or depends on whom, by name and in which direction. Keep every figure with its unit, its currency and the period it refers to. When a newer fact changes a figure, a plan or a relationship, record the change with both dates or periods (what was stated earlier and what is stated now) instead of overwriting the earlier statement. When facts contradict each other, keep both sides and say who stated each and when; never resolve a contradiction by choosing one. Keep who made each statement (the company, its executives, an analyst, a third party), and keep hedged and forward-looking statements hedged: a plan, an expectation or a risk is not an outcome. The same statement repeated in several filings, or by the same source, is one source and not corroboration: never present repetition as stronger evidence. Leave out ephemeral and generic material: boilerplate, greetings, and statements that name no company, product, counterparty or figure.",
+      "recall_budget_fixed_high": 1000,
+      "mcp_enabled_tools": null,
+      "enable_text_search": true,
+      "disposition_empathy": null,
+      "consolidation_max_memories_per_round": 100,
+      "disposition_literalism": 4,
+      "retain_extraction_mode": "concise",
+      "retain_default_strategy": null,
+      "reflect_source_facts_max_tokens": 4096,
+      "consolidation_llm_parallelism": 4,
+      "recall_include_chunks": false,
+      "recall_budget_function": "fixed",
+      "max_observations_per_scope": -1,
+      "llm_gemini_safety_settings": null,
+      "recall_budget_fixed_low": 100,
+      "enable_auto_consolidation": false,
+      "recall_budget_adaptive_high": 0.25,
+      "consolidation_llm_batch_size": 8,
+      "retain_chunk_batch_size": 100,
+      "consolidation_strategies": null
+    },
+    "overrides": {
+      "entity_labels": [
+        {
+          "key": "layer",
+          "tag": true,
+          "type": "multi-values",
+          "fields": {},
+          "values": [
+            {
+              "value": "substrate",
+              "description": "bare wafers and substrates (InP, GaAs, SOI)"
+            },
+            {
+              "value": "epi",
+              "description": "epitaxial wafers grown on substrates"
+            },
+            {
+              "value": "chip-laser",
+              "description": "laser and photonic chips: EML, DML, CW and VCSEL lasers, PICs, photodiodes"
+            },
+            {
+              "value": "dsp",
+              "description": "DSPs, drivers, TIAs and other electrical ICs for optics"
+            },
+            {
+              "value": "module",
+              "description": "optical transceivers and modules"
+            },
+            {
+              "value": "contract-manufacturing",
+              "description": "assembly, test and contract manufacturing of optics"
+            },
+            {
+              "value": "system",
+              "description": "systems built from modules: optical transport, switches, AI clusters"
+            }
+          ],
+          "optional": true,
+          "description": "The optical supply-chain layer or layers the fact concerns. Give every layer the fact is about, and none when it concerns none of them; a material named alone (indium phosphide, gallium arsenide, silicon photonics) is no layer, and neither is a raw material, metal or mineral (indium, gallium, germanium, rare earths) or its supply, prices or export controls: a layer is a product or a manufacturing step."
+        }
+      ],
+      "retain_mission": "Extract economically material facts about optical and AI-infrastructure supply chains: capacity and utilization, supply agreements and their terms, who supplies whom, customers and customer concentration, product specifications and qualifications, manufacturing sites and constraints, lead times and shortages, demand and its forecasts, pricing, capital expenditure, and risks that name a product, a counterparty, a site or a figure. Attribute each statement to who made it: the company whose document it is, a named executive, an analyst asking a question on a call, or a third party the document quotes; an analyst's question is not the company's statement. Preserve the difference between what was explicitly stated and what was inferred, and keep hedged and forward-looking statements hedged: a plan, an expectation or a risk is not something that happened. Keep figures, units, currencies and reporting periods exactly as stated. Ignore: safe-harbor and forward-looking-statement disclaimers; officer certifications and signature blocks; exhibit lists, exhibit indexes, tables of contents and cross-references to other parts of a filing; generic risk language that names no product, counterparty, site or figure (for example that the company may fail to compete, that the economy may weaken or that its systems may be attacked); legal and accounting boilerplate about the filing itself; and call logistics such as operator instructions, greetings and thanks.",
+      "reflect_mission": "Form source-grounded research syntheses. Distinguish factual statements, third-party claims, model assumptions and hypotheses. Seek disconfirmation.",
+      "enable_observations": true,
+      "observations_mission": "Observations are durable, specific statements about a company, or about the optical and AI-infrastructure industry, each grounded in the facts that support it. Keep one observation per company and subject (its capacity, a supply relationship, a customer dependency, a product, a constraint); make an industry-level observation only of what the facts of several companies show, and name those companies. Record who supplies or depends on whom, by name and in which direction. Keep every figure with its unit, its currency and the period it refers to. When a newer fact changes a figure, a plan or a relationship, record the change with both dates or periods (what was stated earlier and what is stated now) instead of overwriting the earlier statement. When facts contradict each other, keep both sides and say who stated each and when; never resolve a contradiction by choosing one. Keep who made each statement (the company, its executives, an analyst, a third party), and keep hedged and forward-looking statements hedged: a plan, an expectation or a risk is not an outcome. The same statement repeated in several filings, or by the same source, is one source and not corroboration: never present repetition as stronger evidence. Leave out ephemeral and generic material: boilerplate, greetings, and statements that name no company, product, counterparty or figure.",
+      "recall_include_chunks": false,
+      "disposition_literalism": 4,
+      "disposition_skepticism": 4,
+      "enable_auto_consolidation": false,
+      "max_observations_per_scope": -1,
+      "consolidation_llm_batch_size": 8,
+      "reflect_source_facts_max_tokens": 4096,
+      "consolidation_source_facts_max_tokens": 4096,
+      "consolidation_source_facts_max_tokens_per_observation": 256
+    }
+  },
+  "llm_stats": {
+    "bank_id": "atlas-ai-infrastructure",
+    "period": "1d",
+    "trunc": "day",
+    "start": "2026-10-02T13:47:48.308139+00:00",
+    "buckets": [
+      {
+        "time": "2026-10-02T00:00:00+00:00",
+        "statuses": {
+          "error": 218,
+          "success": 3736
+        },
+        "total": 3954,
+        "tokens": {
+          "input": 17239920,
+          "output": 2965122,
+          "cached": 12333722,
+          "thoughts": 0,
+          "total": 20205042
+        }
+      },
+      {
+        "time": "2026-10-03T00:00:00+00:00",
+        "statuses": {
+          "error": 609,
+          "success": 8713
+        },
+        "total": 9322,
+        "tokens": {
+          "input": 42284261,
+          "output": 5825756,
+          "cached": 26880217,
+          "thoughts": 0,
+          "total": 48110017
+        }
+      }
+    ]
+  },
+  "time_utc": "2026-10-03T13:47:47.754853+00:00",
+  "endpoint": {
+    "host": "hindsight.ekenhome.se",
+    "path": ""
+  }
+}

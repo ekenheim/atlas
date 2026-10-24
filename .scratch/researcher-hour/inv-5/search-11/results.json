@@ -1,0 +1,439 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "Rothenstein laser sources shortage optical components coherent driver modulator not indium phosphide wafer",
+  "terms": [
+    "rothenstein",
+    "laser",
+    "source",
+    "shortage",
+    "optical",
+    "component",
+    "coherent",
+    "driver",
+    "modulator",
+    "indium",
+    "phosphide",
+    "wafer"
+  ],
+  "companies": [
+    "ciena"
+  ],
+  "window": {
+    "since": "2025-04-07T14:09:44+00:00",
+    "as_of": "2026-10-07T14:09:44+00:00"
+  },
+  "documents": 34,
+  "documents_skipped": {
+    "not a text document": 1,
+    "outside the window": 14
+  },
+  "requests": 40,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 57.7432,
+      "terms": [
+        "rothenstein",
+        "laser",
+        "source",
+        "shortage",
+        "optical",
+        "component",
+        "coherent",
+        "driver",
+        "modulator",
+        "indium",
+        "phosphide",
+        "wafer"
+      ],
+      "company": "ciena",
+      "title": "28th Annual Needham Growth Conference Virtual",
+      "available_at": "2026-01-13T20:45:00Z",
+      "source_version_id": "2f71185e-ede2-4eca-b6f5-728fe47973b8",
+      "char_start": 35063,
+      "char_end": 35884,
+      "text": "Ryan Koontz (Managing Director and Research Analyst, Needham & Company): The analogs.\nDavid Rothenstein (SVP and Chief Strategy Officer, Ciena): The analogs. This is very different. This is really more the specialized optical components, some of the external laser sources, and I want to be clear that it is not related to the indium phosphide wafer issue that AXT talked about recently. We're not being limited by that, but there is an industry shortage of supply of external laser sources, including ITLAs in the industry right now. Some of the other optical components like the coherent driver modulators, some of the gold boxes you may have heard about, those are kind of the longer poles for the industry, not just Ciena right now, but again, we're not ignoring those issues and are actively looking to address them.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 26.705,
+      "terms": [
+        "laser",
+        "optical",
+        "component",
+        "coherent",
+        "modulator"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-K filed 2025-12-12",
+      "available_at": "2025-12-12T18:42:26Z",
+      "source_version_id": "0d66ab11-2a98-47fb-9839-6eaa98d605e5",
+      "char_start": 23488,
+      "char_end": 24053,
+      "text": "Optical Networking. Our Optical Networking portfolio includes a range of products that use our WaveLogic coherent optical technology, intelligent photonics solutions and other key components, including lasers, modulators, optical amplifiers, and wavelength multiplexers for efficient signal transmission and management. These products are often combined and sold as solutions that address network applications including cloud and AI networking, datacenter interconnect, long haul, metro, submarine connectivity, and MOFN. Key products within this portfolio include:",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 18.9283,
+      "terms": [
+        "source",
+        "shortage",
+        "optical",
+        "component"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-K filed 2025-12-12",
+      "available_at": "2025-12-12T18:42:26Z",
+      "source_version_id": "0d66ab11-2a98-47fb-9839-6eaa98d605e5",
+      "char_start": 69301,
+      "char_end": 70863,
+      "text": "Our dependence upon third-party suppliers and limited sources of supply could adversely impact our business and results of operations.\nWe rely on a global network of third-party suppliers for products, components, related raw materials, and embedded software. Our products include optical and electronic components for which reliable, high-volume supply is often available only from sole or limited sources. We do not have any guarantees of supply from our third-party suppliers, and in certain cases we have limited contractual arrangements or are relying on standard purchase orders. Our reliance on these suppliers exposes us to risks of supply shortages, delays and increased costs. Increases in market demand and scarcity of raw materials and components have resulted, and may in the future result, in shortages of components, deployment delays, increased cost, and extended delivery timelines. For example, the electro-optical component and semiconductor industries have been experiencing increased demand as a result of significant spending related to AI and other cloud-based applications, which has led to a constrained supply environment. These constraints have resulted, and could further result in shortages, extended lead times, or increased costs that adversely impact our revenue and gross margin. Our inability to secure the required volumes of components or necessary licenses could result in lost revenue, additional product costs, increased lead times and deployment delays that could harm our results of operations and customer relationships.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 11.9464,
+      "terms": [
+        "rothenstein",
+        "optical",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "28th Annual Needham Growth Conference Virtual",
+      "available_at": "2026-01-13T20:45:00Z",
+      "source_version_id": "2f71185e-ede2-4eca-b6f5-728fe47973b8",
+      "char_start": 31194,
+      "char_end": 31632,
+      "text": "David Rothenstein (SVP and Chief Strategy Officer, Ciena): Then the Vesta linear optical engine, which when paired with the SerDes, a third party's or ours, we believe will be a competitively differentiated, co-packaged, or near-packaged optic solution inside the data center for scale-out applications. With that, we will have now, we believe, a complete set of solutions across electrical, optical, IMDD, co-packaged, and then coherent.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 11.9287,
+      "terms": [
+        "source",
+        "optical",
+        "component"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 8-K filed 2026-06-04, EX-99.2",
+      "available_at": "2026-06-04T11:05:06Z",
+      "source_version_id": "aa0c507b-62dc-4f42-9024-ed73d91b98a8",
+      "char_start": 6357,
+      "char_end": 7636,
+      "text": "\u00a9 Ciena Corporation 2026. All rights reserved. Proprietary Information.7 Data generation and bandwidth are continuing to grow The size and scale of AI-driven investments are resulting in sustained high bandwidth growth 0 5 10 15 20 25 '23 '24 '25 '26 '27 '28 '29 ZB Data Moved by SPs +15% CAGR \u201825-\u201929 User consumption bandwidth is growing at lower rate than the AI \u201cfactory\u201d Source: Omdia, AI Network Traffic Forecast 2023\u201335, Feb 2026 Note: \u201cThis forecast restricts traffic growth estimates to data transiting across a network operated by a service provider.\u201d 2026 Forecast 2025 Network Bandwidth +36% CAGR \u201825-\u201929 Growth is similar to data center \u2026but 1/50th of capacity Source: Cignal AI, Optical Components Report, Feb 2026 0.0 0.5 1.0 1.5 2.0 '23 '24 '25 '26 '27 '28 '29 Eb/s 2024 2026 Forecast 2025 Data Center Bandwidth +35% CAGR \u201825-\u201929 Actual growth is significantly higher than forecasted Source: Cignal AI, Optical Components Report, Feb 2026 0 20 40 60 80 100 '23 '24 '25 '26 '27 '28 '29 Eb/s 2024 2025 2026 Forecast X2 X2 0 100 200 300 400 500 600 '23 '24 '25 '26 '27 '28 '29 ZB Global Data Generation +25% CAGR \u201925-\u201929 2026 forecast growing faster than historical trend Source: Worldwide IDC Global DataSphere Forecast, 2025-2029, Doc#US53363625 2023 2026 Forecast",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 11.0814,
+      "terms": [
+        "optical",
+        "component",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "Q4 2025",
+      "available_at": "2025-12-11T13:30:00Z",
+      "source_version_id": "2563eee4-6217-47f9-a2c5-7cb4c61b5e09",
+      "char_start": 10925,
+      "char_end": 11438,
+      "text": "Gary Smith (CEO, Ciena): In the quarter, our WaveLogic 6 Nano 800G pluggables have shipped for initial revenue, and since the end of the quarter, we have shipped 800 ZR plugs to three additional cloud providers for testing and certification, and with regard to components, we address the cloud providers' preferred disaggregated consumption model with our high-speed coherent and other industry-leading WaveLogic technologies, including our DSP, SerDes, and other high-speed analog and electro-optical components.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 10.9694,
+      "terms": [
+        "optical",
+        "coherent",
+        "driver"
+      ],
+      "company": "ciena",
+      "title": "Q3 2026",
+      "available_at": "2026-09-03T12:30:00Z",
+      "source_version_id": "1a12b3fa-a817-4037-ab39-9e158d49d9be",
+      "char_start": 10174,
+      "char_end": 11173,
+      "text": "Gary Smith (President and CEO, Ciena): I am pleased to report that we received sample orders from several anchor customers in the ecosystem for Vesta, our open co-packaged optical or CPX solution. This represents another important step towards the commercialization of our open ecosystem approach towards short-reach data center optics. We believe this is gaining meaningful industry momentum, most importantly, with potential customers. As any new growth sector, our CPX business will continue to strengthen over time, with revenue expected to begin in 2027 and ramping into 2028. Finally, it is worth noting that last quarter we announced a significant win with a major hyperscaler that integrates our WaveLogic 6 Extreme coherent technology into their own platform. This solution goes well beyond the modem and combines our DSP, drivers, TIAs, and coherent expertise into a complete module that will be deployed broadly across the customer's global optical network via their own optical platform.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 10.5863,
+      "terms": [
+        "rothenstein",
+        "optical",
+        "component",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "28th Annual Needham Growth Conference Virtual",
+      "available_at": "2026-01-13T20:45:00Z",
+      "source_version_id": "2f71185e-ede2-4eca-b6f5-728fe47973b8",
+      "char_start": 30205,
+      "char_end": 31193,
+      "text": "Ryan Koontz (Managing Director and Research Analyst, Needham & Company): Yeah, and Nubis is the other big play.\nDavid Rothenstein (SVP and Chief Strategy Officer, Ciena): That is another one. So kind of beyond coherent optics on our own, which includes certainly some of our constituent components of the ASIC, DSP, our high-speed SerDes, the multi-DAC converters. We also acquired Nubis, and the thinking behind that acquisition was we believe that multiple technologies will coexist, peacefully or not, in the data center for many years to come, and we want to have a role to play across all of those. I already mentioned coherent, but what Nubis has is two sets of products that are ultra-compact, low-power electrical and optical interconnect solutions for scale-up and scale-out applications inside the data center, and so with the linear redriver, which is the optics copper cable solution that extends the reach by four times to four meters with the same low power and low latency.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 10.2458,
+      "terms": [
+        "source",
+        "driver"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 8-K filed 2026-06-04, EX-99.2",
+      "available_at": "2026-06-04T11:05:06Z",
+      "source_version_id": "aa0c507b-62dc-4f42-9024-ed73d91b98a8",
+      "char_start": 7637,
+      "char_end": 8416,
+      "text": "\u00a9 Ciena Corporation 2026. All rights reserved. Proprietary Information.8 Cloud Providers are the drivers of industry change Cloud Providers (CP) \u2013 and especially the Hyperscalers \u2013 are funding an unprecedented scale of investment Sources: Company earnings, analyst projections, 2030 projections from Dell\u2019Oro Group, and Ciena internal analysis The forecasted range of Cloud Provider CapEx is far exceeding previous estimates Cloud Provider spend has been higher than forecastedCloud Provider CapEx forecast is accelerating rapidly Forecasts have consistently underestimated Cloud Providers' CapEx Sources: Company earnings for actuals, various analysts for forecasts 0 100 200 300 400 500 600 700 2022 2023 2024 2025 2026 $B ChatGPT Launched Actual Spend Previous year\u2019s forecast",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 9.4399,
+      "terms": [
+        "optical",
+        "component",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "Status update",
+      "available_at": "2026-09-16T12:00:00Z",
+      "source_version_id": "889ad09d-3da0-4dba-8dc3-fd1c1310f8e9",
+      "char_start": 10548,
+      "char_end": 11486,
+      "text": "Marc Graff (CFO, Ciena): Last, but certainly not least, this new structure simplifies our ability to communicate with the investment community while increasing the transparency of our different segments. Specifically, we will report four segments that align to our $52 billion 2029 TAM. Optical Systems, with an estimated $21 billion TAM growing at roughly an 18% CAGR through 2029, will include our line systems WaveLogic and Waveserver systems, as well as the Navigator Network Control Suite. Our interconnects portfolio will include the coherent plugs, DCoM or Digital Coherent Module, our Nitro and Vesta products from the Nubis acquisition, as well as optical and electrical components. This segment is expected to grow at an average annual rate of 95% through 2029 to a TAM of $17 billion. Our global services segment will now include the platform software services revenue and is expected to grow 15% with a 2029 TAM of $2 billion.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 9.167,
+      "terms": [
+        "optical",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-K filed 2025-12-12",
+      "available_at": "2025-12-12T18:42:26Z",
+      "source_version_id": "0d66ab11-2a98-47fb-9839-6eaa98d605e5",
+      "char_start": 218066,
+      "char_end": 218485,
+      "text": "Total revenue by timing of revenue recognition\n$\t3,493,492\t$\t303,873\t$\t69,170\t$\t520,014\t$\t4,386,549\n\u2022Networking Platforms revenue reflects sales of Ciena\u2019s Optical Networking and Routing and Switching product lines.\n\u2022Optical Networking - includes the 6500 Packet-Optical Platform, the Waveserver\u00ae system, the 6500 Reconfigurable Line System (RLS), coherent pluggable transceivers, and other optical networking products.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 9.0794,
+      "terms": [
+        "optical",
+        "driver"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 8-K filed 2025-09-04, EX-99.2",
+      "available_at": "2025-09-04T11:02:08Z",
+      "source_version_id": "b0f25f96-697e-493b-9aad-9632ca8e10b0",
+      "char_start": 6149,
+      "char_end": 7275,
+      "text": "\u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information.9 Increasing bandwidth consumption as a driver of network expansion\n\u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information.10 Our core business is enabling investment in higher-growth markets\n\u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information.11 An industry leader #1 Globally \u2022 Data center interconnect \u2022 Optical for cloud providers \u2022 Purpose-built/compact modular DCI #1 N. America \u2022 Optical for cloud providers \u2022 Total optical networking \u2022 Optical packet #2 Globally \u2022 Total optical networking \u2022 Optical Packet Optical Transport Report, 2Q25 #1 Globally \u2022 Purpose-built/compact modular DCI \u2022 SLTE WDM #1 N. America \u2022 Total optical networking \u2022 Purpose-built/compact modular DCI #2 Globally \u2022 Total optical networking Optical Networking Report, 1Q25 #1 Globally \u2022 Purpose-built/compact modular DCI \u2022 Optical for cloud and colo \u2022 SLTE WDM #1 N. America \u2022 Total optical networking \u2022 Optical for cloud and colo \u2022 Routing/Access #2 Globally \u2022 Total optical networking Transport Hardware & Markets Preliminary Report, 2Q25",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 9.0546,
+      "terms": [
+        "optical",
+        "driver"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 8-K filed 2025-12-11, EX-99.2",
+      "available_at": "2025-12-11T12:07:39Z",
+      "source_version_id": "60f49cb5-f753-49a6-86a6-be6a7bb4de35",
+      "char_start": 6295,
+      "char_end": 7406,
+      "text": "\u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information. Industry context and addressable market expansion\n10 \u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information. Increasing bandwidth consumption as a driver of network expansion\n11 \u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information. An industry leader #1 Globally \u2022 Data center interconnect \u2022 Optical for cloud providers \u2022 Purpose-built/compact modular DCI #1 N. America \u2022 Optical for cloud providers \u2022 Total optical networking \u2022 Optical packet #2 Globally \u2022 Total optical networking Optical Transport Report, 3Q25 #1 Globally \u2022 Purpose-built/compact modular DCI \u2022 SLTE WDM #1 N. America \u2022 Total optical networking \u2022 Purpose-built/compact modular DCI #2 Globally \u2022 Total optical networking Optical Networking Report, 2Q25 #1 Globally \u2022 Purpose-built/compact modular DCI \u2022 Optical for cloud and colo \u2022 SLTE WDM \u2022 Routing/Access #1 N. America \u2022 Total optical networking \u2022 Optical for cloud and colo \u2022 Routing/Access #2 Globally \u2022 Total optical networking Transport Hardware & Markets Preliminary Report, 3Q25",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 8.9558,
+      "terms": [
+        "optical",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-Q filed 2025-09-04",
+      "available_at": "2025-09-04T20:05:56Z",
+      "source_version_id": "a9bdc6aa-ae3b-44fe-8a84-ae640f5a39cd",
+      "char_start": 77642,
+      "char_end": 77943,
+      "text": "\u2022Optical Networking sales increased by $454.1 million, primarily driven by increases in sales of our RLS as well as increases in sales of our coherent pluggables, both primarily to cloud provider customers, and our 6500 Packet-Optical Platforms, primarily to communications service provider customers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 8.9395,
+      "terms": [
+        "optical",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-Q filed 2026-09-03",
+      "available_at": "2026-09-03T19:57:02Z",
+      "source_version_id": "6ee80e39-344a-412d-8d59-fd3a8944c749",
+      "char_start": 25224,
+      "char_end": 25804,
+      "text": "\u2022Networking Platforms revenue reflects sales of Ciena\u2019s Optical Networking and Routing and Switching product lines.\n\u2022Optical Networking - includes the 6500 Packet-Optical Platform, the Waveserver\u00ae system, the 6500 Reconfigurable Line System (RLS), coherent pluggable transceivers, and other optical networking products. These products are often combined and sold as solutions that address network applications including cloud and artificial intelligence (AI) networking, datacenter interconnect, long haul, metro, submarine connectivity, and managed optical fiber networks (MOFN).",
+      "also_in": [
+        {
+          "source_version_id": "377de490-a87e-4683-9ee9-5d631279f4d5",
+          "company": "ciena",
+          "title": "CIENA CORP 10-Q filed 2026-06-04",
+          "available_at": "2026-06-04T20:06:52Z"
+        },
+        {
+          "source_version_id": "ba2791fc-9953-4378-b079-57810b13660d",
+          "company": "ciena",
+          "title": "CIENA CORP 10-Q filed 2026-03-05",
+          "available_at": "2026-03-05T21:01:51Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 8.8806,
+      "terms": [
+        "optical",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-Q filed 2025-09-04",
+      "available_at": "2025-09-04T20:05:56Z",
+      "source_version_id": "a9bdc6aa-ae3b-44fe-8a84-ae640f5a39cd",
+      "char_start": 23002,
+      "char_end": 23454,
+      "text": "\u2014\t189,253\t38,637\t365,340\t593,230\nTotal revenue by timing of revenue recognition\n$\t2,183,030\t$\t258,402\t$\t54,167\t$\t395,244\t$\t2,890,843\n\u2022Networking Platforms revenue reflects sales of Ciena\u2019s Optical Networking and Routing and Switching product lines.\n\u2022Optical Networking - includes the 6500 Packet-Optical Platform, the Waveserver\u00ae system, the 6500 Reconfigurable Line System (RLS), coherent pluggable transceivers, and other optical networking products.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 8.8806,
+      "terms": [
+        "optical",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-Q filed 2025-06-05",
+      "available_at": "2025-06-05T18:41:16Z",
+      "source_version_id": "31f684e3-ac3f-43d8-9851-ddec95bfa3c5",
+      "char_start": 22233,
+      "char_end": 22685,
+      "text": "\u2014\t124,807\t24,460\t241,405\t390,672\nTotal revenue by timing of revenue recognition\n$\t1,483,493\t$\t175,190\t$\t28,376\t$\t261,476\t$\t1,948,535\n\u2022Networking Platforms revenue reflects sales of Ciena\u2019s Optical Networking and Routing and Switching product lines.\n\u2022Optical Networking - includes the 6500 Packet-Optical Platform, the Waveserver\u00ae system, the 6500 Reconfigurable Line System (RLS), coherent pluggable transceivers, and other optical networking products.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 7.9897,
+      "terms": [
+        "optical",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-Q filed 2025-06-05",
+      "available_at": "2025-06-05T18:41:16Z",
+      "source_version_id": "31f684e3-ac3f-43d8-9851-ddec95bfa3c5",
+      "char_start": 72564,
+      "char_end": 73035,
+      "text": "\u2022Networking Platforms segment revenue increased by $204.0 million.\n\u2022Optical Networking sales increased by $245.5 million, primarily driven by increases in sales of our 6500 RLS and our coherent pluggables, both primarily to cloud provider customers, and our 6500 Packet-Optical Platforms, primarily to service provider customers. These increases were partially offset by a reduction in Waveserver revenue, primarily related to decreased sales to cloud provider customers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 7.9509,
+      "terms": [
+        "optical",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-Q filed 2025-06-05",
+      "available_at": "2025-06-05T18:41:16Z",
+      "source_version_id": "31f684e3-ac3f-43d8-9851-ddec95bfa3c5",
+      "char_start": 71266,
+      "char_end": 71741,
+      "text": "Quarter ended May 3, 2025 as compared to the quarter ended April 27, 2024\n\u2022Networking Platforms segment revenue increased by $190.1 million.\n\u2022Optical Networking products revenue increased by $213.4 million, primarily driven by increases in sales of our 6500 Reconfigurable Line Systems (\u201cRLS\u201d), our Waveserver\u00ae system, and our coherent pluggables, each primarily to cloud provider customers, and our 6500 Packet-Optical Platform primarily to communications service providers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 7.5551,
+      "terms": [
+        "optical",
+        "component",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 8-K filed 2026-03-05, EX-99.2",
+      "available_at": "2026-03-05T12:49:58Z",
+      "source_version_id": "1983c421-53c1-411c-83ac-00304c59180f",
+      "char_start": 7326,
+      "char_end": 8210,
+      "text": "\u00a9 Ciena Corporation 2026. All rights reserved. Proprietary Information. Ciena is positioned for accelerated growth\n\u00a9 Ciena Corporation 2026. All rights reserved. Proprietary Information.12 Our future growth opportunities Long-term growth in core business plus new higher-growth addressable markets provide an opportunity to outpace our traditional revenue CAGR over time In & Around the Data Center Use Cases \u2022 400G ZR, 800G ZR (WL6 Nano) and 1.6T ZR \u2022 Scale Across DC Clusters for AI Infrastructure Connectivity \u2022 Data Center Out-of-band Management (DCOM) \u2022 Coherent Lite (1.6T LR) \u2022 Components / High-speed Interconnects Inside DC \u25e6 Vesta 200 WAN Use Cases \u2022 Subsea, Long Haul, Metro Regional, Metro DCI \u2022 Network upgrades to RLS and 1.6T WL6 Extreme \u2022 Hyper-rail \u2022 Managed Optical Fiber Networks (MOFN)* * FY2026 Growth based on the midpoint of revenue guidance as of March 5, 2026",
+      "also_in": [
+        {
+          "source_version_id": "60f49cb5-f753-49a6-86a6-be6a7bb4de35",
+          "company": "ciena",
+          "title": "CIENA CORP 8-K filed 2025-12-11, EX-99.2",
+          "available_at": "2025-12-11T12:07:39Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}

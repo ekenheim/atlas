@@ -1,0 +1,336 @@
+{
+  "bank": "atlas-q05-missions-1790934754",
+  "cap": 12,
+  "llm_requests_counted": 6,
+  "llm_requests_logged": 6,
+  "skipped": [],
+  "bank_deleted_status": 200,
+  "old_template": "1.1.0",
+  "new_template": "1.2.0",
+  "sections": [
+    {
+      "name": "10-K Item",
+      "file": "tests\\fixtures\\edgar\\lumentum\\www.sec.gov\\Archives\\edgar\\data\\1633978\\000162828026057358\\lite-20260627.htm",
+      "anchor": "part-i-item-1a",
+      "section_chars": 143412,
+      "excerpt_offset": 55475,
+      "excerpt_chars": 2360,
+      "context": "Lumentum Holdings Inc. annual report (10-K) for fiscal 2026: Item 1A. Risk Factors",
+      "timestamp": "2026-08-18T00:00:00Z",
+      "old": {
+        "status": 200,
+        "template_version": "1.1.0",
+        "facts": [
+          {
+            "text": "Lumentum depends on a limited number of suppliers for raw materials, packages, and components; some are sole sources for certain materials, equipment, and components. | Involving: Lumentum Holdings Inc. | Supplier concentration is a key risk factor; alternative sources are not always feasible.",
+            "fact_type": "world",
+            "entities": [
+              "Lumentum Holdings Inc.",
+              "suppliers",
+              "raw materials"
+            ],
+            "layer_labels": []
+          },
+          {
+            "text": "Lumentum has not entered into long-term agreements with many of its suppliers and lacks guaranteed supply, though it has made advanced payments to secure orders from some suppliers. | Involving: Lumentum Holdings Inc. | Highlights lack of contractual supply security.",
+            "fact_type": "world",
+            "entities": [
+              "Lumentum Holdings Inc.",
+              "suppliers"
+            ],
+            "layer_labels": []
+          },
+          {
+            "text": "China's export controls affected the availability and price of rare earth metals and other critical minerals, adversely impacting Lumentum's operations, margins, and sales as well as its supply chain and customers. | Involving: Lumentum Holdings Inc. | Specific example of geopolitical/export control risk affecting input costs and operations.",
+            "fact_type": "world",
+            "entities": [
+              "Lumentum Holdings Inc.",
+              "China",
+              "rare earth metals",
+              "critical minerals"
+            ],
+            "layer_labels": []
+          },
+          {
+            "text": "Lumentum is exposed to risk from increasing or fluctuating market prices of certain raw materials, with past and potential future impacts from tariffs, inflation, trade restrictions, and other supply chain constraints. | Involving: Lumentum Holdings Inc. | Identifies commodity/input cost volatility as an ongoing risk factor.",
+            "fact_type": "world",
+            "entities": [
+              "Lumentum Holdings Inc.",
+              "raw materials",
+              "tariffs",
+              "trade restrictions"
+            ],
+            "layer_labels": []
+          }
+        ],
+        "fact_count": 4,
+        "chunks": 1,
+        "usage": {
+          "input_tokens": 3582,
+          "output_tokens": 609,
+          "total_tokens": 4191,
+          "cached_tokens": 3076,
+          "thoughts_tokens": 0
+        }
+      },
+      "new": {
+        "status": 200,
+        "template_version": "1.2.0",
+        "facts": [
+          {
+            "text": "Lumentum depends on a limited number of suppliers for raw materials, packages and components, some of which are sole sources, and lacks long-term agreements or guaranteed supply with many of them. | Involving: Lumentum Holdings Inc. | Identifies key supply chain dependency risk.",
+            "fact_type": "world",
+            "entities": [
+              "Lumentum Holdings Inc.",
+              "supply chain",
+              "raw materials"
+            ],
+            "layer_labels": []
+          },
+          {
+            "text": "China's export controls affected the availability and price of rare earth metals and other critical minerals for Lumentum and its supply chain and customers, adversely affecting operations, margins and sales. | Involving: Lumentum Holdings Inc. | Specific named trade-policy risk impacting materials supply and financials.",
+            "fact_type": "world",
+            "entities": [
+              "Lumentum Holdings Inc.",
+              "China",
+              "rare earth metals",
+              "critical minerals",
+              "export controls",
+              "layer:substrate"
+            ],
+            "layer_labels": [
+              "layer:substrate"
+            ]
+          },
+          {
+            "text": "Lumentum has made advanced payments to secure orders from some of these limited/sole-source suppliers but has not entered into long-term agreements with many of them. | Involving: Lumentum Holdings Inc. | Describes contracting approach to mitigate supply risk.",
+            "fact_type": "world",
+            "entities": [
+              "Lumentum Holdings Inc.",
+              "suppliers"
+            ],
+            "layer_labels": []
+          }
+        ],
+        "fact_count": 3,
+        "chunks": 1,
+        "usage": {
+          "input_tokens": 4251,
+          "output_tokens": 513,
+          "total_tokens": 4764,
+          "cached_tokens": 1793,
+          "thoughts_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "8-K exhibit",
+      "file": "tests\\fixtures\\edgar\\lumentum\\www.sec.gov\\Archives\\edgar\\data\\1633978\\000162828026055726\\lite_ex991xq4fy26.htm",
+      "anchor": "chunk-001",
+      "section_chars": 11990,
+      "excerpt_offset": 7251,
+      "excerpt_chars": 2800,
+      "context": "Lumentum Holdings Inc. 8-K exhibit 99.1, press release on fourth-quarter fiscal 2026 results",
+      "timestamp": "2026-08-11T20:24:11Z",
+      "old": {
+        "status": 200,
+        "template_version": "1.1.0",
+        "facts": [
+          {
+            "text": "Lumentum (NASDAQ: LITE) describes itself as a global leader in optical and photonic technologies for AI, cloud computing, and next-generation communications, headquartered in San Jose, California, with R&D, manufacturing, and sales facilities worldwide. | Involving: Lumentum Holdings Inc. | Company self-description establishes core business and product scope",
+            "fact_type": "world",
+            "entities": [
+              "Lumentum",
+              "NASDAQ: LITE",
+              "San Jose",
+              "California"
+            ],
+            "layer_labels": []
+          },
+          {
+            "text": "Lumentum highlights transition to optical links in data center architecture and accelerating AI demand as key market drivers and growth opportunities. | When: Q4 FY2026 (as of August 11, 2026) | Involving: Lumentum Holdings Inc. | Key forward-looking demand thesis explicitly stated by the company",
+            "fact_type": "world",
+            "entities": [
+              "Lumentum",
+              "AI",
+              "data center",
+              "optical links"
+            ],
+            "layer_labels": []
+          },
+          {
+            "text": "Lumentum's forward-looking statements are subject to risks including: macroeconomic uncertainty, geopolitical conflicts, tariffs, duties and export controls (including on certain rare earth minerals); quarter-over-quarter product mix fluctuations that materially impact profitability due to broad gross margin ranges; declining average selling prices or cost increases that compress margins; seasonality; ability to increase manufacturing capacity and ability of suppliers/contract manufacturers to meet production, quality, and delivery requirements for forecasted demand; and changes in customer demand including from inventory changes. | Involving: Lumentum Holdings Inc. | Material risk factors disclosed that could impact future results, including supply chain (rare earth minerals), manufacturing capacity constraints, and customer demand/inventory dependencies",
+            "fact_type": "world",
+            "entities": [
+              "Lumentum",
+              "rare earth minerals",
+              "supply chain",
+              "manufacturing capacity",
+              "tariffs",
+              "export controls"
+            ],
+            "layer_labels": []
+          },
+          {
+            "text": "Lumentum provides forward-looking guidance on net revenue, non-GAAP diluted earnings per share, and non-GAAP operating margin, along with a target model for revenue and stated total addressable market. | Involving: Lumentum Holdings Inc. | Indicates the financial metrics the company guides on; specific figures not provided in this chunk",
+            "fact_type": "world",
+            "entities": [
+              "Lumentum",
+              "non-GAAP operating margin",
+              "total addressable market",
+              "net revenue"
+            ],
+            "layer_labels": []
+          }
+        ],
+        "fact_count": 4,
+        "chunks": 1,
+        "usage": {
+          "input_tokens": 3655,
+          "output_tokens": 735,
+          "total_tokens": 4390,
+          "cached_tokens": 3080,
+          "thoughts_tokens": 0
+        }
+      },
+      "new": {
+        "status": 200,
+        "template_version": "1.2.0",
+        "facts": [
+          {
+            "text": "Lumentum (NASDAQ: LITE) describes itself as a global leader in optical and photonic technologies serving AI, cloud computing, and next-generation communications, delivering high-performance lasers, modules, and optical subsystems for data center connectivity, telecom, industrial manufacturing, and sensing. | Involving: Lumentum Holdings Inc. | Company self-description establishes core business and product categories for context.",
+            "fact_type": "world",
+            "entities": [
+              "Lumentum",
+              "NASDAQ: LITE",
+              "San Jose",
+              "California",
+              "layer:chip-laser",
+              "layer:module"
+            ],
+            "layer_labels": [
+              "layer:chip-laser",
+              "layer:module"
+            ]
+          }
+        ],
+        "fact_count": 1,
+        "chunks": 1,
+        "usage": {
+          "input_tokens": 4324,
+          "output_tokens": 224,
+          "total_tokens": 4548,
+          "cached_tokens": 3749,
+          "thoughts_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "transcript part",
+      "file": "tests\\fixtures\\tradingview\\view-syn-view-1001-t.json",
+      "anchor": "chunk-001",
+      "section_chars": 533,
+      "excerpt_offset": 0,
+      "excerpt_chars": 533,
+      "context": "Earnings call transcript (synthetic Atlas test fixture): the company's executives and analysts",
+      "timestamp": "2026-08-11T21:00:00Z",
+      "old": {
+        "status": 200,
+        "template_version": "1.1.0",
+        "facts": [
+          {
+            "text": "Indium phosphide laser capacity was the constraint on shipments of 1.6T transceivers in the quarter. | When: Q discussed on August 11, 2026 earnings call | Involving: Chief Executive Officer | Identifies manufacturing bottleneck affecting shipment capacity",
+            "fact_type": "world",
+            "entities": [
+              "indium phosphide",
+              "1.6T transceivers",
+              "manufacturing capacity"
+            ],
+            "layer_labels": []
+          },
+          {
+            "text": "A new indium phosphide laser line is expected to be qualified by the end of the year. | When: By end of 2026 | Involving: Chief Executive Officer | Capacity expansion intended to relieve the 1.6T transceiver shipment constraint",
+            "fact_type": "world",
+            "entities": [
+              "indium phosphide",
+              "1.6T transceivers",
+              "new line",
+              "qualification"
+            ],
+            "layer_labels": []
+          },
+          {
+            "text": "The company does not disclose the share of demand from its largest customer, but states the backlog is broad and spread across several customers. | When: As of August 11, 2026 | Involving: Chief Financial Officer | Indicates customer diversification and limits concentration risk assessment",
+            "fact_type": "world",
+            "entities": [
+              "backlog",
+              "largest customer",
+              "customer concentration"
+            ],
+            "layer_labels": []
+          }
+        ],
+        "fact_count": 3,
+        "chunks": 1,
+        "usage": {
+          "input_tokens": 3259,
+          "output_tokens": 424,
+          "total_tokens": 3683,
+          "cached_tokens": 3093,
+          "thoughts_tokens": 0
+        }
+      },
+      "new": {
+        "status": 200,
+        "template_version": "1.2.0",
+        "facts": [
+          {
+            "text": "Indium phosphide laser capacity was the constraint on shipments of 1.6T transceivers in the quarter. | When: Q discussed on August 11, 2026 | Involving: Chief Executive Officer (the company) | Identifies capacity bottleneck for a specific product",
+            "fact_type": "world",
+            "entities": [
+              "company",
+              "indium phosphide",
+              "1.6T transceivers",
+              "layer:chip-laser",
+              "layer:module"
+            ],
+            "layer_labels": [
+              "layer:chip-laser",
+              "layer:module"
+            ]
+          },
+          {
+            "text": "The new indium phosphide laser line is expected to be qualified by the end of the year. | When: Expected by end of 2026 | Involving: Chief Executive Officer (the company) | Forward-looking plan to relieve capacity constraint",
+            "fact_type": "world",
+            "entities": [
+              "company",
+              "indium phosphide",
+              "layer:chip-laser"
+            ],
+            "layer_labels": [
+              "layer:chip-laser"
+            ]
+          },
+          {
+            "text": "Company does not disclose customer concentration; backlog is described as broad and spread across several customers. | When: Q discussed on August 11, 2026 | Involving: Chief Financial Officer (the company) | Response to analyst question about largest customer share of demand",
+            "fact_type": "world",
+            "entities": [
+              "company",
+              "backlog"
+            ],
+            "layer_labels": []
+          }
+        ],
+        "fact_count": 3,
+        "chunks": 1,
+        "usage": {
+          "input_tokens": 3928,
+          "output_tokens": 488,
+          "total_tokens": 4416,
+          "cached_tokens": 1808,
+          "thoughts_tokens": 0
+        }
+      }
+    }
+  ]
+}

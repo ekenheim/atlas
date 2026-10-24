@@ -1,0 +1,574 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "export controls gallium germanium China raw materials rare supply shortage",
+  "terms": [
+    "export",
+    "control",
+    "gallium",
+    "germanium",
+    "china",
+    "raw",
+    "material",
+    "rare",
+    "supply",
+    "shortage"
+  ],
+  "companies": [
+    "coherent",
+    "lumentum"
+  ],
+  "window": {
+    "since": "2025-04-07T12:58:42+00:00",
+    "as_of": "2026-10-07T12:58:42+00:00"
+  },
+  "documents": 98,
+  "documents_skipped": {
+    "not a text document": 2,
+    "outside the window": 481
+  },
+  "requests": 112,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 34.0665,
+      "terms": [
+        "export",
+        "control",
+        "gallium",
+        "germanium",
+        "china",
+        "rare"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 83886,
+      "char_end": 84333,
+      "text": "\u2022the imposition of government controls, inclusive of critical infrastructure protection;\n\u2022changes in or limitations imposed by trade protection laws or other regulatory orders or requirements in the United States or in other countries;\n\u2022the restrictions in China on the export of indium, gallium, germanium and other rare earth metals and critical minerals; and other retaliatory responses in the trade policies of the U.S. or foreign governments;",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 31.4314,
+      "terms": [
+        "export",
+        "germanium",
+        "china",
+        "raw",
+        "material",
+        "rare",
+        "supply"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 91042,
+      "char_end": 92245,
+      "text": "Increases in commodity prices and diminished availability of rare earth minerals and noble gases may adversely affect our results of operations and financial condition.\nWe are exposed to a variety of market risks, including the effects of increases in commodity prices and diminished availability of rare earth minerals and noble gases. Our businesses purchase, produce, and sell raw materials based upon quoted market prices from minor metal exchanges. Trade disputes, geopolitical tensions, economic circumstances, or political conditions may limit our ability to obtain certain materials. Although rare earth and other materials are generally available from multiple suppliers, China is the predominant producer of certain of these materials. In 2024, China imposed export restrictions on certain rare earth minerals such as yttrium and germanium, which disrupted and may continue to disrupt global supply chains, driving up costs. The negative impact from increases in commodity prices and diminished availability of rare earth minerals and noble gases might not be recovered through our product sales, which could have a material adverse effect on our results of operations and financial condition.",
+      "also_in": [
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        },
+        {
+          "source_version_id": "5d0fea47-da41-4e49-bef7-cf15b61091ad",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-Q filed 2025-05-07",
+          "available_at": "2025-05-07T20:10:55Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 29.4432,
+      "terms": [
+        "export",
+        "control",
+        "china",
+        "raw",
+        "material",
+        "rare",
+        "supply"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 57077,
+      "char_end": 57835,
+      "text": "We are also subject to risk from increasing or fluctuating market prices of certain raw materials, which are incorporated into our end products or used by our suppliers to manufacture our end products. Supplies for such raw materials have from time to time become restricted, or general market factors and conditions have in the past affected and may in the future affect pricing of such commodities (including, in particular, due to changes in applicable tariffs, inflation, trade restrictions, or other supply chain constraints). For example, China\u2019s export controls affected the availability and price of rare earth metals and other critical minerals for us as well as our supply chain and customers, adversely affecting our operations, margins and sales.",
+      "also_in": [
+        {
+          "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+          "available_at": "2026-05-06T10:00:00Z"
+        },
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 26.9181,
+      "terms": [
+        "export",
+        "control",
+        "germanium",
+        "material",
+        "rare",
+        "supply"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 87963,
+      "char_end": 88791,
+      "text": "In the event of a disruption of our customers\u2019 supply chain, orders from our customers could decrease or be delayed.\nWe use rare earth minerals and produce and use high-purity and relatively uncommon materials and compounds to manufacture our products, including, but not limited to, ZnS, GaAs, yttrium aluminum garnet, yttrium lithium fluoride, calcium fluoride, germanium, selenium, telluride, Bi2Te3, and SiC. A significant failure of our internal production processes or our suppliers to deliver sufficient quantities of these necessary materials (including, in the case of rare earth minerals, as a consequence of their limited diminished availability or as a result of export controls on such materials) on a timely basis could have a material adverse effect on our business, results of operations, or financial condition.",
+      "also_in": [
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 26.3847,
+      "terms": [
+        "export",
+        "control",
+        "gallium",
+        "germanium",
+        "china",
+        "rare"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+      "available_at": "2026-05-06T10:00:00Z",
+      "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+      "char_start": 280983,
+      "char_end": 281948,
+      "text": "\u2022the imposition of government controls, inclusive of critical infrastructure protection;\n\u2022changes in or limitations imposed by trade protection laws or other regulatory orders or requirements in the United States or in other countries, including changes in the trade policies of the U.S. and its trading partners, heightened, scheduled, or threatened tariffs, sanctions, or other costs or requirements which may affect our ability to import or export our products from various countries or increase the cost to do so, including government action to restrict our ability to sell to foreign customers where sales of products may require export licenses (See Risk Factor entitled \u201cOur ability to sell our products to a significant customer has been restricted\u201d); the restrictions in China on the export of gallium and germanium and other rare earth metals and critical minerals; and other retaliatory responses in the trade policies of the U.S. or foreign governments;",
+      "also_in": [
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        },
+        {
+          "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+          "available_at": "2025-05-07T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 24.6638,
+      "terms": [
+        "export",
+        "control",
+        "china",
+        "material",
+        "rare",
+        "supply"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 52209,
+      "char_end": 53443,
+      "text": "Any of the effects described in this risk factor could have an adverse effect on our business, results of operations, or financial condition.\nOutside of the U.S., geopolitical escalations and retaliatory measures from various countries also have in the past, and may in the future, adversely impact business operations. Such measures include tariffs on imports of U.S. products into countries such as China, as well as China\u2019s export control measures targeting the U.S., Europe and Japan. For example, China imposed new export control measures affecting exports of rare earth metals and other critical minerals, limiting our ability to access these materials, which may limit our ability to produce products, increase our selling and/or manufacturing costs, decrease margins, reduce the competitiveness of our products, reduce customer demand for our products, or inhibit our ability to sell products or purchase necessary equipment and supplies. Similarly, China restricted exports to Japan, which affected our substrate supply chain globally. Future changes to the trade policies of the U.S. and China are impossible to predict, but further changes or escalations impacting global trade policies may continue to affect our business.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 24.3693,
+      "terms": [
+        "export",
+        "control",
+        "china",
+        "material",
+        "rare",
+        "supply"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+      "available_at": "2026-05-06T10:00:00Z",
+      "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+      "char_start": 248612,
+      "char_end": 249548,
+      "text": "Outside of the U.S., retaliatory measures from various countries also have in the past, and may in the future, adversely impact business operations. Such measures include tariffs on imports from the U.S. into countries such as China, as well as export control measures. For example, China imposed new export control measures affecting exports of rare earth metals and other critical minerals, limiting our ability to access these materials, which may limit our ability to produce products, increase our selling and/or manufacturing costs, decrease margins, reduce the competitiveness of our products, reduce customer demand for our products, or inhibit our ability to sell products or purchase necessary equipment and supplies. Additional changes to the trade policies of the U.S. and China are impossible to predict, and further changes or escalations in the trade policies of one or both countries may continue to affect our business.",
+      "also_in": [
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 21.9312,
+      "terms": [
+        "export",
+        "control",
+        "china",
+        "rare"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-Q filed 2026-02-04",
+      "available_at": "2026-02-04T21:06:11Z",
+      "source_version_id": "86715055-3d84-4a78-bcbd-e33b9954781c",
+      "char_start": 86458,
+      "char_end": 87193,
+      "text": "See Note 18. Assets Held-for-Sale and Sale of Business for further information.\nMacroeconomic Conditions - Tariffs and Export Controls\nIn early 2025, the United States implemented significant new tariffs and export restrictions affecting a broad range of countries, commodities and industries. These actions have prompted retaliatory measures from certain foreign governments, including the imposition of tariffs and export controls. As of December 2025, while some of these measures have been delayed, a number of the new tariffs remain in effect, including substantial trade sanctions between the United States and China. China has imposed restrictions on the export of certain rare earth minerals which are critical to our products.",
+      "also_in": [
+        {
+          "source_version_id": "845c9792-c06a-4929-a565-57cfb41bbb5d",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T21:16:03Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 20.5166,
+      "terms": [
+        "export",
+        "control",
+        "raw",
+        "material",
+        "rare",
+        "supply"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 116759,
+      "char_end": 118171,
+      "text": "We cannot predict what actions may be taken with respect to export regulations, tariffs, or other trade regulations between the United States and other countries, what products or companies may be subject to such actions, or what actions may be taken by other countries in retaliation. Further changes in trade policy, tariffs, restrictions on exports or other trade barriers, or restrictions on supplies, equipment, and raw materials including rare earth minerals, may limit our ability to produce products, increase our selling and/or manufacturing costs, decrease margins, reduce the competitiveness of our products, or inhibit our ability to sell products or purchase necessary equipment and supplies. For example, increasing geopolitical tensions could result in new export controls associated with products that support or enable AI or data center infrastructure applications which could, in turn, restrict future sales of certain products to certain markets in which we operate. Such changes may also result in reputational harm to us, the development or adoption of technologies that compete with our products, long-term changes in global trade and technology supply chains, or negative impacts on our customers\u2019 products which incorporate our solutions. Any of the effects described in this risk factor could have a material adverse effect on our business, results of operations, or financial condition.",
+      "also_in": [
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 19.8149,
+      "terms": [
+        "raw",
+        "material",
+        "supply",
+        "shortage"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+      "available_at": "2025-05-07T10:00:00Z",
+      "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+      "char_start": 225509,
+      "char_end": 226634,
+      "text": "We continue to work with our suppliers to ensure that we are able to continue manufacturing and distributing our products, and in the quantities requested by our customers. Any disruption in the supply of the raw materials, packaging or components used in the manufacture and delivery of our products could have a material and adverse impact on our business, financial condition and results of operations. Limits on manufacturing availability or capacity, delays in production or delivery of components or raw materials, or effects associated with heightened, scheduled or threatened tariffs affecting our components or raw materials, could delay or inhibit our ability to obtain supply of components and produce finished goods inventory, and there can be no assurance that the supply chain impacts will not reoccur in the future. These supply chain constraints and their related challenges could result in shortages, increased material costs or use of cash, engineering design changes, and delays in new product introductions, each of which could adversely impact our business, results of operations and financial condition.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 18.1667,
+      "terms": [
+        "export",
+        "control",
+        "china",
+        "supply"
+      ],
+      "company": "lumentum",
+      "title": "Deutsche Bank 2026 Technology Conference",
+      "available_at": "2026-08-27T17:45:00Z",
+      "source_version_id": "8fa77c52-b711-4328-b150-338a049e40ba",
+      "char_start": 36051,
+      "char_end": 36445,
+      "text": "Gianmarco Conti (Head of Hardware Equity Research, Deutsche Bank): So perhaps, can you give us a bird's eye view on both the upside and downside risks around China, whether that is in the form of the supply chain or export control restrictions that could potentially cut Chinese module makers' exports, which would make the Western module and merchant makers left with potentially added demand?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 18.0785,
+      "terms": [
+        "export",
+        "control",
+        "china",
+        "rare"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+      "available_at": "2025-05-07T10:00:00Z",
+      "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+      "char_start": 205061,
+      "char_end": 206506,
+      "text": "Regulatory activity, such as tariffs, export controls, and economic sanctions laws have in the past and may continue to materially limit our ability to make sales to customers in China, which have in the past and may continue to harm our results of operations and financial condition. In February 2025, the U.S. imposed an additional 10% tariff on virtually all imports from China, which was subsequently increased to 20% in March 2025; an additional reciprocal tariff of 125% on most imports from China followed in April 2025. While certain products may be exempted at this time from certain of these tariffs (e.g. semiconductors and computers), the full impact of these tariff measures on our business is uncertain. Further, U.S. government investigations are currently underway that may result in new tariffs on certain products, including semiconductors, computers, and other products derivative of critical minerals. China has recently imposed tariffs on imports onto China from the U.S. and imposed new export controls affecting exports of rare earth metals and other critical minerals; and our business may be materially and adversely impacted by these measures or by retaliatory trade measures taken by China or other countries. Additional changes to the trade policies of the U.S. and China are impossible to predict, and further changes or escalations in the trade policies of one or both countries may continue to affect our business.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 17.7409,
+      "terms": [
+        "export",
+        "china",
+        "rare"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+      "available_at": "2025-12-16T21:05:10Z",
+      "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+      "char_start": 50512,
+      "char_end": 51133,
+      "text": "Macroeconomic Conditions - Tariffs\nIn early 2025, the United States implemented significant new tariffs on foreign imports impacting multiple countries, commodities and industries, and these new tariffs and export restrictions also prompted retaliatory tariffs and export restrictions from certain countries. As of June 2025, certain tariffs and retaliatory tariffs have been delayed, but a number of the new tariffs remain in effect, including significant tariffs and trade sanctions between the United States and China. China has also restricted the export of certain rare earth minerals which are used in our products.",
+      "also_in": [
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 17.6087,
+      "terms": [
+        "raw",
+        "material",
+        "rare",
+        "supply"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+      "available_at": "2025-12-16T21:05:10Z",
+      "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+      "char_start": 11375,
+      "char_end": 12569,
+      "text": "Sources of Supply\nIn our production processes, we use numerous optical, electrical, and mechanical parts that are sourced from third-party suppliers. These include ICs, DSPs, mechanical housings, and optical components, and we commonly refer to them as raw materials. Raw materials or subcomponents required in the manufacturing process are generally available from several sources. However, in the Industrial segment, we currently purchase several key components and materials used in the manufacture of our products, including exotic materials, crystals, and optics, from sole-source or limited-source suppliers. We also purchase assemblies and turnkey solutions from contract manufacturers, based on our proprietary designs. We rely on our own production and design capability to manufacture and specify certain strategic components, crystals, fibers, semiconductor lasers, and laser-based systems. We use rare-earth materials in some of our production processes. Like with other materials, we are constantly working to strengthen and diversify our supply chain for resilience. These strategies include maintaining additional buffer stocks and securing multiple sources to ensure resilience.",
+      "also_in": [
+        {
+          "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2026-08-14",
+          "available_at": "2026-08-14T12:10:05Z"
+        },
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 17.3633,
+      "terms": [
+        "raw",
+        "material",
+        "supply",
+        "shortage"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+      "available_at": "2025-08-19T21:09:47Z",
+      "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+      "char_start": 15901,
+      "char_end": 16646,
+      "text": "Our supply chain is complex, and we need to manage supply of certain components required to build our products while confronted with fluctuating demand from our customers. Our business and our customers\u2019 businesses were negatively impacted by worldwide logistics and supply chain issues during and following the COVID-19 pandemic, including constraints on available cargo capabilities and limited availability of once broadly available supplies of both raw materials and finished components. From time to time, we experience shortages of the types of components we and our customers require in our products, and we have had to incur incremental supply and procurement costs in order to increase our ability to fulfill demands from our customers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 17.3048,
+      "terms": [
+        "raw",
+        "material",
+        "supply",
+        "shortage"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+      "available_at": "2025-08-19T21:09:47Z",
+      "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+      "char_start": 207594,
+      "char_end": 208377,
+      "text": "Supply Chain and Inventory Management\nOur supply chain is complex, and we need to manage supply of certain components required to build our products while confronted with fluctuating demand from our customers. Our business and our customers\u2019 businesses were negatively impacted by worldwide logistics and supply chain issues during and following the COVID-19 pandemic, including constraints on available cargo capabilities and limited availability of once broadly available supplies of both raw materials and finished components. From time to time, we experience shortages of the types of components we and our customers require in our products, and we have had to incur incremental supply and procurement costs in order to increase our ability to fulfill demands from our customers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 16.812,
+      "terms": [
+        "raw",
+        "material",
+        "supply",
+        "shortage"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+      "available_at": "2025-05-07T10:00:00Z",
+      "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+      "char_start": 143532,
+      "char_end": 144360,
+      "text": "Supply Chain and Inventory Management\nOur business and our customers\u2019 businesses were negatively impacted by worldwide logistics and supply chain issues during the COVID-19 pandemic, including constraints on available cargo capabilities and limited availability of once broadly available supplies of both raw materials and finished components. COVID-19 also created dynamics in the semiconductor component supply chains that have led to shortages of the types of components we and our customers require in our products. Although the supply chain constraints started to improve in the latter half of fiscal 2023, we felt its ongoing effects in fiscal 2024, as described below. From time to time, we have had to incur incremental supply and procurement costs in order to increase our ability to fulfill demands from our customers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 15.9934,
+      "terms": [
+        "export",
+        "china",
+        "rare"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-Q filed 2025-05-07",
+      "available_at": "2025-05-07T20:10:55Z",
+      "source_version_id": "5d0fea47-da41-4e49-bef7-cf15b61091ad",
+      "char_start": 88394,
+      "char_end": 89202,
+      "text": "In fiscal 2023, the acceleration of these activities resulted in $20 million in charges primarily for employee termination costs, the write-off of inventory for products that are being exited and shut down costs.\nTariffs\nIn early 2025, the United States implemented significant new tariffs on foreign imports impacting multiple countries, commodities and industries, and these new tariffs and export restrictions also prompted retaliatory tariffs and export restrictions from certain countries. As of April 2025, certain tariffs and retaliatory tariffs have been delayed, but a number of the new tariffs remain in effect, including significant tariffs and trade sanctions between the United States and China. China has also restricted the export of certain rare earth minerals which are used in our products.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 15.8231,
+      "terms": [
+        "export",
+        "control",
+        "raw",
+        "material"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-Q filed 2026-05-06",
+      "available_at": "2026-05-06T20:10:46Z",
+      "source_version_id": "5d690313-f983-4678-bcc3-a93b0bb6d736",
+      "char_start": 94269,
+      "char_end": 95302,
+      "text": "See Note 7. Assets Held-for-Sale and Sale of Business for further information.\nMacroeconomic Conditions - Tariffs and Export Controls\nIn early 2025, the United States implemented significant new tariffs and export restrictions affecting a broad range of countries, commodities and industries. These actions have prompted retaliatory measures from certain foreign governments, including the imposition of tariffs and export controls. On February 20, 2026, the U.S. Supreme Court ruled that tariffs imposed under the International Emergency Economic Powers Act (\u201cEEPA\u201d) were not authorized by the statute. The Company is the importer of record for certain raw materials and products that were previously subject to such tariffs under IEEPA. Significant uncertainty remains regarding how and when any amounts may be recovered. We are evaluating the ruling and potential actions available to us. Because the process, timing, and amount of any recovery are uncertain, we have not recorded any potential benefit from a refund at this time.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 15.8086,
+      "terms": [
+        "export",
+        "china",
+        "raw",
+        "supply"
+      ],
+      "company": "coherent",
+      "title": "Status update",
+      "available_at": "2026-03-17T20:00:00Z",
+      "source_version_id": "ddc57678-3fcf-4929-98af-a0c8d4768544",
+      "char_start": 66749,
+      "char_end": 67331,
+      "text": "Meta Marshall (Managing Director, Morgan Stanley): That's good.\nMatthew Niknam (Director and Equity Research, Deutsche Bank): Hi. Matthew Niknam from Deutsche Bank. You're expanding indium phosphide capacity, but the raw indium feedstock is roughly 70% sourced from Chinese zinc smelters, which are now subject to export permit requirements with multi-month processing times. I guess my question is, how much visibility do you have on indium supply for the next 12-24 months? And are you actively diversifying sourcing away from China or do you hold strategic inventory as a buffer?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}

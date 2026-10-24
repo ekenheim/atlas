@@ -1,0 +1,145 @@
+# Archive-search baseline
+
+- **Question:** permits United States shipments backlog permit approval Q2 2026 indium phosphide revenue
+- **Terms:** permit, united, state, shipment, backlog, approval, q2, 2026, indium, phosphide, revenue
+- **Companies:** axt
+- **Window:** 2025-04-07 to 2026-10-07
+- **Documents searched:** 36 (skipped: {'not a text document': 1, 'outside the window': 7})
+- **Repeats:** 6 of 20 hits are also in other documents, word for word or with small edits; each is one hit, and its other documents count as that hit
+
+The reviewer marks each hit on-question or not (at most 10 on-question).
+
+## 1. Q2 2025
+
+axt, available 2025-07-31, version `c91733c3-8793-4bb3-9e13-e0b9b7b72b65` [8418, 9187); score 21.8683; terms: permit, backlog, q2, indium, phosphide, revenue
+
+> Morris Young (CEO, AXT): About half our revenue shortfall in Q2 was the result of this factor. On a positive note, the pace of permits in the month of July has improved meaningfully, mostly on small orders, but this improvement is good news, and we do expect gallium arsenide revenue to grow sequentially. We're pleased to be granted our first permit for indium phosphide in late June, and we were able to ship nearly $700,000 of material for our non-China backlog in indium phosphide in Q2. Although the process for indium phosphide has been a bit slower than we expected as well, we have received additional permits in July and expect to see more over the coming month. Based on the pace so far, we're taking a conservative view of the timing of larger permits in Q3.
+
+## 2. Q1 2026
+
+axt, available 2026-04-30, version `62d67d91-e77d-4012-8dad-4550d2379fcc` [10695, 11471); score 20.1108; terms: permit, backlog, q2, indium, phosphide, revenue
+
+> Morris Young (Co-Founder, CEO, and Chairman, AXT): We're excited to be able to demonstrate the technological advantage of our low EPD wafers as the market moves to optical devices with higher speeds and greater sophistication for both scale up and scale out applications. Now turning to Q1. Export permits in our first quarter came in as slightly better than our guidance and are off to a solid start in Q2. Gary will take you through our full guidance in a few minutes, but we're expecting to achieve sequential revenue growth in Q2, driven primarily by growth in Indium Phosphide. In fact, Q2 will be expected to be our largest quarter for Indium Phosphide in AXT's history. This derives from an Indium Phosphide backlog that has now reached a new high of over $100 million.
+
+## 3. Q1 2025
+
+axt, available 2025-05-01, version `c89206de-2ca0-435e-b590-694605ac5304` [16755, 17838); score 19.707; terms: permit, shipment, backlog, q2, indium, phosphide, revenue
+
+> Gary Fischer (VP and CFO, AXT): Thank you, Morris. In keeping with our comments today, we believe Q2 revenue will be in the range of $20.0 million-$22.0 million. This guidance range excludes any contribution from Indium Phosphide for our customers outside of China in Q2.
+> Gary Fischer (VP and CFO, AXT): Once we do receive permits, we have several million dollars of Indium Phosphide backlog that we would be able to ship, most likely in Q3. We do feel encouraged that even without these shipments, we are in a good position to grow our business sequentially. As Morris mentioned, this is due to our success in optimizing emerging opportunities to grow our business in China across all of our product categories. While we do not normally give gross margin guidance, we do believe that we can see a recovery on our gross margin to around 10% in Q2 based on manufacturing improvements. We also believe that production volume growth in the second half, coupled with continued yield improvements this year, will allow us to drive continued gross margin recovery for the rest of the year.
+
+## 4. Q1 2025
+
+axt, available 2025-05-01, version `c89206de-2ca0-435e-b590-694605ac5304` [26924, 27411); score 19.6741; terms: permit, shipment, q2, 2026, indium, phosphide
+
+> Tim Bettles (VP of Business Development, AXT): From a timing perspective, we see that the first permits come through end of Q2, as we've said. From a guidance perspective, we haven't included Indium Phosphide shipment outside of China in our Q2 numbers. We believe it's better to be conservative until we have more clarity on this timing. What you'll see is you'll see we still see that market trend going, increasing to about 20%. We believe we'll be able to capture that fully in 2026.
+
+## 5. Q1 2025
+
+axt, available 2025-05-01, version `c89206de-2ca0-435e-b590-694605ac5304` [22575, 23166); score 19.0945; terms: permit, q2, indium, phosphide, revenue
+
+> Morris Young (CEO, AXT): It's a mixed product of, for instance, Indium Phosphide. For the first quarter, we had one month of Indium Phosphide revenue of January. The restriction was coming on February 4, and we cannot deliver any after that. The Q2 guidance is taking into account that we do not have any outside of China Indium Phosphide permit, and that will hit our margins as well compared to Q1. If we can secure any permit on Indium Phosphide, then that can improve our gross margin. We are taking a more conservative view of making that estimate of what our product mix will be in Q2.
+
+## 6. Q3 2025
+
+axt, available 2025-10-30, version `bbdbeca7-4ff1-4110-9965-49eeb57596b6` [17795, 18748); score 18.727; terms: permit, backlog, approval, indium, phosphide
+
+> Tim Bettles (VP of Business Development, AXT): Yeah, thank you, Charles. We have, as you said, a $49 million backlog. That includes customers that have previously received permits and customers that are still in the permit phase for the first permit as we go through. Everybody that has previously received a permit has typically received subsequent permits from there. There's a lot of confidence in getting further permits as we move forward through this. People are placing orders into that backlog with the understanding that the confidence levels of receiving permits are high, especially for Indium Phosphide. As we look forward and as we look at that backlog, all of the orders that we've received and put into backlog have permit applications in place so far. We manage that backlog and those permit applications, and we manage the manufacturing process so that we can combine the expected permit approval time with the finishing of the product.
+
+## 7. Q2 2025
+
+axt, available 2025-07-31, version `c91733c3-8793-4bb3-9e13-e0b9b7b72b65` [22314, 23097); score 16.9703; terms: permit, backlog, indium, phosphide, revenue
+
+> Tim Bettles (VP of Business Development, AXT): Once we start getting these orders, these permits come through, I'm sure we're going to see more demand coming our way.
+> Tim Savageaux (Managing Director and Senior Research Analyst, Northland Capital Markets): Okay, thanks. Just to follow up, I think you mentioned the $10 million backlog for both indium phosphide and gallium arsenide. I guess looking at the shortfall in the quarter, I think you said half of that was gallium arsenide export. Should we infer from that that the majority, not the vast majority, of that backlog is indium phosphide? Without the permits, could you ship all that this quarter? How quickly do you think you can get back to $10 million or get to $10 million a quarter in indium phosphide substrate revenue?
+
+## 8. AXT INC 8-K filed 2026-06-22, EX-99.1
+
+axt, available 2026-06-22, version `656b76c5-3eaa-49f1-9f13-c1f2f0902eb0` [5174, 5860); score 16.9564; terms: permit, united, state, approval, indium, phosphide
+
+Also in 6 other documents: AXT INC 8-K filed 2026-02-19, EX-99.1; AXT INC 8-K filed 2026-01-09, EX-99.1; AXT INC 8-K filed 2025-10-30, EX-99.1; AXT INC 8-K filed 2025-07-31, EX-99.1; AXT INC 8-K filed 2025-07-09, EX-99.1; AXT INC 8-K filed 2025-05-01, EX-99.1
+
+> These uncertainties and factors include but are not limited to: the receipt of export permits to export indium phosphide wafers from China, as well as our other wafer products, and the timing of such export permit approvals, the requests for redemptions by private equity funds in China of investments in Tongmei, the administrative challenges in satisfying the requirements of various government agencies in China in connection with the listing of shares of Tongmei on the STAR Market, continued open access to companies to list shares on the STAR Market, investor enthusiasm for new listings of shares on the STAR Market and geopolitical tensions between China and the United States. 
+
+## 9. Q2 2026
+
+axt, available 2026-07-30, version `2592cbda-a8bc-4d3f-a8df-9095fc02a6a5` [2710, 3610); score 16.8041; terms: q2, 2026, indium, phosphide, revenue
+
+> Gary Fischer (CFO, AXT): Thank you, Leslie, and good afternoon to everyone. Our Q2 financial results highlight an exciting inflection in our business trajectory and the beginnings of a multi-year growth phase for AXT. Revenue for the second quarter of 2026 is $47.6 million. This is the highest quarterly revenue in AXT's history, up nearly 77% from $26.9 million in the first quarter and up 164% from $18.0 million in the second quarter of 2025. To break down our Q2 2026 revenue for you by product category, indium phosphide was $30.7 million, also the highest in our company's history. Let me repeat that. Indium phosphide was $30.7 million, also the highest in our company's history, primarily from data center applications. Gallium arsenide was $6.6 million. Germanium substrates were $272,000. Finally, revenue from our consolidated raw material joint venture companies in Q2 was $10.0 million.
+
+## 10. Q3 2025
+
+axt, available 2025-10-30, version `bbdbeca7-4ff1-4110-9965-49eeb57596b6` [14572, 15442); score 16.651; terms: permit, backlog, indium, phosphide, revenue
+
+> Gary Fischer (CFO, AXT): In addition, we believe there's an incremental $7-$10 million in Indium Phosphide and Gary Fischer backlog, which is currently in our manufacturing process, for which we believe we may be able to ship in Q4 if we are awarded permits. Of course, timing of permits is not within our control, but we believe we are in a similar or slightly better position in terms of customer order backlog and permit submissions than we were at this same point in the prior quarter. With that as a background, we believe we have the capability to achieve revenue in the range of $27-$30 million in Q4, subject to the caveats I just mentioned. This takes into consideration approximately flat sequential revenue contribution from Germanium substrates and raw materials, with incremental growth in Q4 likely coming from Indium Phosphide and Gary Fischer substrates.
+
+## 11. AXT INC 10-Q filed 2025-11-13
+
+axt, available 2025-11-13, version `d6aa4dd3-0b65-4113-8d39-86024d06f754` [126006, 127154); score 16.2057; terms: permit, shipment, indium, phosphide
+
+Also in 1 other document: AXT INC 10-Q filed 2025-08-13
+
+> On February 4, 2025, China added indium phosphide substrates to its export control list. As a result, the three wafer substrate product families manufactured by Tongmei all require permits from China’s Ministry of Commerce before they can be exported from China. The portal to apply for exports of indium phosphide from China opened in March and we immediately began to submit our applications. On June 11, Tongmei was informed that it has satisfied the applicable requirements for a permit to export indium phosphide and received its initial export permits from the Ministry of Commerce of the People’s Republic of China to resume shipping indium phosphide substrates to certain customers in Europe and Japan. More recently, we have also obtained export permits for indium phosphide shipments to the UK and Canada. To our knowledge, indium phosphide is rarely used in military applications and we can reasonably expect that export permits to ship our indium phosphide substrates to the U.S. will be granted. However, the timing for receiving permits remains uncertain. We are actively monitoring and following up on the status of our applications.
+
+## 12. AXT INC 10-Q filed 2025-11-13
+
+axt, available 2025-11-13, version `d6aa4dd3-0b65-4113-8d39-86024d06f754` [270857, 272158); score 16.0244; terms: permit, shipment, indium, phosphide
+
+> On February 4, 2025, China added indium phosphide substrates to its export control list. As a result, the three wafer substrate product families manufactured by Tongmei all require permits from China’s Ministry of Commerce before they can be exported from China. To our knowledge, indium phosphide is rarely used in military applications and we can reasonably expect that export permits to ship our indium phosphide substrates to the U.S. will be granted. The portal to apply for exports of indium phosphide from China opened in March and we immediately began to submit our applications. On June 11, Tongmei was informed that it has satisfied the applicable requirements for a permit to export indium phosphide and received its initial export permits from the Ministry of Commerce of the People’s Republic of China to resume shipping indium phosphide substrates to certain customers in Europe and Japan. More recently, we have also obtained export permits for indium phosphide shipments to the UK and Canada. However, the timing for when permits will be granted remains uncertain and we are unable to estimate when we will receive the necessary export permits to resume shipping our indium phosphide substrates to the U.S. We are actively monitoring and following-up on the status of our applications.
+
+## 13. AXT INC 8-K filed 2025-10-30, EX-99.1
+
+axt, available 2025-10-30, version `0970160f-7992-46fc-a230-cb98041dc3ae` [386, 1361); score 15.9305; terms: permit, backlog, 2026, indium, phosphide, revenue
+
+> Management Qualitative Comments
+> “This has been a highly active time for our business with the strong uptick in indium phosphide demand from data center applications globally,” said Morris Young, chief executive officer. “In Q3, our indium phosphide revenues grew more than 250 percent sequentially and reached a three-year high as we obtained export permits for a number of significant indium phosphide orders throughout the quarter. In addition, we continue to build healthy backlog for both indium phosphide and gallium arsenide materials as our industry and our customers adapt to a new normal within a rapidly changing environment. We remain highly focused on our efforts to drive gross margin recovery and expansion, operating expense discipline, and inventory reduction. With strong, ongoing market trends fueling the data center upgrade cycle, we believe we have tremendous opportunity in 2026 to drive meaningful growth in our business and a return to profitability.”
+
+## 14. AXT INC 10-Q filed 2026-08-13
+
+axt, available 2026-08-13, version `3364bc17-cd96-4690-9225-4f9def113373` [91567, 92589); score 15.8576; terms: permit, united, state, approval, indium, phosphide, revenue
+
+Also in 1 other document: AXT INC 10-Q filed 2026-05-14
+
+> Our forward-looking statements are based upon assumptions that are subject to uncertainties and factors relating to the Company’s operations and business environment, which could cause actual results to differ materially from those expressed or implied in the forward-looking statements contained in this Quarterly Report on Form 10-Q. These uncertainties and factors include, but are not limited to: the receipt of export permits to export indium phosphide wafers from China, as well as our other wafer products, and the timing of such export permit approvals, the withdrawal, cancellations or requests for redemptions by private equity funds in China of their investments in Tongmei, revenues from long-term supply agreements with customers, Tongmei's intended IPO application on the Hong Kong Stock Exchange, the administrative challenges in satisfying the requirements of various government agencies in China in connection with the investments in Tongmei and geopolitical tensions between China and the United States. 
+
+## 15. AXT INC 10-Q filed 2026-08-13
+
+axt, available 2026-08-13, version `3364bc17-cd96-4690-9225-4f9def113373` [274250, 275603); score 15.4658; terms: permit, united, state, indium, phosphide, revenue
+
+> Consequently, we do not believe that the revisions will have any additional material adverse effects on our wafer substrate products beyond the current restrictions and licensing requirement. However, with the Foreign Trade Law’s enhanced power over import and export prohibitions and restrictions, no assurances can be given that additional restrictions will not be imposed in the future. The fluidity of the export permit requirements presents an ongoing lack of certainty for us and for our customers. To our knowledge, indium phosphide is rarely used in military applications and we can reasonably expect that export permits to ship our indium phosphide substrates to the U.S. will eventually be granted. But the timing for receiving permits remains uncertain, unclear and beyond our control. Further, we consider the effects of geopolitical uncertainties between the United States and the People's Republic of China to be a risk. Obtaining export permits for the sale of our indium phosphide substrates on a timely basis may result in a mismatch between our receipt of purchase orders for indium phosphide substrates and the recognition of revenue under U.S. GAAP which may have a material adverse effect on our business, financial condition, and results of operations. We are actively monitoring and following up on the status of our applications.
+
+## 16. AXT INC 8-K filed 2025-07-09, EX-99.1
+
+axt, available 2025-07-09, version `8b8ffe4e-a722-4635-a2cf-c058a5de16c2` [1125, 1976); score 15.1373; terms: permit, q2, indium, phosphide, revenue
+
+> “Though we continue to feel confident about our participation in a number of exciting technology trends, the current geopolitical environment remains challenging across our business,” said Morris Young, chief executive officer. “Further, the demand environment in China has been weaker than expected for our gallium arsenide substrate business, as well as our consolidated raw material joint ventures. That said, we saw a meaningful increase in AI-related demand for indium phosphide in China during Q2 and were also pleased that our subsidiary, Beijing Tongmei Xtal Technology Co., (“Tongmei”), received its first export control permits for indium phosphide late in the quarter. In addition, we remain highly focused on gross margin improvement and despite the revenue shortfall, we expect to deliver Q2 2025 gross margins in the high single digits.”
+
+## 17. Q2 2026
+
+axt, available 2026-07-30, version `2592cbda-a8bc-4d3f-a8df-9095fc02a6a5` [10057, 10971); score 15.1003; terms: backlog, q2, indium, phosphide, revenue
+
+> Morris Young (CEO, AXT): Third, our customers are moving to larger diameter substrates and higher value products, resulting in favorable pricing trends. The combination of these factors is driving a step function increase in our revenue in Q2. We recorded our highest quarterly revenue and highest indium phosphide revenue in our history, with backlog that continues to grow and now is well over $100 million. Customer demand continues to outpace supply, no matter how fast we add capacity. Broadly, the deployment of optical connectivity in AI data center is accelerating as hyperscalers scale GPU dense architectures and look for higher speed, lower power photonics to move data more efficiently. In the near term, we're seeing high demand from the industry migration to 800G and 1.6T transceivers modules, for which indium phosphide-based lasers and detectors are essential for higher performance optical links.
+
+## 18. AXT INC 10-Q filed 2026-05-14
+
+axt, available 2026-05-14, version `69b18159-187a-4fd4-b12f-9b29cda9c74d` [108213, 109644); score 15.0744; terms: permit, backlog, indium, phosphide
+
+Also in 1 other document: AXT INC 10-Q filed 2026-08-13
+
+> On February 4, 2025, China added indium phosphide substrates to its export control list. As a result, the three wafer substrate product families manufactured by Tongmei all require permits from China’s Ministry of Commerce before they can be exported from China. InP export permits represent the most significant challenge we currently face. The portal to apply for exports of indium phosphide from China opened in March 2025 and we immediately began to submit our applications. On June 11, 2025, Tongmei was informed that it had satisfied the applicable requirements for a permit to export indium phosphide and received its initial export permits from the Ministry of Commerce of the People’s Republic of China to resume shipping indium phosphide substrates to certain customers in Europe and Japan. While we continue to receive permits, we have a backlog of orders for which we have not yet received permits and as of the date of this report we still cannot predict when a permit application will be reviewed and approved. The fluidity of the export permit requirements and ongoing lack of surety creates anxiety for us and for our customers. To our knowledge, indium phosphide is rarely used in military applications and we can reasonably expect that export permits to ship our indium phosphide substrates to the U.S. will be granted. However, the timing for receiving permits remains uncertain, unclear and beyond our control. 
+
+## 19. AXT INC 10-Q filed 2025-11-13
+
+axt, available 2025-11-13, version `d6aa4dd3-0b65-4113-8d39-86024d06f754` [124007, 125498); score 14.5964; terms: united, state, indium, phosphide, revenue
+
+Also in 2 other documents: AXT INC 10-Q filed 2025-08-13; AXT INC 10-Q filed 2025-05-14
+
+> In late 2024 and early 2025, a new round of trade restrictions was announced by China and the United States. On December 3, 2024, China issued further rules restricting exports of materials that can typically be used in military applications including antimony, gallium, germanium and other superhard materials. The effective date was December 3, 2024, the same day as the announcement itself. Reciprocally, the United States increased tariffs on many items from China from 25% to 50%, effective January 1, 2025. On February 1, 2025, the United States again further increased the tariff on imports of many products from China, including our wafer substrates, to 60%. On March 4, 2025, the United States further increased the tariff on imports of many products, including our wafer substrates, to 70%. In the first half of April 2025, we observed high volatility in tariffs put in place by the United States. At least four separate tariffs were imposed by the United States on products from China. Tariffs on our products increased to 100%. In 2024, 8% of our total worldwide revenue was from sales in North America, primarily in the U.S. Indium phosphide substrates are the primary revenue generator derived from imports into the U.S. This revenue has been impacted by additional tariffs imposed by the United States and by export controls implemented by China. As such, in the third quarter of 2025, only approximately 1% of our revenue was generated by sales to customers in North America.
+
+## 20. AXT INC 10-Q filed 2026-08-13
+
+axt, available 2026-08-13, version `3364bc17-cd96-4690-9225-4f9def113373` [148113, 149468); score 13.0545; terms: permit, indium, phosphide, revenue
+
+Also in 4 other documents: AXT INC 10-Q filed 2026-05-14; AXT INC 10-K filed 2026-03-17; AXT INC 10-Q filed 2025-11-13; AXT INC 10-Q filed 2025-08-13
+
+> Previously, as of August 1, 2023, Tongmei was required to secure permits from the applicable Chinese authorities to export gallium arsenide and germanium substrates. Materials that could be used in military applications, specifically including weapons of mass destruction, are the primary focus. We have little or no germanium imports into the U.S. and historically a relatively small value of imports of gallium arsenide wafers into the U.S. Our primary revenue generator derived from imports into the U.S. is indium phosphide substrates. In 2024, approximately 8% of our revenue was generated by sales to customers in the U.S. On February 4, 2025, China added indium phosphide substrates to its export control list. As a result, the three wafer substrate product families manufactured by Tongmei all require permits from China’s Ministry of Commerce before they can be exported from China. The portal to apply for exports of indium phosphide from China opened in March 2025 and we immediately began to submit our applications. On June 11, 2025, Tongmei was informed that it had satisfied the applicable requirements for a permit to export indium phosphide and has received its initial export permits from the Ministry of Commerce of the People’s Republic of China to resume shipping indium phosphide substrates to certain customers in Europe and Japan. 

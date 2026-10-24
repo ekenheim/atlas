@@ -1,0 +1,444 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "substrate supply JX IQE qualifying suppliers indium phosphide wafers answer",
+  "terms": [
+    "substrate",
+    "supply",
+    "jx",
+    "iqe",
+    "qualifying",
+    "supplier",
+    "indium",
+    "phosphide",
+    "wafer",
+    "answer"
+  ],
+  "companies": [
+    "ciena",
+    "lumentum",
+    "coherent"
+  ],
+  "window": {
+    "since": "2025-04-07T14:09:44+00:00",
+    "as_of": "2026-10-07T14:09:44+00:00"
+  },
+  "documents": 132,
+  "documents_skipped": {
+    "not a text document": 3,
+    "outside the window": 495
+  },
+  "requests": 151,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 57.1684,
+      "terms": [
+        "substrate",
+        "supply",
+        "jx",
+        "iqe",
+        "qualifying",
+        "supplier",
+        "indium",
+        "phosphide"
+      ],
+      "company": "lumentum",
+      "title": "Mizuho Technology Conference 2026",
+      "available_at": "2026-06-09T12:00:00Z",
+      "source_version_id": "8acd2030-d17d-4767-b03f-15113a8a7478",
+      "char_start": 23891,
+      "char_end": 24202,
+      "text": "Vijay Rakesh (Analyst, Mizuho): Beyond the indium phosphide capacity that you're adding, is there a constraint in the supply chain on the substrate side? You get a lot of your substrates from the U.K. and Japan, JX and IQE, can you talk to, is there a supply constraint there? Are you qualifying more suppliers?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 28.4847,
+      "terms": [
+        "substrate",
+        "supply",
+        "supplier",
+        "indium",
+        "phosphide"
+      ],
+      "company": "coherent",
+      "title": "Status update",
+      "available_at": "2026-03-17T20:00:00Z",
+      "source_version_id": "ddc57678-3fcf-4929-98af-a0c8d4768544",
+      "char_start": 67930,
+      "char_end": 68265,
+      "text": "Jim Anderson (CEO, Coherent): We believe that we have very good visibility into substrate supply, and that capacity expansion that Beck showed is, you know, we have commitments from our suppliers to supply the necessary indium phosphide substrates to support that.\nSimon Leopold (Managing Director, Raymond James): Next question. Sure.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 26.751,
+      "terms": [
+        "substrate",
+        "supply",
+        "supplier",
+        "indium",
+        "phosphide"
+      ],
+      "company": "coherent",
+      "title": "Q2 2026",
+      "available_at": "2026-02-04T21:30:00Z",
+      "source_version_id": "8785156d-77c3-4eee-a3f0-7361f8510d32",
+      "char_start": 7969,
+      "char_end": 8995,
+      "text": "Jim Anderson (CEO, Coherent): Our six-inch yields continue to exceed the yields of our three-inch production lines. In addition, we have multiple six-inch indium phosphide substrate suppliers, and we have secured committed substrate supply that supports our expected doubling of capacity by our December quarter. In short, we are very pleased with our ramp of the world's first six-inch indium phosphide production lines and expect this production ramp to support significant revenue growth and margin expansion of our transceiver products over the coming quarters. We also expect to continue to supplement our internal indium phosphide capacity with continued sourcing from external suppliers. For example, EML supply from our external suppliers increased sequentially in Q2, and we expect it to increase again in the current quarter and during this calendar year through continued long-term partnership with our key external suppliers. We also continue to invest in the expansion of our transceiver module assembly capacity.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 25.9978,
+      "terms": [
+        "substrate",
+        "supply",
+        "qualifying",
+        "indium",
+        "phosphide"
+      ],
+      "company": "lumentum",
+      "title": "Deutsche Bank 2026 Technology Conference",
+      "available_at": "2026-08-27T17:45:00Z",
+      "source_version_id": "8fa77c52-b711-4328-b150-338a049e40ba",
+      "char_start": 28163,
+      "char_end": 28679,
+      "text": "Gianmarco Conti (Head of Hardware Equity Research, Deutsche Bank): Maybe staying on this fab theme, you are expanding to Indium phosphide fabs in Japan, qualifying CW and EML on the newest tools simultaneously, holding to more than 50% EML unit growth by December quarter. You spent the last three months securing additional substrates because ultra-high power demand outran the supply. My question is, what is the binding constraints over the next 18 months? Substrates at peak capacity, tool lead times, or people?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 23.4403,
+      "terms": [
+        "substrate",
+        "supply",
+        "indium",
+        "phosphide",
+        "wafer"
+      ],
+      "company": "lumentum",
+      "title": "J.P. Morgan 54th Annual Global Technology, Media and Communications Conference",
+      "available_at": "2026-05-18T12:25:00Z",
+      "source_version_id": "f43eec38-8a09-4386-8392-8e72f5015f40",
+      "char_start": 33219,
+      "char_end": 34057,
+      "text": "Michael Hurlston (President and CEO, Lumentum): I mean, you know, our models show world capacity of indium phosphide going up, you know, somewhere between 2x and 4x. I mean, it depends on where it is that you're talking about. There will be a significant increase from where we are, and obviously, that doesn't scare us at all. We think that that's gonna be necessary, and there's still gonna be a supply-demand imbalance as you start adding all of this capacity. That Our challenge right now is interesting. One, it's been talked about a lot, is substrates, right? We think we have that mostly under control, but any indium phosphide wafer starts with a substrate, and there is definitely a well-documented substrate shortage. We think we've solved for that by virtue of locking up a long-term agreement, but every day the numbers go up.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 23.3958,
+      "terms": [
+        "substrate",
+        "supply",
+        "supplier",
+        "indium",
+        "phosphide"
+      ],
+      "company": "coherent",
+      "title": "Status update",
+      "available_at": "2026-03-17T20:00:00Z",
+      "source_version_id": "ddc57678-3fcf-4929-98af-a0c8d4768544",
+      "char_start": 67332,
+      "char_end": 67929,
+      "text": "Jim Anderson (CEO, Coherent): We actually have a very diversified supply chain for indium phosphide substrates. We have, and I think I've shared this in the past, we have over five different substrate suppliers today, and we work with those suppliers not just on the next, you mentioned next 12 or 24 months. We don't work on just next 12-24 months. We work on the next one through, you know, like 3-5 years of capacity that we're gonna need. We have, you know, in some cases, very long-term agreements in place, and that includes not just the substrates, but all the key inputs that go into that.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 22.593,
+      "terms": [
+        "supply",
+        "indium",
+        "phosphide",
+        "wafer"
+      ],
+      "company": "coherent",
+      "title": "Q1 2026",
+      "available_at": "2025-11-05T22:00:00Z",
+      "source_version_id": "7c8d28d3-bf0c-4822-9e07-5f5a46d69fb6",
+      "char_start": 6203,
+      "char_end": 7050,
+      "text": "Jim Anderson (CEO, Coherent): For example, one of the key constraints across the industry is indium phosphide laser capacity. Over the course of Q1, we saw improving EML supply, and we expect both internal and external EML supply to improve significantly in the current quarter and throughout the balance of this fiscal year. In particular, we continue to expand our internal indium phosphide production capacity. We are aggressively ramping 6-inch capacity because a 6-inch wafer, compared to a 3-inch wafer, will produce more than 4x as many chips at less than half the cost. This will provide increasing benefit to our gross margin as we continue to ramp production. Our 6-inch indium phosphide line in Sherman, Texas, which is the world's first 6-inch indium phosphide production line, began production last quarter and continues to ramp well.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 21.0041,
+      "terms": [
+        "substrate",
+        "supply",
+        "indium",
+        "phosphide"
+      ],
+      "company": "lumentum",
+      "title": "Q4 2026",
+      "available_at": "2026-08-11T21:00:00Z",
+      "source_version_id": "e8e6076f-d0c8-4532-bf4d-88875830e3b3",
+      "char_start": 41063,
+      "char_end": 41985,
+      "text": "Vijay Rakesh (Analyst, Mizuho): Thank you.\nKathy Ta (VP of Investor Relations, Lumentum): Thanks so much, Vijay.\nOperator: Your next question comes from the line of George Notter with Wolfe Research. Your line is now open. Please go ahead.\nGeorge Notter (Analyst, Wolfe Research): Hi, guys. Thanks very much. Congrats on all the success here. I guess I wanted to ask about your indium phosphide substrate supply. I was really intrigued by the deal you guys signed in the quarter with AXT. I think a quarter ago, you actually said that you were doing pretty well on the indium phosphide substrate. It feels like there is a bit of a change here. I guess I am wondering what you guys are seeing longer term here in terms of your need for more indium phosphide substrate. As I extrapolate that, can I look at Greensboro, and are you making more progress towards filling the rest of that facility looking forward? Thanks a lot.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 20.6536,
+      "terms": [
+        "indium",
+        "phosphide",
+        "wafer"
+      ],
+      "company": "coherent",
+      "title": "Q2 2026",
+      "available_at": "2026-02-04T21:30:00Z",
+      "source_version_id": "8785156d-77c3-4eee-a3f0-7361f8510d32",
+      "char_start": 7055,
+      "char_end": 7968,
+      "text": "Jim Anderson (CEO, Coherent): For example, we significantly increased our indium phosphide production capacity in Q2, and we are executing on track to our plan to double our internal indium phosphide production capacity by the fourth quarter of this calendar year. As a reminder, our indium phosphide capacity expansion is driven by our ramp of six-inch wafer production. A six-inch wafer, compared to a three-inch wafer, will produce more than 4x as many chips at less than half the cost. Our production team is doing an outstanding job ramping our six-inch indium phosphide production, and I'd like to take the opportunity to thank our team for executing ahead of our plan in Q2. We are ramping production in parallel at two sites, Sherman, Texas, and J\u00e4rf\u00e4lla, Sweden. We are in production with three different types of key transceiver components on six-inch indium phosphide, EMLs, CW lasers, and photodiodes.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 19.5916,
+      "terms": [
+        "indium",
+        "phosphide",
+        "wafer"
+      ],
+      "company": "coherent",
+      "title": "Q2 2026",
+      "available_at": "2026-02-04T21:30:00Z",
+      "source_version_id": "8785156d-77c3-4eee-a3f0-7361f8510d32",
+      "char_start": 23981,
+      "char_end": 24681,
+      "text": "Jim Anderson (CEO, Coherent): On the second part of your question on indium phosphide capacity ramp, again, here, really pleased with the team's execution here on the six-inch indium phosphide ramp. You know, one of the key metrics that I look at in terms of how we're making progress is wafer starts. And remember, our goal that we mentioned last quarter was that we wanted to double indium phosphide capacity by the end of this calendar year. And if you look at the number of wafer starts that we're starting this quarter, we're basically at 80% of that target capacity already. So we're starting wafers at 80% of the goal of doubling capacity, which is really strong and frankly ahead of schedule.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 18.5585,
+      "terms": [
+        "substrate",
+        "supply",
+        "indium",
+        "phosphide"
+      ],
+      "company": "lumentum",
+      "title": "Morgan Stanley Technology, Media & Telecom Conference 2026",
+      "available_at": "2026-03-02T19:30:00Z",
+      "source_version_id": "a9710d35-7f5b-4f56-85cc-0ebd589fe01d",
+      "char_start": 37474,
+      "char_end": 38040,
+      "text": "Michael Hurlston (President and CEO, Lumentum): We sort of work with them to kind of corner the supply of their indium phosphide substrates, which certainly mitigates, I think, a lot of the concerns that existed previously around China and the Chinese substrates coming into a Japanese fab. A good question.\nMeta Marshall (Executive Director, Morgan Stanley): Got it. All right. With that, very exciting day for you guys, and I'm glad we were able to have you here. Michael, thanks so much.\nMichael Hurlston (President and CEO, Lumentum): Thank you, Meta. Thank you.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 17.3866,
+      "terms": [
+        "substrate",
+        "supply",
+        "supplier",
+        "indium",
+        "phosphide"
+      ],
+      "company": "lumentum",
+      "title": "Morgan Stanley Technology, Media & Telecom Conference 2026",
+      "available_at": "2026-03-02T19:30:00Z",
+      "source_version_id": "a9710d35-7f5b-4f56-85cc-0ebd589fe01d",
+      "char_start": 36556,
+      "char_end": 37473,
+      "text": "Meta Marshall (Executive Director, Morgan Stanley): Any questions? I can repeat it for everyone.\nTom (Analyst, Morgan Stanley): How are you dealing with geopolitics, particularly around China's export restrictions to Japan?\nMichael Hurlston (President and CEO, Lumentum): Good question. Right. As I mentioned a minute ago, we have 2 fabs in Japan. What we've been able to do to sort of skate around that is form a long-term agreement. One of the concerns in the company a couple of weeks ago was around substrates. We buy indium phosphide substrates from a third party. Fortunately for us, that third party is not in China, and we've done a very strategic deal with that particular customer, supplier. A 7-year deal, right, that we think covers us out through mid-2030s that assures us of supply. Again, in the face of all these extreme forecasts and all these numbers going up, we think we're really well-positioned.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 17.3493,
+      "terms": [
+        "indium",
+        "phosphide",
+        "wafer"
+      ],
+      "company": "coherent",
+      "title": "European Conference on Optical Communication 2026 (ECOC 2026)",
+      "available_at": "2026-09-21T16:30:00Z",
+      "source_version_id": "6d9c9289-1e9c-4705-9fe3-e34ce43da66d",
+      "char_start": 18744,
+      "char_end": 19607,
+      "text": "Beck Mason (EVP of Semiconductor Devices, Coherent): Our latest generation of photodiodes goes all the way up to 200 Gbps today, and we have 400 Gbps devices in development. These devices are capable of being flip chip directly onto TIAs, for example, with backside integrated lenses to allow better coupling efficiency, and they are an exciting solution for us for the other part of the CPO link. All the devices that we make today come from our internal wafer fabs, and we have four major wafer fabs that are spread out across the globe. Our largest, and arguably the world's largest and most advanced indium phosphide and gallium arsenide fab is in Sherman, Texas. Here we have 6 in indium phosphide lines and 6 in gallium arsenide lines for multiple different devices running. The second fab we have is in J\u00e4rf\u00e4lla, Sweden, also running 6 in indium phosphide.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 16.912,
+      "terms": [
+        "indium",
+        "phosphide",
+        "wafer"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-05-28, EX-99.2",
+      "available_at": "2025-05-28T16:06:01Z",
+      "source_version_id": "158d1d90-354c-48d7-8d8b-ab3ccb26527f",
+      "char_start": 29619,
+      "char_end": 30316,
+      "text": "ADVANCED MATERIALS ARE OUR KEY FOUNDATIONAL ELEMENTS Transceivers Lasers Industrial Indium Gallium Crystals/ Zinc Diamond/SiC/ Phosphide Arsenide Garnet Selenide Composites Copyright 2025, Coherent. All rights reserved. NYSE I COHR 57\nADVANCED MATERIALS MAKE SEMICONDUCTORS POSSIBLE Ion Epitaxy Deposition CMP Inspection Lithography Etch Implantation Back End Epi Susceptors Baseplates CMP Discs Wafer Chucks Wafer Tables Baseplates Wafer Carriers TCB Nozzles Showerheads Stages Stages Showerheads Back-end Stages Mirrors Via Drilling Optics Wafer Carriers Laser Windows Optics Crystals ZnSe Diamond Crystals SiC / Engineered Materials Copyright 2025, Coherent. All rights reserved. NYSE I COHR 58",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 16.9081,
+      "terms": [
+        "supply",
+        "supplier",
+        "indium",
+        "phosphide"
+      ],
+      "company": "lumentum",
+      "title": "Morgan Stanley Technology, Media & Telecom Conference 2026",
+      "available_at": "2026-03-02T19:30:00Z",
+      "source_version_id": "a9710d35-7f5b-4f56-85cc-0ebd589fe01d",
+      "char_start": 2742,
+      "char_end": 3532,
+      "text": "Michael Hurlston (President and CEO, Lumentum): You know, obviously, this is, I think, the first agreement that NVIDIA has done with a supplier. They've done a number of different agreements with Ecosystem and, you know, we're honored and very, very thankful, frankly, that they saw the virtue and the scarcity of the indium phosphide supply, that they felt it necessary to go out and do an agreement with us. Obviously, they did a similar agreement with Coherent, I think it speaks volumes to that transition that we all see coming relative to copper moving toward optical interconnect. They've locked up, you know, jointly now between the two major suppliers, a significant amount of the world's capacity of indium phosphide. You know, we ultimately see this thing as a good thing, right?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 16.3336,
+      "terms": [
+        "supply",
+        "indium",
+        "phosphide"
+      ],
+      "company": "coherent",
+      "title": "Q4 2025",
+      "available_at": "2025-08-13T21:00:00Z",
+      "source_version_id": "194ee825-6ac7-41cc-a4d5-0b128b4b9de3",
+      "char_start": 6153,
+      "char_end": 7174,
+      "text": "Jim Anderson (CEO, Coherent): As a reminder, we've had indium phosphide capability in-house for over 20 years, and indium phosphide-based transceivers account for a majority of our datacom transceiver revenue, with the majority of our EML-based transceivers utilizing our internally manufactured EMLs. We've tripled indium phosphide capacity year-over-year and expect to continue to expand capacity over the coming quarters to support the strong demand signals from our customers. For example, I'm pleased to announce that we will begin production this month of our new 6-inch indium phosphide line in Coherent's Sherman, Texas facility. This is the world's first 6-inch indium phosphide production platform and is expected to provide us significant advantages in terms of both lower cost and higher volume production, and it will further enhance our industry-leading supply chain resiliency. In addition to indium phosphide, our Sherman, Texas facility is also a site for VCSEL production on gallium arsenide technology.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 16.314,
+      "terms": [
+        "substrate",
+        "wafer"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+      "available_at": "2025-12-16T21:05:10Z",
+      "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+      "char_start": 30210,
+      "char_end": 30576,
+      "text": "SiC epitaxial wafers\nContinuous improvement to maintain world-class, high-quality, large-diameter substrates and epitaxial wafers; develop SiC epitaxial wafers.\nThermoelectric materials and devices\nContinue to develop leading Bi2Te3 materials for thermoelectric cooling/heating; focus on thermoelectric power-generation capability in order to introduce new products.",
+      "also_in": [
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 16.2827,
+      "terms": [
+        "supply",
+        "supplier",
+        "indium",
+        "phosphide"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 92246,
+      "char_end": 93168,
+      "text": "We purchase a significant amount of the materials and components used in our products from a limited number of suppliers.\nOur manufacturing processes and those of our contract manufacturers rely on many materials, including precious and rare earth metals, indium phosphide (\u201cInP\u201d) and certain lasers and laser components that may be difficult to source, may only be available from a single or limited number of suppliers. We have historically not had long-term contracts with our materials suppliers and a significant amount of our purchases are on a purchase order basis. Suppliers have previously, and may in the future, extend lead times, limit suppliers and place products on allocation, increase prices, or prioritize supplies for other customers, any of which could disrupt supply or increase demand in the industry and negatively impact our results of operations and our ability to fully meet our customers\u2019 demand.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 16.2827,
+      "terms": [
+        "indium",
+        "phosphide",
+        "wafer"
+      ],
+      "company": "coherent",
+      "title": "Status update",
+      "available_at": "2026-03-17T20:00:00Z",
+      "source_version_id": "ddc57678-3fcf-4929-98af-a0c8d4768544",
+      "char_start": 35068,
+      "char_end": 35959,
+      "text": "Beck Mason (EVP of Semiconductor Devices, Coherent): Currently, we are running 4 separate indium phosphide wafer fabs. Our first fab in Fremont, California, is where we've developed our high-power CW laser and high-speed photodetector technology. That's a 3-inch fab, and it's a fab where we've got more than 20 years of experience delivering devices into the data center market. Our next fab in Sherman, Texas, is the first fab where we've deployed 6-inch indium phosphide production. It is the most advanced indium phosphide fab in the world. It's a very large facility with capability to scale to meet the huge growth and demand we're seeing. It's the first place where 6-inch indium phosphide has been put into production, and we are making multiple different product platforms in that fab. It's also a very high-volume gallium arsenide fab for us, where we make our 3D sensing products.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 15.7957,
+      "terms": [
+        "indium",
+        "phosphide",
+        "wafer"
+      ],
+      "company": "coherent",
+      "title": "Q4 2025",
+      "available_at": "2025-08-13T21:00:00Z",
+      "source_version_id": "194ee825-6ac7-41cc-a4d5-0b128b4b9de3",
+      "char_start": 24978,
+      "char_end": 25767,
+      "text": "Jim Anderson (CEO, Coherent): Yeah, thanks, Samik. I'll start with the six-inch indium phosphide in Sherman. We view this as a really big milestone. This month in August is when we began production of that new six-inch indium phosphide line in Sherman. We believe this is the world's first -inch indium phosphide production, and it'll start this quarter, but obviously ramp over the coming quarters. This is a big benefit to us in two ways, both capacity, obviously on a larger wafer size. We get a significant increase in capacity, but also we expect a significant cost structure advantage. As we fully ramp that capacity, both the ability to just drive higher volume, but lower cost structure is a big advantage for that. We're really excited about that and looking forward to that ramp.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}

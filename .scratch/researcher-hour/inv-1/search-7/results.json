@@ -1,0 +1,501 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "external EML suppliers third-party lasers purchase Broadcom Mitsubishi",
+  "terms": [
+    "external",
+    "eml",
+    "supplier",
+    "third",
+    "party",
+    "laser",
+    "purchase",
+    "broadcom",
+    "mitsubishi"
+  ],
+  "companies": [
+    "lumentum",
+    "coherent"
+  ],
+  "window": {
+    "since": "2025-04-07T12:22:53+00:00",
+    "as_of": "2026-10-07T12:22:53+00:00"
+  },
+  "documents": 98,
+  "documents_skipped": {
+    "not a text document": 2,
+    "outside the window": 481
+  },
+  "requests": 112,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 17.2289,
+      "terms": [
+        "external",
+        "eml",
+        "supplier"
+      ],
+      "company": "coherent",
+      "title": "Q3 2025",
+      "available_at": "2025-05-07T21:00:00Z",
+      "source_version_id": "fe2f5a03-a597-484b-8109-79f4db68983a",
+      "char_start": 46642,
+      "char_end": 47029,
+      "text": "Jim Anderson (CEO, Coherent): Yeah, Sean, on EML, I think today our strategy is actually to use a mix of both external and internally produced EMLs for our transceivers. I would expect to continue to use a mix. We have a number of external EML vendors that are great partners and have been very reliable suppliers. We view it as a nice way to have just even more supply chain resiliency.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 16.9884,
+      "terms": [
+        "eml",
+        "third",
+        "party",
+        "laser"
+      ],
+      "company": "coherent",
+      "title": "Morgan Stanley Technology, Media & Telecom Conference 2026",
+      "available_at": "2026-03-03T22:35:00Z",
+      "source_version_id": "d5e0ce31-09ea-418f-abe7-0818bc544622",
+      "char_start": 16057,
+      "char_end": 16401,
+      "text": "Meta Marshall (Executive Director and Senior Equity Analyst, Morgan Stanley): Got it. EML's indium phosphide capacity has been very tight. I think is a generous term. You know, how are you scaling capacity? How are you reducing the need for third-party EMLs? Just how are you judging what type of kind of indium phosphide laser to bring online?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 16.6158,
+      "terms": [
+        "supplier",
+        "third",
+        "party"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 187241,
+      "char_end": 187568,
+      "text": "In addition, we evaluate the security posture and features of critical vendors and suppliers. This includes reviewing and monitoring of the third party controls, to help ensure third party services meet our standards for such providers and that the cybersecurity risks associated with the use of these services are appropriate.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 16.5738,
+      "terms": [
+        "eml",
+        "supplier",
+        "laser",
+        "broadcom"
+      ],
+      "company": "lumentum",
+      "title": "Deutsche Bank 2026 Technology Conference",
+      "available_at": "2026-08-27T17:45:00Z",
+      "source_version_id": "8fa77c52-b711-4328-b150-338a049e40ba",
+      "char_start": 14698,
+      "char_end": 15526,
+      "text": "Michael Hurlston (CEO, Lumentum): Yeah, a lot to unpack in the question. It's a good question.\nMichael Hurlston (CEO, Lumentum): because there's a lot of range to it. First, 100G-200G EML, you're seeing about a 2x uplift in price. As we go from 100 to 200, our ASPs are roughly doubling. As you see the market shifting from 800G to 1.6T, that's where you've got 200G lasers are coming in. It's coming in at the 1.6T node. Very good for us overall. At 200G, at the moment on 200G EMLs, very little competition. We don't see a lot of competitive threats on the horizon either. Broadcom is a supplier of 200G EMLs. We're the other large supplier of 200G EMLs. We don't see a lot of other folks entering that field anytime soon. I think the interesting thing is, at 1.6T, today, most of the transceivers are EML based, most of them.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 16.5416,
+      "terms": [
+        "external",
+        "eml",
+        "supplier",
+        "laser"
+      ],
+      "company": "coherent",
+      "title": "Q3 2025",
+      "available_at": "2025-05-07T21:00:00Z",
+      "source_version_id": "fe2f5a03-a597-484b-8109-79f4db68983a",
+      "char_start": 47030,
+      "char_end": 47698,
+      "text": "Jim Anderson (CEO, Coherent): As I shared, the majority of our EML-based transceivers ship with our own internally produced EMLs, but I would expect to continue to utilize external suppliers as well. On CW lasers, maybe just to clarify that on CW lasers, we have produced CW lasers for our telecom products for many years. Remember, we've had indium phosphide capability for over 20 years. We've been doing CW lasers for a long time for telecom. Moving forward with the adoption of silicon photonics in some transceiver applications and potentially in CPO applications as well, we believe there's certainly opportunity for increased usage of CW lasers in data centers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 16.2609,
+      "terms": [
+        "external",
+        "eml",
+        "supplier",
+        "laser"
+      ],
+      "company": "coherent",
+      "title": "Q1 2026",
+      "available_at": "2025-11-05T22:00:00Z",
+      "source_version_id": "7c8d28d3-bf0c-4822-9e07-5f5a46d69fb6",
+      "char_start": 8035,
+      "char_end": 8956,
+      "text": "Jim Anderson (CEO, Coherent): We also expect to continue to supplement our internal indium phosphide capacity with sourcing from external suppliers. We expect our external supply of EMLs to increase sequentially this quarter and next calendar year through continued partnership with our key external suppliers. In addition to critical laser production capacity, we are also expanding transceiver module assembly capacity. While we continue to expand production at our existing site in Ipoh, Malaysia, we will now be expanding production capacity in parallel at a new transceiver production facility that we recently opened in Penang, Malaysia. In addition, we will be adding transceiver production capacity at our existing site in Vietnam, which already produces transceiver components. This additional production capacity allows us to continue to rapidly ramp module capacity to support the demand growth in front of us.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 16.074,
+      "terms": [
+        "external",
+        "eml",
+        "supplier"
+      ],
+      "company": "coherent",
+      "title": "Investor Day 2025",
+      "available_at": "2025-05-28T13:00:00Z",
+      "source_version_id": "bb8b007b-0708-4c02-bfcd-6634da34e7ef",
+      "char_start": 149263,
+      "char_end": 149895,
+      "text": "Jim Anderson (CEO, Coherent): On the second part of your question, which was on Indium, say it one more time. The mix of your EML capacity. Oh, mix. Okay, yeah. What I would say is that we may choose to kind of shift more of our internal capacity towards our own transceivers or shift it more towards internal. I would anticipate us continuing to use external suppliers for Indium Phosphide for EML in particular. We have some really good external partners that do a great job of supporting us. I think there is value in us with our customers being able to offer the internally sourced manufacturing, but also external EMLs as well.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 16.059,
+      "terms": [
+        "supplier",
+        "third",
+        "party"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 154859,
+      "char_end": 155235,
+      "text": "We periodically engage consultants, auditors, or other third parties. These service providers assist us to design, implement or assess our cybersecurity policies and procedures, as well as to monitor and test our safeguards. We work with our third-party suppliers and service providers to address the use of appropriate security measures in connection with their work with us.",
+      "also_in": [
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 16.059,
+      "terms": [
+        "supplier",
+        "third",
+        "party"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+      "available_at": "2026-05-06T10:00:00Z",
+      "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+      "char_start": 326252,
+      "char_end": 326714,
+      "text": "\u2022disruptions to our third-party contract manufacturing and raw materials supply arrangements caused by constraints over our suppliers\u2019 workforce capacity, financial, or operational difficulties;\n\u2022disruption in our own ability to produce and ship products;\n\u2022heightened risk and uncertainty regarding the loss or disruption of essential third-party service providers, including transportation services, contract manufacturing, marketing, and distribution services;",
+      "also_in": [
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        },
+        {
+          "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+          "available_at": "2025-05-07T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 16.0059,
+      "terms": [
+        "supplier",
+        "third",
+        "party",
+        "laser",
+        "purchase"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 29902,
+      "char_end": 31091,
+      "text": "Sources of Supply\nIn our production processes, we use certain substrates, along with numerous optical, electrical, and mechanical parts that are sourced from third-party suppliers. These include InP substrates, ICs, DSPs, mechanical housings, and optical components, and we commonly refer to them as raw materials. Raw materials or subcomponents required in the manufacturing process are generally available from several sources. However, in the Industrial segment, we currently purchase several key components and materials used in the manufacture of our products, including exotic materials, crystals, and optics, from sole-source or limited-source suppliers. We also purchase assemblies and turnkey solutions from contract manufacturers, based on our proprietary designs. We rely on our own production and design capability to manufacture and specify certain strategic components, crystals, fibers, semiconductor lasers, and laser-based systems. We use rare-earth materials in some of our production processes. Like with other materials, we continuously work to strengthen and diversify our supply chain, including maintaining buffer inventory and developing multiple sources of supply.",
+      "also_in": [
+        {
+          "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+          "company": "coherent",
+          "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+          "available_at": "2025-12-16T21:05:10Z"
+        },
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 14.9834,
+      "terms": [
+        "external",
+        "eml",
+        "laser"
+      ],
+      "company": "coherent",
+      "title": "Q4 2025",
+      "available_at": "2025-08-13T21:00:00Z",
+      "source_version_id": "194ee825-6ac7-41cc-a4d5-0b128b4b9de3",
+      "char_start": 36460,
+      "char_end": 36850,
+      "text": "Jim Anderson (CEO, Coherent): We use a mix today, and I would anticipate continuing to use a mix of internal and external. Today, over half of our transceivers ship with EML lasers, and over half of those EML-based transceivers are internally sourced EMLs. That gives you a rough sense of the breakdown. We believe we'll continue to use a mix of both internal and externally sourced lasers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 14.9501,
+      "terms": [
+        "external",
+        "eml",
+        "supplier"
+      ],
+      "company": "coherent",
+      "title": "Q2 2026",
+      "available_at": "2026-02-04T21:30:00Z",
+      "source_version_id": "8785156d-77c3-4eee-a3f0-7361f8510d32",
+      "char_start": 7969,
+      "char_end": 8995,
+      "text": "Jim Anderson (CEO, Coherent): Our six-inch yields continue to exceed the yields of our three-inch production lines. In addition, we have multiple six-inch indium phosphide substrate suppliers, and we have secured committed substrate supply that supports our expected doubling of capacity by our December quarter. In short, we are very pleased with our ramp of the world's first six-inch indium phosphide production lines and expect this production ramp to support significant revenue growth and margin expansion of our transceiver products over the coming quarters. We also expect to continue to supplement our internal indium phosphide capacity with continued sourcing from external suppliers. For example, EML supply from our external suppliers increased sequentially in Q2, and we expect it to increase again in the current quarter and during this calendar year through continued long-term partnership with our key external suppliers. We also continue to invest in the expansion of our transceiver module assembly capacity.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 14.413,
+      "terms": [
+        "third",
+        "party"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 94805,
+      "char_end": 95808,
+      "text": "Our information technology and cybersecurity program also incorporate and rely on technology, products and services that are provided by service providers and other third parties (\u201cthird parties\u201d), which means that the Company is susceptible to certain vulnerabilities, outages and other incidents impacting these third parties and the technology, products and services they provide (\u201cthird party technology\u201d). Further, our customers, vendors and other service providers also rely on third-party technology, which means that we may also be impacted by incidents affecting the third-party technology that our customers, vendors and service providers use and rely on. In some cases, our customers, vendors and other service providers may rely on the same third-party technology as we do, which means that outages, errors and other incidents impacting third parties and third party technology can impact both us, as well as our customers, vendors and service providers, which can have a compounding effect.",
+      "also_in": [
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 14.256,
+      "terms": [
+        "external",
+        "eml",
+        "laser"
+      ],
+      "company": "lumentum",
+      "title": "Raymond James TMT and Consumer Conference",
+      "available_at": "2025-12-08T15:40:00Z",
+      "source_version_id": "e4fcd765-1e68-45bb-a80a-b0c39a6145a1",
+      "char_start": 3176,
+      "char_end": 3914,
+      "text": "Michael Hurlston (CEO, Lumentum): You're using a shutter or an external modulator to send light along a fiber. And then there's another type that we call an EML, an externally modulated laser. It means the laser itself is actually modulated, right? So, there's an advantage to EMLs. There's an advantage in certain cases to CW lasers. We predominantly make EMLs. They're the more difficult type of laser to manufacture. There's more masking steps in an EML, over two times more masking steps than there is in a CW laser. They are typically harder to get to yield. They're harder to center in the process. And by all accounts, we have somewhere between 50% and 60% of the world's EML volume. So, that's where we play. We do make CW lasers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 13.4685,
+      "terms": [
+        "supplier",
+        "third",
+        "party"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 44464,
+      "char_end": 44868,
+      "text": "\u2022actions taken by suppliers, customers and authorized or unauthorized resellers or distributors that adversely affect our reputation or violate import or export regulations;\n\u2022litigation risks, including intellectual property litigation;\n\u2022our reliance on licensed third-party technology; and\n\u2022our ability to maintain an effective system of disclosure controls and internal control over financial reporting",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 13.4618,
+      "terms": [
+        "eml",
+        "supplier",
+        "third",
+        "laser"
+      ],
+      "company": "lumentum",
+      "title": "Deutsche Bank 2026 Technology Conference",
+      "available_at": "2026-08-27T17:45:00Z",
+      "source_version_id": "8fa77c52-b711-4328-b150-338a049e40ba",
+      "char_start": 19123,
+      "char_end": 19832,
+      "text": "Gianmarco Conti (Head of Hardware Equity Research, Deutsche Bank): Mm-hmm. Yeah. Particularly because they do have all the raw material suppliers as well to be able to grow, all the actual lasers needed for it. Okay, great. I would love to get your thoughts on NPO, as engagements in the last quarter actually surprised me. Your bare EML chips already ship to every module maker, but your team described a new product form, the EML packaged as a module, built so customers who do not want to handle the bare laser chip can still build NPO systems. My question is, will NPO be a bridge that pulls the in-rack opportunity forward as CPO matures, or is it a lasting third architecture, and how should we size it?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 13.0234,
+      "terms": [
+        "external",
+        "eml",
+        "laser"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-05-28, EX-99.2",
+      "available_at": "2025-05-28T16:06:01Z",
+      "source_version_id": "158d1d90-354c-48d7-8d8b-ab3ccb26527f",
+      "char_start": 17493,
+      "char_end": 18124,
+      "text": "DEEP DATACOM TECHNOLOGY STACK IS A COMPETITIVE ADVANTAGE Pluggable Capability Type CPO Transceiver OPTICAL TRANSCEIVER Assembly and Test Components and Modules\u00fc\u00fc GaAs VCSELs\u00fc\u00fc InP EMLs\u00fc Sources InP CW Lasers\u00fc\u00fc Source Lasers Passive Optics Integrated Circuits Detectors Silicon Photonics\u00fc\u00fc GaAs Detectors\u00fc\u00fc Detectors InP Detectors\u00fc\u00fc Isolators\u00fc\u00fc Lens Arrays\u00fc Passive Optics Optical Multiplexer \u00fc\u00fc Demultiplexer Thermal Control Thermoelectric Coolers\u00fc\u00fc CPO Laser Drivers\u00fc\u00fc Integrated Circuits TIA\u00fc\u00fc External Laser Source\u00fc Polarization-maintaining Fiber\u00fc Fiber Attach Unit\u00fc Copyright 2025, Coherent. All rights reserved. NYSE I COHR 30",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 13.0234,
+      "terms": [
+        "external",
+        "eml",
+        "laser"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-05-28, EX-99.2",
+      "available_at": "2025-05-28T16:06:01Z",
+      "source_version_id": "158d1d90-354c-48d7-8d8b-ab3ccb26527f",
+      "char_start": 18125,
+      "char_end": 18756,
+      "text": "DEEP DATACOM TECHNOLOGY STACK IS A COMPETITIVE ADVANTAGE Pluggable Capability Type CPO Transceiver OPTICAL TRANSCEIVER Assembly and Test Components and Modules\u00fc\u00fc GaAs VCSELs\u00fc\u00fc InP EMLs\u00fc Sources InP CW Lasers\u00fc\u00fc Source Lasers Passive Optics Integrated Circuits Detectors Silicon Photonics\u00fc\u00fc GaAs Detectors\u00fc\u00fc Detectors InP Detectors\u00fc\u00fc Isolators\u00fc\u00fc Lens Arrays\u00fc Passive Optics Optical Multiplexer \u00fc\u00fc Demultiplexer Thermal Control Thermoelectric Coolers\u00fc\u00fc CPO Laser Drivers\u00fc\u00fc Integrated Circuits TIA\u00fc\u00fc External Laser Source\u00fc Polarization-maintaining Fiber\u00fc Fiber Attach Unit\u00fc Copyright 2025, Coherent. All rights reserved. NYSE I COHR 31",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 12.7853,
+      "terms": [
+        "third",
+        "party"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+      "available_at": "2025-08-19T21:09:47Z",
+      "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+      "char_start": 190847,
+      "char_end": 191317,
+      "text": "In addition, we evaluate critical systems and applications hosted by third parties for cybersecurity risks and we also assess the security posture and features of those services. This includes review and monitoring of the third party, and inclusion of cybersecurity requirements in contractual agreements to help ensure third party services meet our standards for such providers and that the cybersecurity risks associated with the use of these services are appropriate.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 12.5646,
+      "terms": [
+        "third",
+        "party"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 142273,
+      "char_end": 143227,
+      "text": "We integrate licensed third-party technology into certain of our products. From time-to-time, we may be required to license additional technology from third parties to develop new products or product enhancements. Third-party licenses may not be available or continue to be available to us on commercially reasonable terms. The failure to comply with the terms of any license, including free open-source software, may result in our inability to continue to use such license. Our inability to maintain or re-license any third-party licenses required in our products or our inability to obtain third-party licenses necessary to develop new products and product enhancements, could potentially require us to develop substitute technology or obtain substitute technology of lower quality or performance standards or at a greater cost, any of which could delay or prevent product shipment and harm our business, financial condition, and results of operations.",
+      "also_in": [
+        {
+          "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+          "available_at": "2026-05-06T10:00:00Z"
+        },
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        },
+        {
+          "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+          "available_at": "2025-05-07T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}

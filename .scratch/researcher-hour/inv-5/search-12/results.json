@@ -1,0 +1,520 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "second initiative investing capacity component suppliers prepayments in-house manufacturing Ciena",
+  "terms": [
+    "second",
+    "initiative",
+    "investing",
+    "capacity",
+    "component",
+    "supplier",
+    "prepayment",
+    "house",
+    "manufacturing",
+    "ciena"
+  ],
+  "companies": [
+    "ciena",
+    "lumentum",
+    "coherent"
+  ],
+  "window": {
+    "since": "2025-04-07T14:09:44+00:00",
+    "as_of": "2026-10-07T14:09:44+00:00"
+  },
+  "documents": 132,
+  "documents_skipped": {
+    "not a text document": 3,
+    "outside the window": 495
+  },
+  "requests": 151,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 16.777,
+      "terms": [
+        "investing",
+        "capacity",
+        "component",
+        "manufacturing"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 8-K filed 2026-03-02, EX-99.1",
+      "available_at": "2026-03-02T21:10:21Z",
+      "source_version_id": "080f3121-ceeb-49e3-b6c6-28196b13a72b",
+      "char_start": 589,
+      "char_end": 919,
+      "text": "The non-exclusive agreement includes an NVIDIA multi-billion purchase commitment and future capacity access rights for advanced laser components. In addition, NVIDIA is investing $2 billion in Lumentum to support R&D, future capacity and operations as the company builds out its U.S.-based manufacturing capabilities in a new fab.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 15.3373,
+      "terms": [
+        "component",
+        "supplier",
+        "manufacturing",
+        "ciena"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-K filed 2025-12-12",
+      "available_at": "2025-12-12T18:42:26Z",
+      "source_version_id": "0d66ab11-2a98-47fb-9839-6eaa98d605e5",
+      "char_start": 191090,
+      "char_end": 191832,
+      "text": "Historically, a significant percentage of Ciena\u2019s revenue and accounts receivable have been concentrated among a small number of large customers. See Note 2 below.\nCiena\u2019s access to certain materials or components is dependent on sole or limited source suppliers. The inability of any of these suppliers to fulfill Ciena\u2019s supply requirements, or significant changes in supply cost, could affect future results. Ciena relies on a small number of contract manufacturers to perform the majority of the manufacturing for its products. If Ciena cannot effectively manage these manufacturers or forecast future demand, or if these manufacturers fail to deliver products or components on time, Ciena\u2019s business and results of operations may suffer.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 14.8759,
+      "terms": [
+        "initiative",
+        "prepayment",
+        "house"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+      "available_at": "2026-05-06T10:00:00Z",
+      "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+      "char_start": 122415,
+      "char_end": 123598,
+      "text": "During the three and nine months ended March 29, 2025, we recorded restructuring and related charges of $7.2 million and $17.6 million, respectively mainly due to our integration efforts and cost reduction initiatives. Restructuring charges for the three months ended March 29, 2025 primarily related to $5.7 million of assets written-off including property, plant and equipment, prepayments and other current assets as well as $1.4 million of charges for other contractual commitments associated with site closures driven by restructuring initiatives announced in April 2025 that will allow us to focus on other market opportunities including cloud and AI markets. Restructuring charges for the nine months ended March 29, 2025 include $12.4 million of assets written-off including property, plant and equipment, prepayments and other current assets primarily due to efforts to consolidate our sites and focus on other market opportunities including cloud and AI markets. In addition, we also recorded $3.0 million of charges related to the discontinuation of our in-house development of coherent Digital Signal Processors (\u201cDSPs\u201d) and Radio Frequency Integrated Circuits (\u201cRFICs\u201d).",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 14.4108,
+      "terms": [
+        "second",
+        "investing",
+        "capacity",
+        "manufacturing",
+        "ciena"
+      ],
+      "company": "ciena",
+      "title": "Q1 2026",
+      "available_at": "2026-03-05T13:30:00Z",
+      "source_version_id": "4a918238-9aee-40ef-b5cc-dd0a90350143",
+      "char_start": 34996,
+      "char_end": 35683,
+      "text": "Marc Graff (Senior Vice President and CFO, Ciena): Yeah. Let me take those, and on the second one, maybe Scott can add some more color here. On the duration of CapEx, you'll remember, you know, in our December call, we talked about we doubled our CapEx year-on-year, and within that doubling of CapEx, we were increasing our productive CapEx by 50%, right? Really think about working with our contract manufacturers to expand their manufacturing capacity. Now, obviously, that's got some lead time, right? We're investing through the year, and we expect that increase in capacity to start showing up towards the end of the year. The intent was really to set up a 2027 plan for us, right?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 13.9277,
+      "terms": [
+        "initiative",
+        "capacity",
+        "manufacturing"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 33162,
+      "char_end": 33697,
+      "text": "We expanded our manufacturing footprint through our various acquisitions, and in 2026, we continued to add to our footprint by acquiring a manufacturing facility in Greensboro, North Carolina. We have undertaken various initiatives to consolidate and restructure certain of our manufacturing and operational sites, particularly in light of efficiencies and synergies achievable from prior acquisitions, while also expanding overall manufacturing capacity for new and high growth product lines across our global manufacturing footprint.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 13.8878,
+      "terms": [
+        "initiative",
+        "capacity",
+        "manufacturing"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+      "available_at": "2025-08-19T21:09:47Z",
+      "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+      "char_start": 35604,
+      "char_end": 36102,
+      "text": "In fiscal year 2023, we expanded our manufacturing footprint with the acquisition of NeoPhotonics. In fiscal year 2024, we acquired Cloud Light which further added manufacturing facilities in Asia. We have undertaken various initiatives to consolidate and restructure certain of our manufacturing and operational sites, particularly in light of efficiencies and synergies achievable from prior acquisitions, while also expanding overall manufacturing capacity for new and high growth product lines.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 13.5022,
+      "terms": [
+        "capacity",
+        "component",
+        "manufacturing"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 67237,
+      "char_end": 67642,
+      "text": "\u2022increases in material, labor, manufacturing, logistics, warranty costs, or inventory carrying costs;\n\u2022issues with manufacturing or component availability;\n\u2022issues relating to the distribution of our products, quality or efficiencies;\n\u2022increased costs due to changes in component pricing or charges incurred due to the inaccurately forecasting product demand or underutilization of manufacturing capacity;",
+      "also_in": [
+        {
+          "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+          "available_at": "2026-05-06T10:00:00Z"
+        },
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        },
+        {
+          "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+          "available_at": "2025-05-07T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 13.2017,
+      "terms": [
+        "investing",
+        "capacity",
+        "manufacturing"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2026-03-02, EX-99.1",
+      "available_at": "2026-03-02T14:00:50Z",
+      "source_version_id": "71b8e374-7704-4f7e-8742-f7f6d531fc2a",
+      "char_start": 583,
+      "char_end": 951,
+      "text": "The non-exclusive agreement includes an NVIDIA multi-billion-dollar purchase commitment and future access and capacity rights for advanced laser and optical networking products. In addition, NVIDIA is investing $2 billion in Coherent to support research and development, future capacity and operations as Coherent builds out its U.S.- based manufacturing capabilities.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 13.1066,
+      "terms": [
+        "component",
+        "supplier",
+        "ciena"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-Q filed 2026-09-03",
+      "available_at": "2026-09-03T19:57:02Z",
+      "source_version_id": "6ee80e39-344a-412d-8d59-fd3a8944c749",
+      "char_start": 74537,
+      "char_end": 74898,
+      "text": "Purchase Order Obligations\nCiena has certain advanced orders for supply of certain long lead time components. As of August 1, 2026, Ciena had $3.3 billion in outstanding purchase order commitments to contract manufacturers and component suppliers for inventory. In certain instances, Ciena is permitted to cancel, reschedule or adjust a portion of these orders.",
+      "also_in": [
+        {
+          "source_version_id": "377de490-a87e-4683-9ee9-5d631279f4d5",
+          "company": "ciena",
+          "title": "CIENA CORP 10-Q filed 2026-06-04",
+          "available_at": "2026-06-04T20:06:52Z"
+        },
+        {
+          "source_version_id": "ba2791fc-9953-4378-b079-57810b13660d",
+          "company": "ciena",
+          "title": "CIENA CORP 10-Q filed 2026-03-05",
+          "available_at": "2026-03-05T21:01:51Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 12.7746,
+      "terms": [
+        "component",
+        "house",
+        "manufacturing"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+      "available_at": "2025-12-16T21:05:10Z",
+      "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+      "char_start": 15769,
+      "char_end": 16182,
+      "text": "Over the years, we have made strategic investments that give us a unique level of vertical integration. We not only design and manufacture our transceivers internally, but we also design and manufacture many of the materials and components, including lasers, detectors, ICs, and passive optics. We have in-house laser design and manufacturing capability for GaAs-based VCSELs, InP-based DMLs, EMLs, and CW lasers.",
+      "also_in": [
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 12.6587,
+      "terms": [
+        "second",
+        "capacity",
+        "supplier",
+        "manufacturing"
+      ],
+      "company": "coherent",
+      "title": "Investor Day 2025",
+      "available_at": "2025-05-28T13:00:00Z",
+      "source_version_id": "bb8b007b-0708-4c02-bfcd-6634da34e7ef",
+      "char_start": 149263,
+      "char_end": 149895,
+      "text": "Jim Anderson (CEO, Coherent): On the second part of your question, which was on Indium, say it one more time. The mix of your EML capacity. Oh, mix. Okay, yeah. What I would say is that we may choose to kind of shift more of our internal capacity towards our own transceivers or shift it more towards internal. I would anticipate us continuing to use external suppliers for Indium Phosphide for EML in particular. We have some really good external partners that do a great job of supporting us. I think there is value in us with our customers being able to offer the internally sourced manufacturing, but also external EMLs as well.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 12.5694,
+      "terms": [
+        "initiative",
+        "capacity",
+        "manufacturing",
+        "ciena"
+      ],
+      "company": "ciena",
+      "title": "Q1 2026",
+      "available_at": "2026-03-05T13:30:00Z",
+      "source_version_id": "4a918238-9aee-40ef-b5cc-dd0a90350143",
+      "char_start": 15719,
+      "char_end": 16512,
+      "text": "Marc Graff (Senior Vice President and CFO, Ciena): For context, this is approximately 2-3 times our average CapEx over the last 12 quarters. Let me take a moment to comment on the industry supply and its impact on Ciena. As you've heard from many others in the industry over the last few weeks, the supply landscape remains challenging. To be blunt, our revenue in the first quarter would have been higher but for these constraints. Our close relationships with customers give us early visibility into their demand and our need to expand capacity to address it. We've been working with partners to scale by way of two key initiatives. First, we continue to partner with contract manufacturers with respect to their manufacturing capacity and output expansion, which is yielding strong results.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 12.4771,
+      "terms": [
+        "component",
+        "supplier",
+        "ciena"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-K filed 2025-12-12",
+      "available_at": "2025-12-12T18:42:26Z",
+      "source_version_id": "0d66ab11-2a98-47fb-9839-6eaa98d605e5",
+      "char_start": 297019,
+      "char_end": 297476,
+      "text": "Purchase Order Obligations\nCiena has certain advanced orders for supply of certain long lead time components. As of November 1, 2025, Ciena had $2.1 billion in outstanding purchase order commitments to contract manufacturers and component suppliers for inventory. In certain instances, Ciena is permitted to cancel, reschedule or adjust these orders. Consequently, only a portion of this amount relates to firm, non-cancelable and unconditional obligations.",
+      "also_in": [
+        {
+          "source_version_id": "a9bdc6aa-ae3b-44fe-8a84-ae640f5a39cd",
+          "company": "ciena",
+          "title": "CIENA CORP 10-Q filed 2025-09-04",
+          "available_at": "2025-09-04T20:05:56Z"
+        },
+        {
+          "source_version_id": "31f684e3-ac3f-43d8-9851-ddec95bfa3c5",
+          "company": "ciena",
+          "title": "CIENA CORP 10-Q filed 2025-06-05",
+          "available_at": "2025-06-05T18:41:16Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 12.4275,
+      "terms": [
+        "capacity",
+        "supplier",
+        "manufacturing"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+      "available_at": "2026-05-06T10:00:00Z",
+      "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+      "char_start": 326252,
+      "char_end": 326714,
+      "text": "\u2022disruptions to our third-party contract manufacturing and raw materials supply arrangements caused by constraints over our suppliers\u2019 workforce capacity, financial, or operational difficulties;\n\u2022disruption in our own ability to produce and ship products;\n\u2022heightened risk and uncertainty regarding the loss or disruption of essential third-party service providers, including transportation services, contract manufacturing, marketing, and distribution services;",
+      "also_in": [
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        },
+        {
+          "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+          "available_at": "2025-05-07T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 12.3632,
+      "terms": [
+        "capacity",
+        "component",
+        "supplier",
+        "manufacturing"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+      "available_at": "2025-05-07T10:00:00Z",
+      "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+      "char_start": 225509,
+      "char_end": 226634,
+      "text": "We continue to work with our suppliers to ensure that we are able to continue manufacturing and distributing our products, and in the quantities requested by our customers. Any disruption in the supply of the raw materials, packaging or components used in the manufacture and delivery of our products could have a material and adverse impact on our business, financial condition and results of operations. Limits on manufacturing availability or capacity, delays in production or delivery of components or raw materials, or effects associated with heightened, scheduled or threatened tariffs affecting our components or raw materials, could delay or inhibit our ability to obtain supply of components and produce finished goods inventory, and there can be no assurance that the supply chain impacts will not reoccur in the future. These supply chain constraints and their related challenges could result in shortages, increased material costs or use of cash, engineering design changes, and delays in new product introductions, each of which could adversely impact our business, results of operations and financial condition.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 12.3425,
+      "terms": [
+        "capacity",
+        "component",
+        "supplier"
+      ],
+      "company": "coherent",
+      "title": "Q1 2026",
+      "available_at": "2025-11-05T22:00:00Z",
+      "source_version_id": "7c8d28d3-bf0c-4822-9e07-5f5a46d69fb6",
+      "char_start": 8035,
+      "char_end": 8956,
+      "text": "Jim Anderson (CEO, Coherent): We also expect to continue to supplement our internal indium phosphide capacity with sourcing from external suppliers. We expect our external supply of EMLs to increase sequentially this quarter and next calendar year through continued partnership with our key external suppliers. In addition to critical laser production capacity, we are also expanding transceiver module assembly capacity. While we continue to expand production at our existing site in Ipoh, Malaysia, we will now be expanding production capacity in parallel at a new transceiver production facility that we recently opened in Penang, Malaysia. In addition, we will be adding transceiver production capacity at our existing site in Vietnam, which already produces transceiver components. This additional production capacity allows us to continue to rapidly ramp module capacity to support the demand growth in front of us.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 12.3252,
+      "terms": [
+        "second",
+        "component",
+        "supplier"
+      ],
+      "company": "lumentum",
+      "title": "Deutsche Bank 2026 Technology Conference",
+      "available_at": "2026-08-27T17:45:00Z",
+      "source_version_id": "8fa77c52-b711-4328-b150-338a049e40ba",
+      "char_start": 34764,
+      "char_end": 35385,
+      "text": "Michael Hurlston (CEO, Lumentum): We actually think that's an enabler because as really a component supplier first and a module supplier second, we see that change as enabling a component vector, making the modules a bit easier to make by putting the laser and solving some of the inherent alignment difficulties that you get right on top of the photonics IC. So, as I say, if you're a module guy, it might be more challenging because it sort of moves towards more of a commoditization vector. But we see ourselves as components first. We actually think that this is something we want to enable rather than fight against.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 12.0951,
+      "terms": [
+        "component",
+        "supplier",
+        "manufacturing"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 92246,
+      "char_end": 93168,
+      "text": "We purchase a significant amount of the materials and components used in our products from a limited number of suppliers.\nOur manufacturing processes and those of our contract manufacturers rely on many materials, including precious and rare earth metals, indium phosphide (\u201cInP\u201d) and certain lasers and laser components that may be difficult to source, may only be available from a single or limited number of suppliers. We have historically not had long-term contracts with our materials suppliers and a significant amount of our purchases are on a purchase order basis. Suppliers have previously, and may in the future, extend lead times, limit suppliers and place products on allocation, increase prices, or prioritize supplies for other customers, any of which could disrupt supply or increase demand in the industry and negatively impact our results of operations and our ability to fully meet our customers\u2019 demand.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 12.0008,
+      "terms": [
+        "second",
+        "investing",
+        "capacity",
+        "component",
+        "ciena"
+      ],
+      "company": "ciena",
+      "title": "Q1 2026",
+      "available_at": "2026-03-05T13:30:00Z",
+      "source_version_id": "4a918238-9aee-40ef-b5cc-dd0a90350143",
+      "char_start": 16513,
+      "char_end": 17400,
+      "text": "Marc Graff (Senior Vice President and CFO, Ciena): Second, we are deeply engaged with component vendors, which is where more of the industry challenges exist to secure and expand supply, including through responsible long-term purchase commitments. As shown by our Q1 results, we are navigating this supply environment well and are investing to expand capacity. However, we expect demand will continue to outstrip supply at least for the next several quarters. Turning to Q1, as Gary noted, revenue reached $1.43 billion, up 33% year-over-year and a quarterly record for the company. Our optical revenue was up over 40% year-over-year, led by Waveserver and RLS product lines, each of which were up over 80% from the year ago period. We had three greater than 10% customers, including two global cloud providers and one Tier 1 North American service provider with strong motion activity.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 11.5799,
+      "terms": [
+        "prepayment",
+        "house"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+      "available_at": "2025-05-07T10:00:00Z",
+      "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+      "char_start": 164283,
+      "char_end": 164800,
+      "text": "Restructuring charges for the nine months ended March 29, 2025 include $12.4 million of assets written-off including property, plant and equipment, prepayments and other current assets primarily due to efforts to consolidate our sites and focus on other market opportunities including cloud and AI markets. In addition, we also recorded $3.0 million of charges related to the discontinuation of our in-house development of coherent Digital Signal Processors (\u201cDSPs\u201d) and Radio Frequency Integrated Circuits (\u201cRFICs\u201d).",
+      "also_in": [
+        {
+          "source_version_id": "399b4e3d-a080-4f4f-bcc0-fe3d4294eed3",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 8-K filed 2025-05-06, EX-99.1",
+          "available_at": "2025-05-06T20:26:14Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}

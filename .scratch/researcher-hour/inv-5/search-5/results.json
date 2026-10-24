@@ -1,0 +1,511 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "Ciena gross margin supply constraints backlog DCI cloud provider",
+  "terms": [
+    "ciena",
+    "gross",
+    "margin",
+    "supply",
+    "constraint",
+    "backlog",
+    "dci",
+    "cloud",
+    "provider"
+  ],
+  "companies": [
+    "ciena",
+    "lumentum",
+    "coherent"
+  ],
+  "window": {
+    "since": "2025-04-07T14:09:44+00:00",
+    "as_of": "2026-10-07T14:09:44+00:00"
+  },
+  "documents": 132,
+  "documents_skipped": {
+    "not a text document": 3,
+    "outside the window": 495
+  },
+  "requests": 151,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 19.6476,
+      "terms": [
+        "ciena",
+        "dci",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 8-K filed 2025-12-11, EX-99.2",
+      "available_at": "2025-12-11T12:07:39Z",
+      "source_version_id": "60f49cb5-f753-49a6-86a6-be6a7bb4de35",
+      "char_start": 6295,
+      "char_end": 7406,
+      "text": "\u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information. Industry context and addressable market expansion\n10 \u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information. Increasing bandwidth consumption as a driver of network expansion\n11 \u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information. An industry leader #1 Globally \u2022 Data center interconnect \u2022 Optical for cloud providers \u2022 Purpose-built/compact modular DCI #1 N. America \u2022 Optical for cloud providers \u2022 Total optical networking \u2022 Optical packet #2 Globally \u2022 Total optical networking Optical Transport Report, 3Q25 #1 Globally \u2022 Purpose-built/compact modular DCI \u2022 SLTE WDM #1 N. America \u2022 Total optical networking \u2022 Purpose-built/compact modular DCI #2 Globally \u2022 Total optical networking Optical Networking Report, 2Q25 #1 Globally \u2022 Purpose-built/compact modular DCI \u2022 Optical for cloud and colo \u2022 SLTE WDM \u2022 Routing/Access #1 N. America \u2022 Total optical networking \u2022 Optical for cloud and colo \u2022 Routing/Access #2 Globally \u2022 Total optical networking Transport Hardware & Markets Preliminary Report, 3Q25",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 19.5629,
+      "terms": [
+        "ciena",
+        "dci",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 8-K filed 2025-09-04, EX-99.2",
+      "available_at": "2025-09-04T11:02:08Z",
+      "source_version_id": "b0f25f96-697e-493b-9aad-9632ca8e10b0",
+      "char_start": 6149,
+      "char_end": 7275,
+      "text": "\u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information.9 Increasing bandwidth consumption as a driver of network expansion\n\u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information.10 Our core business is enabling investment in higher-growth markets\n\u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information.11 An industry leader #1 Globally \u2022 Data center interconnect \u2022 Optical for cloud providers \u2022 Purpose-built/compact modular DCI #1 N. America \u2022 Optical for cloud providers \u2022 Total optical networking \u2022 Optical packet #2 Globally \u2022 Total optical networking \u2022 Optical Packet Optical Transport Report, 2Q25 #1 Globally \u2022 Purpose-built/compact modular DCI \u2022 SLTE WDM #1 N. America \u2022 Total optical networking \u2022 Purpose-built/compact modular DCI #2 Globally \u2022 Total optical networking Optical Networking Report, 1Q25 #1 Globally \u2022 Purpose-built/compact modular DCI \u2022 Optical for cloud and colo \u2022 SLTE WDM #1 N. America \u2022 Total optical networking \u2022 Optical for cloud and colo \u2022 Routing/Access #2 Globally \u2022 Total optical networking Transport Hardware & Markets Preliminary Report, 2Q25",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 18.352,
+      "terms": [
+        "ciena",
+        "dci",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 8-K filed 2025-06-05, EX-99.2",
+      "available_at": "2025-06-05T11:05:10Z",
+      "source_version_id": "406faedd-3899-4998-8660-3015805d63d1",
+      "char_start": 6120,
+      "char_end": 6913,
+      "text": "\u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information.11 An industry leader #1 Globally \u2022 Data center interconnect \u2022 Optical for internet content provider customers \u2022 Purpose-built #1 N. America \u2022 Data center interconnect \u2022 Total optical networking \u2022 Optical packet Optical Transport Report, 1Q25 #1 Globally \u2022 Purpose-built/compact modular DCI \u2022 SLTE WDM \u2022 Access switching #1 N. America \u2022 Total optical networking \u2022 Purpose-built/compact modular DCI \u2022 Access switching Optical Networking Report, 4Q24 Service Provider Switching & Routing Report, 4Q24 #1 Globally \u2022 Purpose-built/compact modular DCI \u2022 Optical for cloud and colo \u2022 SLTE WDM \u2022 Routing/Access #1 N. America \u2022 Total optical networking \u2022 Optical for cloud and colo \u2022 Routing/Access Transport Hardware Report, 1Q25",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 18.1394,
+      "terms": [
+        "ciena",
+        "backlog",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "Q4 2025",
+      "available_at": "2025-12-11T13:30:00Z",
+      "source_version_id": "2563eee4-6217-47f9-a2c5-7cb4c61b5e09",
+      "char_start": 4412,
+      "char_end": 4779,
+      "text": "Gary Smith (CEO, Ciena): In fact, cloud providers today are as focused on scaling their network as they are on their access to power. Orders from cloud providers are very strong and ramping across our portfolio, and they constitute a substantial portion of our growing backlog. It's important to note that this accelerating demand is being driven by several dynamics.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 17.5217,
+      "terms": [
+        "ciena",
+        "margin",
+        "supply",
+        "constraint",
+        "backlog"
+      ],
+      "company": "ciena",
+      "title": "Q3 2026",
+      "available_at": "2026-09-03T12:30:00Z",
+      "source_version_id": "1a12b3fa-a817-4037-ab39-9e158d49d9be",
+      "char_start": 24900,
+      "char_end": 25624,
+      "text": "Gary Smith (President and CEO, Ciena): Yes, I can hear you loud and clear, Tal.\nTal Liani (Analyst, Bank of America): Yeah. Perfect. If I told you three years ago you are going to grow 30% with 26% margin, you would have asked to drink the same thing I am drinking. The question I have is about backlog. Your backlog is doubling this year. It grows even faster than revenues. Your revenues are growing fast, and it grows even faster than revenues. I am trying to understand the early ordering portion of the backlog, maybe customers are buying ahead just because of supply constraints. It is not a concern. I just want to understand, get understanding of how backlog could behave in 2027. That is the reason for my question.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 17.3462,
+      "terms": [
+        "ciena",
+        "dci",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 8-K filed 2026-03-05, EX-99.2",
+      "available_at": "2026-03-05T12:49:58Z",
+      "source_version_id": "1983c421-53c1-411c-83ac-00304c59180f",
+      "char_start": 6306,
+      "char_end": 7325,
+      "text": "\u00a9 Ciena Corporation 2026. All rights reserved. Proprietary Information.9 An evolving industry is reshaping networks\n\u00a9 Ciena Corporation 2026. All rights reserved. Proprietary Information.10 Ciena's industry leadership is well-proven #1 Globally \u2022 Data center interconnect \u2022 Optical for cloud providers \u2022 Purpose-built/compact modular DCI #1 N. America \u2022 Total optical networking \u2022 Optical packet #2 Globally \u2022 Total optical networking Optical Transport Report, 4Q25 #1 Globally \u2022 Purpose-built/compact modular DCI \u2022 SLTE WDM #1 N. America \u2022 Total optical networking \u2022 Purpose-built/compact modular DCI #2 Globally \u2022 Total optical networking Optical Networking Report, 4Q25 #1 Globally \u2022 Purpose-built/compact modular DCI \u2022 Optical for cloud and colo \u2022 SLTE WDM \u2022 Routing/Access #1 N. America \u2022 Total optical networking \u2022 Optical for cloud and colo \u2022 Routing/Access #2 Globally \u2022 Total optical networking Transport Hardware & Markets Preliminary Report, 4Q25 M a rk e t le a d e rs h ip In d u s tr y r e c o g n it io n",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 17.19,
+      "terms": [
+        "gross",
+        "margin",
+        "supply",
+        "constraint"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 42782,
+      "char_end": 43101,
+      "text": "\u2022our gross margins and operating margins may vary over time;\n\u2022challenges relating to supply chain constraints;\n\u2022changes in technology and intense competition;\n\u2022our ability to sell to a significant customer;\n\u2022higher tariffs and other trade restrictions between the U.S. and other countries, including China and Thailand;",
+      "also_in": [
+        {
+          "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+          "available_at": "2026-05-06T10:00:00Z"
+        },
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 16.0396,
+      "terms": [
+        "gross",
+        "margin",
+        "supply",
+        "constraint"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+      "available_at": "2025-05-07T10:00:00Z",
+      "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+      "char_start": 198800,
+      "char_end": 199194,
+      "text": "\u2022our gross margins and operating margins may vary overtime;\n\u2022challenges relating to supply chain constraints;\n\u2022changes in technology and intense competition;\n\u2022our ability to sell to a significant customer, as well as higher tariffs and other trade restrictions between the U.S. and China;\n\u2022headwinds caused by heightened, scheduled, or threatened tariffs imposed by the U.S. or other countries;",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 16.0358,
+      "terms": [
+        "ciena",
+        "constraint",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "Q4 2025",
+      "available_at": "2025-12-11T13:30:00Z",
+      "source_version_id": "2563eee4-6217-47f9-a2c5-7cb4c61b5e09",
+      "char_start": 9017,
+      "char_end": 9964,
+      "text": "Gary Smith (CEO, Ciena): As a result of the massive growth in AI workloads and to address growing power and space constraints, cloud providers are planning and building distributed AI data center training clusters, or AI factories, which require multiple clusters to act as one. In fact, along with\nGary Smith (CEO, Ciena): those power and space constraints, the ability of the cloud providers, and specifically the major hyperscalers, to scale their global networks is becoming the critical long pole in the tent for them to operationalize AI for both training and inference purposes. Within these data center environments, there are three key connectivity requirements: to scale up within a data center rack, to scale out between racks in a data center, and finally, to scale across between geographically distributed data centers, which must operate at the highest levels of performance with super high capacity and the lowest latency possible.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 15.8182,
+      "terms": [
+        "ciena",
+        "gross",
+        "margin",
+        "supply",
+        "backlog",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "Q2 2026",
+      "available_at": "2026-06-04T12:30:00Z",
+      "source_version_id": "ca0c0004-014c-41c4-bbbe-2e637e664c8e",
+      "char_start": 2070,
+      "char_end": 3163,
+      "text": "Gregg Lampf (VP of Investor Relations, Ciena): As always, we'll allow for as much Q&A as possible today, though we do ask that you limit yourselves to one question and one follow-up. With that, I'll turn the call over to Gary.\nGary Smith (President and CEO, Ciena): Thanks, Gregg, good morning, everyone. Our Q2 performance was, once again, very strong, reflecting our continued technology leadership, our deep customer relationships, and the strength of our business model. In the quarter, we grew the business 40% year-on-year with revenues of $1.57 billion. We expanded adjusted gross margin to 44.9%, we nearly quadrupled the year-ago adjusted earnings per share to $1.64. I'd remind everybody that we delivered these results while navigating unprecedented demand and a constrained supply environment. With the combination of a strong and growing backlog driving strong visibility, fueled by AI-led demand from both cloud and service providers, coupled with our leading technology portfolio, we are well-positioned to gain share and deliver long-term value to our customers and our owners.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 15.5336,
+      "terms": [
+        "gross",
+        "margin",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-K filed 2025-12-12",
+      "available_at": "2025-12-12T18:42:26Z",
+      "source_version_id": "0d66ab11-2a98-47fb-9839-6eaa98d605e5",
+      "char_start": 111537,
+      "char_end": 112234,
+      "text": "Gross Margin Dynamics\nOur gross margin decreased to 42.0% in fiscal 2025, compared to 42.8% in fiscal 2024, primarily due to lower services margin driven by increased incentive compensation and shifts in services mix. In fiscal 2025, our growing sales to cloud providers contributed to a changing product mix and an increase in sales of interconnect products, impacting our product gross margin. Through our continued focus on a range of initiatives to maintain and enhance our gross margin, including cost reductions, manufacturing efficiencies and lower inventory provisions, we were able to offset the impact of this dynamic and our product margin was unchanged from fiscal 2024 to fiscal 2025.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 15.4519,
+      "terms": [
+        "ciena",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 8-K filed 2026-06-04, EX-99.2",
+      "available_at": "2026-06-04T11:05:06Z",
+      "source_version_id": "aa0c507b-62dc-4f42-9024-ed73d91b98a8",
+      "char_start": 7637,
+      "char_end": 8416,
+      "text": "\u00a9 Ciena Corporation 2026. All rights reserved. Proprietary Information.8 Cloud Providers are the drivers of industry change Cloud Providers (CP) \u2013 and especially the Hyperscalers \u2013 are funding an unprecedented scale of investment Sources: Company earnings, analyst projections, 2030 projections from Dell\u2019Oro Group, and Ciena internal analysis The forecasted range of Cloud Provider CapEx is far exceeding previous estimates Cloud Provider spend has been higher than forecastedCloud Provider CapEx forecast is accelerating rapidly Forecasts have consistently underestimated Cloud Providers' CapEx Sources: Company earnings for actuals, various analysts for forecasts 0 100 200 300 400 500 600 700 2022 2023 2024 2025 2026 $B ChatGPT Launched Actual Spend Previous year\u2019s forecast",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 15.1974,
+      "terms": [
+        "ciena",
+        "backlog",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "Q4 2025",
+      "available_at": "2025-12-11T13:30:00Z",
+      "source_version_id": "2563eee4-6217-47f9-a2c5-7cb4c61b5e09",
+      "char_start": 17609,
+      "char_end": 18110,
+      "text": "Marc Graff (CFO, Ciena): I'd also like to note that Blue Planet had a very successful year, achieving $34 million of revenue in the quarter, a record $115 million in fiscal 2025, and achieving full-year profitability. We had three 10% revenue customers in Q4, including two global cloud providers and one tier one North American service provider. We are exiting the year with about $5 billion of backlog, of which approximately $3.8 billion is hardware and software, with the remaining being services.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 15.1138,
+      "terms": [
+        "ciena",
+        "dci",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "Q2 2025",
+      "available_at": "2025-06-05T12:30:00Z",
+      "source_version_id": "6d3bbb86-80e7-4193-8c10-481145adb227",
+      "char_start": 8223,
+      "char_end": 9135,
+      "text": "Gary Smith (President and CEO, Ciena): We are seeing growth and strength across the board with service providers in core optical transport, routing and switching, software and services to address the connectivity needs of their own customer base and to support cloud providers' growing bandwidth demands. As a result, our business with tier one North American service providers gained momentum in Q2, and we also had several new customer wins in both the Americas and international regions, including Europe. This momentum is driven in part by new fiber builds as well as MOFN. In fact, on the record performance of direct DCI in the quarter, we also achieved an all-time record for MOFN activity in the first half of fiscal 2025, which further demonstrates really how we're supporting the strong nexus between service providers and cloud providers. I also want to touch on the momentum of our software business.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 15.0411,
+      "terms": [
+        "ciena",
+        "gross",
+        "margin",
+        "supply",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "Q2 2026",
+      "available_at": "2026-06-04T12:30:00Z",
+      "source_version_id": "ca0c0004-014c-41c4-bbbe-2e637e664c8e",
+      "char_start": 22781,
+      "char_end": 23624,
+      "text": "Marc Graff (SVP and CFO, Ciena): Yeah. No, I appreciate it, Simon. Firstly, on your question around the 2% or the two 10% customers. As I said in the remarks, both cloud providers, together, they're about a third of the revenue for Q2. We can't get into the names, but I'll leave you guys to hypothesize on who those are. On the gross margin and the pricing piece, we purposely are using this term value exchange, because as we think through the supply-demand dynamics, we're trying to balance a couple of things. One is obviously how do we continue to expand our margin? How do we make sure we're driving the right investment into securing that supply? I also want to make sure that the other working capital activities are being taken care of, and you saw the improvement in cash conversion. As we think about that, nothing is off the table.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 14.739,
+      "terms": [
+        "ciena",
+        "dci",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "Q3 2026",
+      "available_at": "2026-09-03T12:30:00Z",
+      "source_version_id": "1a12b3fa-a817-4037-ab39-9e158d49d9be",
+      "char_start": 8193,
+      "char_end": 9210,
+      "text": "Gary Smith (President and CEO, Ciena): Notably, its ramp has already exceeded that of our prior generation WaveLogic 5 Extreme. Separately, customer adoption and scaling of our intelligent line systems remains exceptionally strong. RLS is basically the industry standard in disaggregated optical line systems, where Ciena's first-mover advantage has driven a leading installed base, where roughly we have 70% market share. In addition to serving cloud providers and service providers in the network backbone and cloud providers for DCI in the AI WAN, RLS is the industry's first system deployed for scale across applications. The next generation of RLS, Hyper-Rail, is our second generation of RLS and represents our sixth generation of photonic line systems leadership. Co-created with the hyperscalers, it dramatically increases the density of existing optical amplifier infrastructure, and as such, is purpose-built to address the needs to distribute AI training workloads in data centers across greater distances.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 14.5107,
+      "terms": [
+        "supply",
+        "constraint",
+        "backlog"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 68755,
+      "char_end": 69849,
+      "text": "Challenges relating to supply chain constraints, including semiconductor components, could adversely impact our business, results of operations and financial condition.\nDue to increased demand across a range of industries, our business and customers\u2019 businesses are experiencing and could, in the future, experience supply constraints due to both constrained manufacturing capacity, as well as component parts shortages. These supply constraints have adversely affected and could further affect availability, lead-times and cost of components, and could increase the likelihood of unexpected cancellations or delays of previously committed supply of key components. These challenges have resulted in extended lead-times to our customers or accelerated ordering for certain of our products that resulted in inventory backlog that was subsequently managed down, resulting in reduced ordering. Ordering patterns may be difficult to predict and we have experienced and may, in the future, experience negative impacts to our revenue and profitability as well as our ability to achieve our forecasts.",
+      "also_in": [
+        {
+          "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+          "available_at": "2026-05-06T10:00:00Z"
+        },
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        },
+        {
+          "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+          "available_at": "2025-05-07T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 14.3616,
+      "terms": [
+        "ciena",
+        "gross",
+        "margin",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "Q2 2025",
+      "available_at": "2025-06-05T12:30:00Z",
+      "source_version_id": "6d3bbb86-80e7-4193-8c10-481145adb227",
+      "char_start": 11032,
+      "char_end": 11779,
+      "text": "Gary Smith (President and CEO, Ciena): With that, Jim, can you please provide us with updates on our financial performance in Q2, as well as our outlook?\nJim Moylan (CFO, Ciena): Thank you, Gary. Good morning, everyone. As Gary noted, we delivered strong fiscal second quarter results. Total revenue in Q2 was $1.13 billion. This included two 10%+ customers, one cloud provider, and one service provider. Adjusted gross margin was 41%, in line with our guidance driven by product mix and, to a lesser extent, the cost of tariffs. During the quarter, we navigated a new and, in the early days, a rapidly changing U.S. tariff environment. We responded in real time with mitigation strategies to minimize the impact both on our customers and our P&L.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 14.2374,
+      "terms": [
+        "supply",
+        "backlog",
+        "cloud",
+        "provider"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-Q filed 2025-09-04",
+      "available_at": "2025-09-04T20:05:56Z",
+      "source_version_id": "a9bdc6aa-ae3b-44fe-8a84-ae640f5a39cd",
+      "char_start": 71390,
+      "char_end": 72650,
+      "text": "During the third quarter of fiscal 2025, we continued to experience broad-based business momentum, with orders for our products and services significantly exceeding our revenue, resulting in increased backlog. We believe some portion of this order growth was impacted by the industry dynamics described above. We experienced year-over-year order growth in our major customer segments, particularly with cloud provider customers and large communications service provider customers, with a single cloud provider customer continuing to provide a significant volume of orders. As a result, our revenue increased by 29.4% to $1.2 billion in the third quarter of fiscal 2025 as compared to $942.3 million in the third quarter of fiscal 2024. Two of our top five customers by revenue for the third quarter of fiscal 2025 were cloud providers. Although our business remains subject to quarterly fluctuations due to customer purchasing patterns and supply chain dynamics, we continue to believe that certain trends and shifts in business and consumer behaviors and the drivers of bandwidth demand described above under the heading \u201cOverview - Market Opportunity and Investment in Technology Innovation\u201d in this Item 2 represent long-term opportunities for our business.",
+      "also_in": [
+        {
+          "source_version_id": "31f684e3-ac3f-43d8-9851-ddec95bfa3c5",
+          "company": "ciena",
+          "title": "CIENA CORP 10-Q filed 2025-06-05",
+          "available_at": "2025-06-05T18:41:16Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 11.8262,
+      "terms": [
+        "ciena",
+        "gross",
+        "margin",
+        "supply",
+        "backlog"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 8-K filed 2025-12-11, EX-99.2",
+      "available_at": "2025-12-11T12:07:39Z",
+      "source_version_id": "60f49cb5-f753-49a6-86a6-be6a7bb4de35",
+      "char_start": 14085,
+      "char_end": 15749,
+      "text": "\u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information. Business outlook\n27 \u00a9 Ciena Corporation 2025. All rights reserved. Proprietary Information. Economic considerations and assumptions in our 2026 outlook \u2022 We do not experience significant deferrals of delivery of forecasted orders or of our existing backlog \u2022 We are able to ramp capacity and deliver new products according to our roadmap and customer adoption of these products continues to be consistent with our expectations \u2022 Component suppliers deliver on their supply commitments consistent with our expectations and we do not encounter any substantial new supply disruptions that we cannot successfully mitigate \u2022 Given our distinct competitive and technology advantages, we continue to benefit disproportionately and gain market share Revenue AssumptionsBusiness Assumptions Profitability Assumptions \u2022 Operating expense remains relatively flat compared to FY 2025 as we improve efficiencies \u2022 We expect quarterly variability in gross margins due to product mix and certain pricing and cost impacts of the demand/supply imbalance \u2022 We do not experience significant supply chain price increases and we are able to achieve some product cost reductions, particularly for new product introduction and interconnects products \u2022 We will benefit from being first to market, delivering to customers new, differentiated products that provide more value \u2022 Macro environment does not significantly worsen or result in any adverse effects on our business, including with respect to our customers' capex levels, priorities or spending in our major geographies \u2022 Longer-term fundamental industry dema",
+      "also_in": [
+        {
+          "source_version_id": "b0f25f96-697e-493b-9aad-9632ca8e10b0",
+          "company": "ciena",
+          "title": "CIENA CORP 8-K filed 2025-09-04, EX-99.2",
+          "available_at": "2025-09-04T11:02:08Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}

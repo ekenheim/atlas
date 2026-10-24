@@ -1,0 +1,508 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "pump laser capacity long-term agreements higher prices network equipment manufacturers capex",
+  "terms": [
+    "pump",
+    "laser",
+    "capacity",
+    "long",
+    "term",
+    "agreement",
+    "higher",
+    "price",
+    "network",
+    "equipment",
+    "manufacturer",
+    "capex"
+  ],
+  "companies": [
+    "ciena",
+    "lumentum",
+    "coherent"
+  ],
+  "window": {
+    "since": "2025-04-07T14:09:44+00:00",
+    "as_of": "2026-10-07T14:09:44+00:00"
+  },
+  "documents": 132,
+  "documents_skipped": {
+    "not a text document": 3,
+    "outside the window": 495
+  },
+  "requests": 151,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 38.8076,
+      "terms": [
+        "pump",
+        "laser",
+        "capacity",
+        "long",
+        "term",
+        "agreement",
+        "higher",
+        "price",
+        "network",
+        "equipment",
+        "manufacturer",
+        "capex"
+      ],
+      "company": "lumentum",
+      "title": "Citi\u2019s 2026 Global TMT Conference",
+      "available_at": "2026-09-09T18:35:00Z",
+      "source_version_id": "70ef2d3f-f69c-432d-99d7-0b2d147ce2a1",
+      "char_start": 31074,
+      "char_end": 31855,
+      "text": "Kathy Ta (VP of Investor Relations, Lumentum): First thing that comes to my mind is scale across, and this is partly our fault. We don't give it enough air time. We also see scale across really inflecting our pump laser business. We talked about in this last earnings call and the call before that we see a 4x multiplier on our volume of pump lasers that we're expecting over the next five quarters or so. We have signed up all of the major network equipment manufacturers in long-term agreements with us over a multi-year period, and we engage them with higher prices for pump lasers to help us underwrite the CapEx that we need to spend to expand that capacity. We really see scale across in pump lasers as well as narrow linewidth lasers. That really has been a story of growth.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 22.5086,
+      "terms": [
+        "pump",
+        "laser",
+        "capacity",
+        "long",
+        "term",
+        "agreement",
+        "network"
+      ],
+      "company": "lumentum",
+      "title": "Q4 2026",
+      "available_at": "2026-08-11T21:00:00Z",
+      "source_version_id": "e8e6076f-d0c8-4532-bf4d-88875830e3b3",
+      "char_start": 8275,
+      "char_end": 9174,
+      "text": "Michael Hurlston (President and CEO, Lumentum): These two factors, among others, are substantially increasing the demand for our pump laser solutions. To put this in perspective, for one major hyperscaler, the network capacity connecting just two AI data center sites is double the total global backbone capacity they built over the entirety of the last decade. To support the growth and scale across deployments, we have secured multiple long-term customer agreements that help offset our planned capital expenditures. We continue to expect a fourfold increase in our pump laser shipments over the next several quarters to meet this escalating demand. Turning to laser chips, we delivered another record-breaking quarter for EMLs, primarily driven by strong demand for 100G per-lane devices. Momentum for our 200G EMLs is also accelerating rapidly, now accounting for over 25% of total EML revenue.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 21.3623,
+      "terms": [
+        "capacity",
+        "long",
+        "network",
+        "equipment",
+        "manufacturer"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+      "available_at": "2025-05-07T10:00:00Z",
+      "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+      "char_start": 138820,
+      "char_end": 139820,
+      "text": "Cloud & Networking\nOur Cloud & Networking products include comprehensive portfolio of optical and photonic chips, components, modules, and subsystems supplied to cloud data center operator, AI/ML infrastructure provider, and network equipment manufacturer customers who are building cloud data center and network infrastructures. Our products enable high-capacity optical links in cloud, AI/ML and DCI applications, and communications service provider networks, including products for access (local), metro (intracity), long-haul (city-to-city and worldwide) and submarine (undersea) network infrastructure. Our Cloud & Networking products also support network equipment manufacturers building enterprise network infrastructure, including SANs, LANs, and WANs. Demand for our Cloud & Networking products is driven by the continual growth in network capacity required for cloud computing and services, including for AI/ML, streaming video and video conferencing, wireless and mobile services, and IoT.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 21.139,
+      "terms": [
+        "capacity",
+        "long",
+        "network",
+        "equipment",
+        "manufacturer"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+      "available_at": "2025-05-07T10:00:00Z",
+      "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+      "char_start": 14312,
+      "char_end": 15403,
+      "text": "Our Cloud & Networking products include a comprehensive portfolio of optical and photonic chips, modules, and subsystems supplied to cloud data center operator, AI/ML infrastructure provider, and network equipment manufacturer customers who are building cloud data center and network infrastructures. Our products enable high-capacity optical data links in cloud, AI/ML, and data center interconnect (\u201cDCI\u201d) applications, and communications service provider networks, including in access (local), metro (intracity), long-haul (city-to-city and worldwide), and submarine (undersea) network infrastructure. Our Cloud & Networking products also support network equipment manufacturers building enterprise network infrastructure, including storage-area networks (\u201cSANs\u201d), local-area networks (\u201cLANs\u201d) and wide-area networks (\u201cWANs\u201d). Demand for our Cloud & Networking products is driven by the continual growth in network capacity required for cloud computing and services, including for AI/ML, streaming video and video conferencing, wireless and mobile devices, and internet of things (\u201cIoT\u201d).",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 20.0458,
+      "terms": [
+        "pump",
+        "laser",
+        "capacity",
+        "network",
+        "equipment",
+        "manufacturer"
+      ],
+      "company": "lumentum",
+      "title": "Q3 2025",
+      "available_at": "2025-05-06T21:00:00Z",
+      "source_version_id": "a8e94b34-f56e-4d97-8344-83205d914758",
+      "char_start": 7970,
+      "char_end": 8917,
+      "text": "Michael Hurlston (President and CEO, Lumentum): This marks the fifth sequential quarter of shipment growth for narrow linewidth lasers. Even as we ramp additional capacity in Thailand, our shipments will not be able to satisfy demand for the balance of the calendar year. In addition, pump lasers and line subsystems were up sequentially, driven by cloud infrastructure demand. Looking ahead to Q4, we anticipate strong sequential growth in our Cloud and Networking segment, driven by new capacity coming online across our global operations, the continued ramp of customer programs, and strengthening demand from network equipment manufacturers. Now let me move to our Industrial Tech segment. Industrial Tech segment revenue decreased 5% sequentially but was up 14% from the same quarter last year. Industrial laser revenue declined sequentially, but the drop was less than anticipated, while 3D sensing revenue followed expected seasonal trends.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 19.8402,
+      "terms": [
+        "pump",
+        "laser",
+        "long",
+        "price",
+        "network"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 231224,
+      "char_end": 231924,
+      "text": "The Components products net revenue growth was primarily driven by the ramp of laser chip and laser assembly product shipment, which represent 78% of the total growth to support strong, broad-based demand across intra-data center, data center interconnect, and long-haul applications, complemented by a slight increase in average selling prices of laser chip products driven primarily by a shift to 200G lane speeds. The remaining approximately 22% of Components net revenue growth was primarily due to an increase in shipment volume of data transport products, encompassing line subsystems solutions for long-haul terrestrial networks and charge pump products used in undersea network installations.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 19.0304,
+      "terms": [
+        "capacity",
+        "long",
+        "network",
+        "equipment",
+        "manufacturer"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+      "available_at": "2025-05-07T10:00:00Z",
+      "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+      "char_start": 119862,
+      "char_end": 121498,
+      "text": "We do not track all of our property, plant and equipment by operating segments. The geographic identification of these assets is set forth below.\nCloud & Networking\nOur Cloud & Networking products include comprehensive portfolio of optical and photonic chips, components, modules, and subsystems supplied to cloud data center operator, AI/ML infrastructure provider, and network equipment manufacturer customers who are building cloud data center and network infrastructures. Our products enable high-capacity optical links in cloud, AI/ML and DCI applications, and communications service provider networks, including products for access (local), metro (intracity), long-haul (city-to-city and worldwide) and submarine (undersea) network infrastructure. Our Cloud & Networking products also support network equipment manufacturers building enterprise network infrastructure, including SANs, LANs, and WANs. These products enable the transmission and transport of data, video, and audio over high-capacity fiber-optic cables. We maintain leading positions in these fast-growing cloud and networking markets through our extensive product portfolio, including high-speed optical components and transceivers, reconfigurable optical add/drop multiplexers (\u201cROADMs\u201d), coherent dense wavelength division multiplexing (\u201cDWDM\u201d) pluggable transceivers, and tunable small form-factor pluggable transceivers. Demand for our Cloud & Networking products is driven by the continual growth in network capacity required for cloud computing and services, including for AI/ML, streaming video and video conferencing, wireless and mobile services, and IoT.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 18.9026,
+      "terms": [
+        "capacity",
+        "long",
+        "term",
+        "agreement",
+        "capex"
+      ],
+      "company": "lumentum",
+      "title": "Q3 2026",
+      "available_at": "2026-05-05T21:00:00Z",
+      "source_version_id": "378fc846-5173-4d57-a2d6-f6e5d3b7034a",
+      "char_start": 37108,
+      "char_end": 37765,
+      "text": "Mohammed Khan (Analyst, Stifel): You mentioned that the long-term agreements being negotiated are helping in some sense to offset CapEx, and I think that was with scale-across, but it sounds like more broadly. Could you maybe give us a sense of the structure? Are these, you know, prepayment style commitments, maybe similar in maybe spirit, I would say, to the NVIDIA agreement, or are they take or pay capacity reservations or are they, you know, volume commitments tied to ASP floors? How should we be thinking about, you know, the CapEx, whether build, buy, offshore, these agreements are effectively underwriting? I'll stop there, and I have one other.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 18.7354,
+      "terms": [
+        "pump",
+        "laser",
+        "capacity",
+        "long",
+        "term",
+        "agreement"
+      ],
+      "company": "lumentum",
+      "title": "Q4 2026",
+      "available_at": "2026-08-11T21:00:00Z",
+      "source_version_id": "e8e6076f-d0c8-4532-bf4d-88875830e3b3",
+      "char_start": 48404,
+      "char_end": 48997,
+      "text": "Ruben Roy (Analyst, Stifel): Great. Thanks for sticking me in here. Michael, maybe just to drill into the pump laser commentary a bit. You are growing quite nicely. I think you said 80% year-over-year for the second quarter and fourfold increase coming, still effectively sold out. Can you talk a little bit about where you are in the Rose Orchard ramp and what exit capacity looks like? Then you talked about some long-term supply agreements that you are putting into place for scale across. Can you characterize, maybe high level, what the structure of those agreements are and the duration?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 18.1382,
+      "terms": [
+        "capacity",
+        "long",
+        "network",
+        "equipment",
+        "manufacturer"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+      "available_at": "2025-08-19T21:09:47Z",
+      "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+      "char_start": 9180,
+      "char_end": 10271,
+      "text": "Our Cloud & Networking products comprise a comprehensive portfolio of optical and photonic chips, components, modules, and subsystems supplied to cloud data center operators, AI/ML infrastructure providers, and network equipment manufacturer customers who are building cloud data center and network infrastructures. Our products enable high-capacity optical links for cloud computing, AI/ML workloads, and data center interconnect (\u201cDCI\u201d) applications, as well as for communications service provider networks. Our offerings support access (local), metro (intracity), long-haul (intercity and global), and submarine (undersea) network infrastructure. Additionally, our Cloud & Networking products serve enterprise network infrastructure needs, including storage area networks (\u201cSANs\u201d), local area networks (\u201cLANs\u201d), and wide area networks (\u201cWANs\u201d). Demand for our products is fueled by the ongoing expansion of network capacity required to support cloud and services, AI/ML processing, streaming video, video conferencing, wireless and mobile connectivity, and the internet of things (\u201cIoT\u201d).",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 18.0441,
+      "terms": [
+        "capacity",
+        "long",
+        "network",
+        "equipment",
+        "manufacturer"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+      "available_at": "2025-08-19T21:09:47Z",
+      "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+      "char_start": 204151,
+      "char_end": 205261,
+      "text": "Cloud & Networking\nOur Cloud & Networking products comprise a comprehensive portfolio of optical and photonic chips, components, modules, and subsystems supplied to cloud data center operators, AI/ML infrastructure providers, and network equipment manufacturer customers who are building cloud data center and network infrastructures. Our products enable high-capacity optical links for cloud computing, AI/ML workloads, and data center interconnect (\u201cDCI\u201d) applications, as well as for communications service provider networks. Our offerings support access (local), metro (intracity), long-haul (intercity and global), and submarine (undersea) network infrastructure. Additionally, our Cloud & Networking products serve enterprise network infrastructure needs, including storage area networks (\u201cSANs\u201d), local area networks (\u201cLANs\u201d), and wide area networks (\u201cWANs\u201d). Demand for our products is fueled by the ongoing expansion of network capacity required to support cloud and services, AI/ML processing, streaming video, video conferencing, wireless and mobile connectivity, and the internet of things (\u201cIoT\u201d).",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 18.0128,
+      "terms": [
+        "capacity",
+        "long",
+        "term",
+        "agreement",
+        "equipment",
+        "manufacturer",
+        "capex"
+      ],
+      "company": "coherent",
+      "title": "Q4 2026",
+      "available_at": "2026-08-12T20:30:00Z",
+      "source_version_id": "ac230f4b-3f49-4e7f-953d-5e168fd1e0a0",
+      "char_start": 19134,
+      "char_end": 20217,
+      "text": "Sherri Luther (CFO, Coherent): Our conviction in these high-return investments is backed by excellent visibility from our customers, with a robust pipeline of strong purchase orders and long-term agreements. This CapEx is primarily directed towards advanced tooling and state-of-the-art manufacturing equipment that accelerates our volume manufacturing capabilities and optimizes production yields. Furthermore, as a vertically integrated manufacturer, this capacity offers significant fungibility as our infrastructure can be dynamically repurposed to support multiple product lines. Given the exceptional demand profile and clear ROI visibility, we expect capital expenditures to increase sequentially again in Q1. These results reflect strong customer demand, disciplined operational execution, continued progress on our gross margin expansion initiatives, and investments in the products and technologies that we believe will drive future growth. I will now turn to our guidance for the first quarter of fiscal 2027. We expect revenue to be between $2.2 billion and $2.4 billion.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 17.9129,
+      "terms": [
+        "laser",
+        "capacity",
+        "long",
+        "term",
+        "agreement",
+        "manufacturer"
+      ],
+      "company": "lumentum",
+      "title": "Q3 2026",
+      "available_at": "2026-05-05T21:00:00Z",
+      "source_version_id": "378fc846-5173-4d57-a2d6-f6e5d3b7034a",
+      "char_start": 5690,
+      "char_end": 6382,
+      "text": "Michael Hurlston (President and CEO, Lumentum Holdings): These components remain effectively sold out for the foreseeable future. We are actively working to secure long-term agreements that will help offset anticipated capital expenditures. Turning to laser chips, we achieved another quarterly company record in EML shipments. Led by 100 gig lane speeds, 200 gig EML revenue more than doubled sequentially. We continue to ship CW lasers to 800 gig transceiver manufacturers, and starting in fiscal Q3, we began supplying CW lasers for internal use in our cloud transceiver business. Our wafer fab capacity in Japan remains at a premium and is fully allocated to meet surging customer demand.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 17.5083,
+      "terms": [
+        "pump",
+        "laser",
+        "long",
+        "price",
+        "network"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+      "available_at": "2026-05-06T10:00:00Z",
+      "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+      "char_start": 188288,
+      "char_end": 189229,
+      "text": "Net revenue increased by $383.2 million, or 90.1%, during the three months ended March 28, 2026 compared to the three months ended March 29, 2025, driven by a $232.5 million increase in Components products and $150.7 million increase in Systems products.\nThe increase in Components products was primarily driven by the ramp of laser chip and laser assembly product shipments to support strong, broad-based demand across intra-data center, data center interconnect, and long-haul applications. Additionally, a slight increase in average selling prices of laser chip products contributed to the increase in Components revenue driven primarily by a shift to 200G lane speeds. The remaining approximately 12% of Components revenue growth was due to an increase in shipment volume of data transport products, encompassing line subsystems solutions for long-haul terrestrial networks and charge pump products used in sub-sea network installations.",
+      "also_in": [
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 17.4545,
+      "terms": [
+        "pump",
+        "laser",
+        "long",
+        "price",
+        "network"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+      "available_at": "2026-05-06T10:00:00Z",
+      "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+      "char_start": 189726,
+      "char_end": 190667,
+      "text": "Net revenue increased by $843.4 million, or 72.4%, during the nine months ended March 28, 2026 compared to the nine months ended March 29, 2025, driven by a $560.3 million increase in Components products and a $283.1 million increase in Systems products.\nThe increase in Components products was primarily driven by the ramp of laser chip and laser assembly product shipments to support strong, broad-based demand across intra-data center, data center interconnect, and long-haul applications. Additionally, a slight increase in average selling prices of laser chip products contributed to the increase in Components revenue driven primarily by a shift to 200G lane speeds. The remaining approximately 19% of Components revenue growth was due to an increase in shipment volume of data transport products, encompassing line subsystems solutions for long-haul terrestrial networks and charge pump products used in sub-sea network installations.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 17.0105,
+      "terms": [
+        "laser",
+        "capacity",
+        "long",
+        "term",
+        "higher",
+        "network",
+        "manufacturer"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 196211,
+      "char_end": 197682,
+      "text": "We believe the global markets in which Lumentum participates have fundamentally robust, long-term trends that will increase the need for our photonics products and technologies. We believe the world is becoming more reliant on ever-increasing amounts of data flowing through optical networks and data centers. Lumentum\u2019s products and technology enable the scaling of these optical networks and data centers to higher capacities. AI/ML has caused a dramatic surge in the growing demands on data networking in cloud data centers and accelerated the usage of optical components and modules. We expect that the accelerating shift to digital and virtual approaches to many aspects of work and life will continue into the future. Virtual meetings, video calls, and hybrid in-person and virtual environments for work and other aspects of life will continue to drive strong needs for bandwidth growth and present dynamic new challenges that our technologies address. As manufacturers demand higher levels of precision, new materials, and factory and energy efficiency, suppliers of manufacturing tools globally are turning to laser-based approaches, including the types of lasers Lumentum supplies. Laser-based 3D sensing and LiDAR for security, industrial and automotive applications are rapidly developing markets. The technology enables computer vision applications that enhance security, safety, and new functionality in the electronic devices that people rely on every day. ",
+      "also_in": [
+        {
+          "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+          "available_at": "2026-05-06T10:00:00Z"
+        },
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        },
+        {
+          "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+          "available_at": "2025-05-07T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 16.7857,
+      "terms": [
+        "pump",
+        "laser",
+        "capacity",
+        "equipment"
+      ],
+      "company": "coherent",
+      "title": "Q1 2026",
+      "available_at": "2025-11-05T22:00:00Z",
+      "source_version_id": "7c8d28d3-bf0c-4822-9e07-5f5a46d69fb6",
+      "char_start": 54261,
+      "char_end": 54799,
+      "text": "Jim Anderson (CEO, Coherent): The other way we participate in that market, though, is we're a module vendor for ZR, ZR Plus, but we also sell components into all sorts of DCI equipment and applications. I would say there, again, the demand on the components right now is extremely strong. We are also ramping capacity for all of the components that go into DCI applications and any related telecom applications. We're seeing, just as one example, the pump lasers that we produce, we're seeing just very strong demand on those pump lasers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 16.7115,
+      "terms": [
+        "pump",
+        "laser",
+        "equipment"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2025-08-15",
+      "available_at": "2025-08-15T10:00:00Z",
+      "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+      "char_start": 30584,
+      "char_end": 30896,
+      "text": "\u2022VCSELs, EELs, pump lasers, high-power lasers for materials processing, and ICs.\nLasers\n\u2022Excimer lasers, solid-state lasers, CO2 lasers, and laser systems for a variety of industrial applications, including semiconductor capital equipment, display manufacturing, precision manufacturing, and scientific research.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 16.7046,
+      "terms": [
+        "pump",
+        "laser",
+        "long",
+        "price",
+        "network"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+      "available_at": "2025-11-05T11:00:00Z",
+      "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+      "char_start": 145306,
+      "char_end": 146444,
+      "text": "Selling, general and administrative\t$\t85.1\t$\t76.3\t$\t8.8\t11.5\t%\nPercentage of net revenue\t15.9\t%\t22.6\t%\nRestructuring and related charges\t$\t8.3\t$\t9.7\t$\t(1.4)\t(14.4)\t%\nPercentage of net revenue\t1.6\t%\t2.9\t%\nNet Revenue\nNet revenue increased by $196.9 million, or 58.4%, during the three months ended September 27, 2025 compared to the three months ended September 28, 2024, driven by a $147.8 million increase in Components products and a $49.1 million increase in Systems products. Approximately three-quarters of the increase in Components products relates to our ramp of laser chip and laser assembly product shipments to support strong, broad-based demand across intra-data center, data center interconnect and long-haul applications. The average selling prices of these laser chip and laser assembly products remained relatively flat compared to prior period. The remaining approximately one-quarter of Components revenue growth was due to an increase in shipment volume of data transport products, encompassing line subsystems solutions for long-haul terrestrial networks and charge pump products used in sub-sea network installations.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 16.6029,
+      "terms": [
+        "pump",
+        "laser",
+        "capacity",
+        "long"
+      ],
+      "company": "lumentum",
+      "title": "Q3 2025",
+      "available_at": "2025-05-06T21:00:00Z",
+      "source_version_id": "a8e94b34-f56e-4d97-8344-83205d914758",
+      "char_start": 36287,
+      "char_end": 36654,
+      "text": "Wupen Yuen (President of Cloud and Networking, Lumentum): Even the long-distance transmission coherent components are doing very well because of the terrestrial long-haul requirements and also the pump lasers for fiber capacity. All in all, we're seeing a very strong DCI kind of traffic growth, and that's driving our so-called telecom part of the portfolio as well.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}

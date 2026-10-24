@@ -1,0 +1,486 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "no single customer accounted for more than 10% revenues Coherent communications distributors",
+  "terms": [
+    "single",
+    "customer",
+    "accounted",
+    "10",
+    "revenue",
+    "coherent",
+    "communication",
+    "distributor"
+  ],
+  "companies": [
+    "fabrinet",
+    "applied-optoelectronics",
+    "coherent"
+  ],
+  "window": {
+    "since": "2025-04-07T13:22:10+00:00",
+    "as_of": "2026-10-07T13:22:10+00:00"
+  },
+  "documents": 126,
+  "documents_skipped": {
+    "not a text document": 3,
+    "outside the window": 331
+  },
+  "requests": 138,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 22.8336,
+      "terms": [
+        "customer",
+        "accounted",
+        "10",
+        "revenue",
+        "communication"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+      "available_at": "2025-12-16T21:05:10Z",
+      "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+      "char_start": 205060,
+      "char_end": 205490,
+      "text": "Total\t$\t5,810,115\t$\t4,707,688\t$\t5,160,100\nMajor Customers\nWe had two major customers who accounted for 12% and 10% of consolidated revenue during fiscal 2025. We had a different major customer who accounted for 10% of consolidated revenue during fiscal 2024. We had a major customer who accounted for 10% of consolidated revenue during fiscal 2023. These customers purchased primarily from our Datacenter & Communications segment.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 22.5507,
+      "terms": [
+        "customer",
+        "accounted",
+        "10",
+        "revenue",
+        "communication"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 349304,
+      "char_end": 349756,
+      "text": "Total\t$\t7,118,181\t$\t5,810,115\t$\t4,707,688\nMajor Customers\nOne major customer accounted for 20%, 10%, and 10% of consolidated revenue during fiscal 2026, 2025 and 2024, respectively. A second major customer accounted for 12% of consolidated revenue during fiscal 2026. A third major customer accounted for 12% of consolidated revenue during fiscal 2025. Revenue from these customers was primarily attributable to our Datacenter & Communications segment.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 18.8465,
+      "terms": [
+        "customer",
+        "accounted",
+        "10",
+        "revenue"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2025-08-15",
+      "available_at": "2025-08-15T10:00:00Z",
+      "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+      "char_start": 324961,
+      "char_end": 325442,
+      "text": "Japan\t390,610\t340,863\t392,479\nRest of World\t475,749\t408,056\t464,639\nTotal\t$\t5,810,115\t$\t4,707,688\t$\t5,160,100\nMajor Customers\nWe had two major customers who accounted for 12% and 10% of consolidated revenue during fiscal 2025. We had a different major customer who accounted for 10% of consolidated revenue during fiscal 2024. We had a major customer who accounted for 10% of consolidated revenue during fiscal 2023. These customers purchased primarily from our Networking segment.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 15.5468,
+      "terms": [
+        "customer",
+        "accounted",
+        "10",
+        "revenue"
+      ],
+      "company": "fabrinet",
+      "title": "Fabrinet 10-Q filed 2025-11-04",
+      "available_at": "2025-11-04T11:16:42Z",
+      "source_version_id": "0f29501a-7d2c-492e-95a0-d499ac76df6d",
+      "char_start": 70857,
+      "char_end": 71164,
+      "text": "During the three months ended September 26, 2025 and September 27, 2024, the Company had three customers and two customers, respectively, that each contributed 10% or more of the Company's revenues. Such customers together accounted for 51.5% and 52.6% of the Company revenues during the respective periods.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 15.3201,
+      "terms": [
+        "customer",
+        "accounted",
+        "revenue"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "APPLIED OPTOELECTRONICS, INC. 10-K filed 2026-02-26",
+      "available_at": "2026-02-26T21:24:24Z",
+      "source_version_id": "b9c0cce2-6593-45f4-9d5d-99acb8ab5162",
+      "char_start": 17075,
+      "char_end": 17529,
+      "text": "In 2025, our key customer in the CATV market was Digicomm. In 2025, 2024, and 2023, Digicomm accounted for 53.1%, 34.1% and 11.3% of our revenue, respectively, and in 2023, ATX Networks accounted for 15.6% of our revenue. In 2025, our key customer in the internet data center market was Microsoft. In 2025, 2024 and 2023, Microsoft accounted for 28.8%, 43.7% and 46.6% of our revenue, respectively, and in 2024, Oracle accounted for 12.4% of our revenue.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 15.2625,
+      "terms": [
+        "customer",
+        "accounted",
+        "10",
+        "revenue"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "APPLIED OPTOELECTRONICS, INC. 10-K filed 2026-02-26",
+      "available_at": "2026-02-26T21:24:24Z",
+      "source_version_id": "b9c0cce2-6593-45f4-9d5d-99acb8ab5162",
+      "char_start": 174305,
+      "char_end": 175280,
+      "text": "Customer Concentration within End Markets. Our revenue tends to be split primarily between CATV market and data center market. Moreover, within these markets, revenue tends to be concentrated among a small number of customers. We have taken several actions to increase the diversity of our customer base. These actions include hiring additional sales staff to improve our ability to serve new customers and introduction of new products that we believe will appeal to new customers. Furthermore, we have developed additional original design manufacturer, or ODM, relationships with customers in each of our target markets which should enable us to diversify our revenue base. We had two customers that accounted for more than 10% of our revenue in 2025 and three customers that accounted for more than 10% of our revenue in 2024. Given the size of our data center customers, however, we continue to expect high concentration of our revenue with the largest of these customers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 15.0503,
+      "terms": [
+        "customer",
+        "accounted",
+        "10",
+        "revenue"
+      ],
+      "company": "fabrinet",
+      "title": "Fabrinet 10-Q filed 2026-05-05",
+      "available_at": "2026-05-05T11:14:28Z",
+      "source_version_id": "c5d5e57d-b5fe-489f-99ed-8461d7095ab4",
+      "char_start": 74097,
+      "char_end": 74406,
+      "text": "During the nine months ended March 27, 2026 and March 28, 2025, the Company had four and two customers, respectively, that each contributed 10% or more of the Company's revenues. Such customers together accounted for 58.1% and 47.5% of the Company revenues during the respective periods.\n17. Subsequent events",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 14.5291,
+      "terms": [
+        "customer",
+        "accounted",
+        "10",
+        "revenue"
+      ],
+      "company": "fabrinet",
+      "title": "Fabrinet 10-Q filed 2025-05-06",
+      "available_at": "2025-05-06T11:15:39Z",
+      "source_version_id": "44884e01-e60b-4560-b5e0-f7621e896287",
+      "char_start": 73232,
+      "char_end": 73624,
+      "text": "During the nine months ended March 28, 2025 and March 29, 2024, the Company had two customers and three customers, respectively, that each contributed 10% or more of the Company's revenues. Such customers together accounted for 47.5% and 56.4% of the Company revenues during the respective periods.\nITEM 2. MANAGEMENT\u2019S DISCUSSION AND ANALYSIS OF FINANCIAL CONDITION AND RESULTS OF OPERATIONS",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 14.4536,
+      "terms": [
+        "customer",
+        "accounted",
+        "10",
+        "revenue"
+      ],
+      "company": "fabrinet",
+      "title": "Fabrinet 10-Q filed 2026-02-03",
+      "available_at": "2026-02-03T11:14:39Z",
+      "source_version_id": "88ab82aa-93cc-4a8c-866c-7f59bfee724d",
+      "char_start": 74497,
+      "char_end": 74973,
+      "text": "The Company had two and three customers that each contributed to 10% or more of the Company's total trade accounts receivable as of December 26, 2025 and June 27, 2025, respectively.\nDuring the six months ended December 26, 2025 and December 27, 2024, the Company had three and two customers, respectively, that each contributed 10% or more of the Company's revenues. Such customers together accounted for 48.9% and 50.5% of the Company revenues during the respective periods.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 13.6933,
+      "terms": [
+        "customer",
+        "accounted",
+        "revenue"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "APPLIED OPTOELECTRONICS, INC. 10-K filed 2026-02-26",
+      "available_at": "2026-02-26T21:24:24Z",
+      "source_version_id": "b9c0cce2-6593-45f4-9d5d-99acb8ab5162",
+      "char_start": 165325,
+      "char_end": 166150,
+      "text": "We sell our products to leading OEMs in the CATV, telecom, and FTTH markets as well as internet data center operators and CATV MSOs. In 2025, revenue from CATV market, the internet data center market, telecom market, FTTH and other markets provided 53.8%, 42.9%, 3.0% and 0.3% of our revenue, respectively, compared to 35.2%, 59.5%, 4.4% and 0.9%, respectively, in 2024. In 2025, our key customer in the CATV market was Digicomm. In 2025, 2024, and 2023, Digicomm accounted for 53.1%, 34.1% and 11.3% of our revenue, respectively, and in 2023, ATX Networks accounted for 15.6% of our revenue. In 2025, our key customer in the internet data center market was Microsoft. In 2025, 2024 and 2023, Microsoft accounted for 28.8%, 46.6% and 18.4% of our revenue, respectively, and in 2024, Oracle accounted for 12.4% of our revenue.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 13.1448,
+      "terms": [
+        "customer",
+        "accounted",
+        "10",
+        "revenue"
+      ],
+      "company": "fabrinet",
+      "title": "Fabrinet 10-K filed 2026-08-18",
+      "available_at": "2026-08-18T11:12:07Z",
+      "source_version_id": "0c0a74ec-8275-4e6d-a5a1-849e900aba3d",
+      "char_start": 65914,
+      "char_end": 66563,
+      "text": "We have depended, and will continue to depend, upon a small number of customers for a significant percentage of our revenues. During fiscal years 2026, 2025 and 2024, we had four, two and two customers, respectively, that each contributed 10% or more of our revenues. Such customers together accounted for 57.4%, 45.8% and 48.5% of our revenues during the respective periods. Dependence on a small number of customers means that a reduction in orders from, a loss of, or other adverse actions by any one of these customers would reduce our revenues and could have a material adverse effect on our business, financial condition and operating results.",
+      "also_in": [
+        {
+          "source_version_id": "c5d5e57d-b5fe-489f-99ed-8461d7095ab4",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-Q filed 2026-05-05",
+          "available_at": "2026-05-05T11:14:28Z"
+        },
+        {
+          "source_version_id": "88ab82aa-93cc-4a8c-866c-7f59bfee724d",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-Q filed 2026-02-03",
+          "available_at": "2026-02-03T11:14:39Z"
+        },
+        {
+          "source_version_id": "0f29501a-7d2c-492e-95a0-d499ac76df6d",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-Q filed 2025-11-04",
+          "available_at": "2025-11-04T11:16:42Z"
+        },
+        {
+          "source_version_id": "7808920f-ec35-44fe-99f1-e373bd062c9d",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T11:13:26Z"
+        },
+        {
+          "source_version_id": "44884e01-e60b-4560-b5e0-f7621e896287",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-Q filed 2025-05-06",
+          "available_at": "2025-05-06T11:15:39Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 13.137,
+      "terms": [
+        "customer",
+        "communication",
+        "distributor"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 41274,
+      "char_end": 41965,
+      "text": "We have centralized our worldwide sales and strategic marketing functions. Sales offices have been aligned to best serve and distribute products to our worldwide customer base.\nOur sales force develops effective communications with our largest OEM and end-user customers worldwide. Products are actively marketed through key account relationships, personal selling, authorized distributors, systems integrators, select advertising, attendance at trade shows, digital marketing, and customer partnerships. Our sales force includes a highly trained technical sales support team to assist customers in designing, testing, and qualifying our products as key components of our customers\u2019 systems.",
+      "also_in": [
+        {
+          "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+          "company": "coherent",
+          "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+          "available_at": "2025-12-16T21:05:10Z"
+        },
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 13.1329,
+      "terms": [
+        "coherent",
+        "communication",
+        "distributor"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2025-08-15",
+      "available_at": "2025-08-15T10:00:00Z",
+      "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+      "char_start": 235615,
+      "char_end": 236296,
+      "text": "See Notes to Consolidated Financial Statements\nCoherent Corp. and Subsidiaries\nNotes to Consolidated Financial Statements\nNote 1. Nature of Business and Summary of Significant Accounting Policies\nNature of Business. Coherent Corp. (\u201cCoherent,\u201d the \u201cCompany,\u201d \u201cwe,\u201d \u201cus\u201d or \u201cour\u201d), a global leader in materials, networking, and lasers, is a vertically-integrated manufacturing company that develops, manufactures, and markets engineered materials, optoelectronic components and devices, and lasers for use in the industrial, communications, electronics and instrumentation markets. The Company markets its products through its direct sales force and through distributors and agents.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 12.0186,
+      "terms": [
+        "10",
+        "revenue",
+        "coherent",
+        "communication"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-05-28, EX-99.2",
+      "available_at": "2025-05-28T16:06:01Z",
+      "source_version_id": "158d1d90-354c-48d7-8d8b-ab3ccb26527f",
+      "char_start": 14009,
+      "char_end": 14469,
+      "text": "DRIVING DOUBLE-DIGIT REVENUE GROWTH Revenue Growth Drivers DATACENTER and COMMUNICATIONS TARGET: 10-15%+ CAGR \u2022 AI datacenter market growth \u2022 SAM expansion, e.g., optical switching \u2022 Share gain opportunity DATACENTER 15-20%+ CAGR and COMMS INDUSTRIAL \u2022 Industrial market growth INDUSTRIAL 5-10% CAGR \u2022 Content expansion of lasers and optics \u2022 Growing recurring service revenue stream FY25 3-4 years Copyright 2025, Coherent. All rights reserved. NYSE I COHR 20",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 12.0186,
+      "terms": [
+        "10",
+        "revenue",
+        "coherent",
+        "communication"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-05-28, EX-99.2",
+      "available_at": "2025-05-28T16:06:01Z",
+      "source_version_id": "158d1d90-354c-48d7-8d8b-ab3ccb26527f",
+      "char_start": 36390,
+      "char_end": 36850,
+      "text": "DRIVING DOUBLE-DIGIT REVENUE GROWTH Revenue Growth Drivers DATACENTER and COMMUNICATIONS TARGET: 10-15%+ CAGR \u2022 AI datacenter market growth \u2022 SAM expansion, e.g., optical switching \u2022 Share gain opportunity DATACENTER 15-20%+ CAGR and COMMS INDUSTRIAL \u2022 Industrial market growth INDUSTRIAL 5-10% CAGR \u2022 Content expansion of lasers and optics \u2022 Growing recurring service revenue stream FY25 3-4 years Copyright 2025, Coherent. All rights reserved. NYSE I COHR 75",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 11.97,
+      "terms": [
+        "customer",
+        "accounted",
+        "10",
+        "revenue"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 70638,
+      "char_end": 71610,
+      "text": "A small number of customers have consistently accounted for a significant portion of our revenues, with two customers each contributing more than 10% of total revenues in fiscal 2026. Our success will depend on our continued ability to develop and manage relationships with our large customers and their continued need for our products. Although we are attempting to expand our customer base, we expect that significant customer concentration will continue for the foreseeable future. We may not be able to offset any decline in revenues from our existing large customers with revenues from new customers, and our quarterly results may be volatile because we are dependent on large orders from these customers that may be reduced, delayed, or cancelled. The markets in which we have historically sold our optical subsystems and components products are dominated by a relatively small number of systems manufacturers, thereby limiting the number of our potential customers.",
+      "also_in": [
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 11.5869,
+      "terms": [
+        "accounted",
+        "revenue",
+        "coherent",
+        "communication"
+      ],
+      "company": "coherent",
+      "title": "Q4 2026",
+      "available_at": "2026-08-12T20:30:00Z",
+      "source_version_id": "ac230f4b-3f49-4e7f-953d-5e168fd1e0a0",
+      "char_start": 3692,
+      "char_end": 4694,
+      "text": "Jim Anderson (CEO, Coherent): Second, our supply of critical components is increasing, including the planned doubling of our internal indium phosphide output year-over-year by the end of the current quarter. Third, multiple new revenue streams are expected to ramp over the coming quarters, including optical circuit switching, co-packaged optics, multi-rail systems, and advanced materials for data center thermal and power management. Along with strong revenue growth, we expect continued gross margin expansion and operating leverage, enabling us to grow EPS significantly faster than revenue. We expect fiscal 2027 to be another outstanding year for Coherent. Our data center and communication segment continues to be the primary driver of our growth and accounted for 79% of total company revenue in fiscal Q4. Segment revenue increased 40% for full year fiscal 2026. In Q4, our segment revenue growth rate accelerated significantly with revenue increasing 19% sequentially and 59% year-over-year.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 11.3607,
+      "terms": [
+        "single",
+        "coherent"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-05-28, EX-99.2",
+      "available_at": "2025-05-28T16:06:01Z",
+      "source_version_id": "158d1d90-354c-48d7-8d8b-ab3ccb26527f",
+      "char_start": 32087,
+      "char_end": 32502,
+      "text": "PRODUCT LAUNCH: PRECISION MANUFACTURING AIM FL Series of Single-Mode Fiber Lasers \u2022 Rack-mounted industrial, multi-kilowatt single-mode fiber lasers \u2022 For automotive, EV, medical device, and consumer goods manufacturing \u2022 Single-mode for superior beam quality, stability, and precision \u2022 Leverages Coherent\u2019s deep vertical tech stack Launched March 2025 Copyright 2025, Coherent. All rights reserved. NYSE I COHR 64",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 11.3006,
+      "terms": [
+        "customer",
+        "distributor"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "21st Annual Needham Technology, Media, & Consumer Conference",
+      "available_at": "2026-05-13T12:45:00Z",
+      "source_version_id": "fd314f7e-dfff-45b1-9bb8-7012e14e43a4",
+      "char_start": 56136,
+      "char_end": 56458,
+      "text": "Ryan Koontz (Analyst, Needham & Company): Got it.\nStefan Murry (CFO and Chief Strategy Officer, Applied Optoelectronics): Yeah.\nRyan Koontz (Analyst, Needham & Company): You sell these, amps into, I guess, Charter as an end customer through a distributor.\nRyan Koontz (Analyst, Needham & Company): into the cable industry.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 10.9364,
+      "terms": [
+        "customer",
+        "10",
+        "revenue",
+        "communication"
+      ],
+      "company": "fabrinet",
+      "title": "Fabrinet 10-K filed 2026-08-18",
+      "available_at": "2026-08-18T11:12:07Z",
+      "source_version_id": "0c0a74ec-8275-4e6d-a5a1-849e900aba3d",
+      "char_start": 46008,
+      "char_end": 46661,
+      "text": "Customers, Sales and Marketing\nThe optical communications market we serve is highly concentrated. Therefore, we expect a significant percentage of our revenues will continue to come from a small number of customers. During fiscal years 2026 and 2025, we had four and two customers, respectively, that each contributed 10% or more of our revenues. During fiscal year 2026, Cisco Systems, Inc., NVIDIA Corporation, Nokia Corporation and Amazon.com, Inc. contributed 19.9%, 16.3%, 10.7% and 10.5%, respectively, of our revenues. During fiscal year 2025, NVIDIA Corporation and Cisco Systems, Inc. contributed 27.6% and 18.2%, respectively, of our revenues.",
+      "also_in": [
+        {
+          "source_version_id": "7808920f-ec35-44fe-99f1-e373bd062c9d",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T11:13:26Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}

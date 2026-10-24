@@ -1,0 +1,131 @@
+# Archive-search baseline
+
+- **Question:** market share competitors second source qualified customers 1.6T DSP TIA driver share shift
+- **Terms:** market, share, competitor, second, source, qualified, customer, 1.6t, dsp, tia, driver, shift
+- **Companies:** marvell, macom
+- **Window:** 2025-04-07 to 2026-10-07
+- **Documents searched:** 79 (skipped: {'not a text document': 2, 'outside the window': 19})
+- **Repeats:** 0 of 20 hits are also in other documents, word for word or with small edits; each is one hit, and its other documents count as that hit
+
+The reviewer marks each hit on-question or not (at most 10 on-question).
+
+## 1. Q4 2025
+
+macom, available 2025-11-06, version `892dac7b-8342-4b27-8452-f32bfd49a8f8` [54642, 54985); score 25.5131; terms: market, share, 1.6t, tia, driver, shift
+
+> Quinn Bolton (Managing Director of Equity Research, Needham and Company): Hey, guys. Thanks for taking my question. I guess maybe, Steve, just coming out of the ECOC Optical show a few weeks back, there was some chatter about market share shifts in the TIA and the driver side at 800 gig and 1.6T modules. I just wondered if you could address.
+
+## 2. Q3 2026 & Acquisition
+
+marvell, available 2025-12-02, version `d908947a-bcc6-436a-9499-1650780b0c6b` [17342, 18277); score 25.194; terms: market, 1.6t, dsp, tia, driver, shift
+
+> Matt Murphy (Chairman and CEO, Marvell Technology): We introduced our 1.6T Coherent Light solution last year. We expect to start shipping next year, and we are on track to deliver our 3.2T solution the year after. Now, complementing our DSPs, our high-performance analog TIAs and drivers remain foundational to our electro-optics leadership. Our TIAs have a significant performance lead at 1.6T, and we are seeing strong broad-based demand for our products, which are enabling the entire ecosystem. We have also secured several LPO sockets across multiple hyperscalers and are leading this emerging category as well, although deployments remain relatively small today in the context of a very large transceiver market. Turning to two of our newer interconnect growth drivers, AECs and retimers. Both markets are undergoing a shift to high-speed PAM-based solutions, an inflection point that is perfectly aligned to Marvell's strengths.
+
+## 3. Q4 2025
+
+macom, available 2025-11-06, version `892dac7b-8342-4b27-8452-f32bfd49a8f8` [54986, 55327); score 24.7295; terms: share, 1.6t, tia, driver, shift
+
+> Quinn Bolton (Managing Director of Equity Research, Needham and Company): How do you feel about your relative share position across TIAs drivers? Have you seen any shifts? Do you feel like you're still pretty well holding share or maybe even taking share? Any commentary just how you're doing in the PMDs for optical modules at 800 and 1.6T?
+
+## 4. 2026 Evercore Global TMT Conference
+
+marvell, available 2026-06-02, version `73a3364a-916c-4f5b-85da-8a905fc52c27` [30641, 30986); score 20.4712; terms: 1.6t, dsp, tia, driver
+
+> Mark Lipacis (Analyst, Evercore ISI): I think, from our standpoint, it seems like you're planning for billions in annual revenues from hundreds of millions last year for 1.6T. How should investors think about the mix of DSPs versus TIAs versus drivers? You have good products in all these buckets. How do we think about those different elements?
+
+## 5. Marvell Technology, Inc. 10-K filed 2026-03-11
+
+marvell, available 2026-03-11, version `d76df7df-4395-44e9-89a7-7a5c2d133d8e` [20933, 21836); score 20.4063; terms: market, dsp, tia, driver, shift
+
+> Our low-power and low-latency PAM and coherent-lite optical DSPs implement equalization, estimation, clock recovery, carrier recovery, forward error correction, and coded modulation to enable ultra-fast data transmission speeds. In combination with our drivers, TIAs and silicon photonics, our suite of optical DSPs products perform a wide range of functions such as amplifying, encoding, multiplexing, demultiplexing, and retiming signals. The PAM DSPs are key enablers for inter-connecting servers, routers, switches, storage and other infrastructure equipment that process, store and transport data traffic inside data centers. The coherent lite DSPs address the emerging market for distributed campus data center interconnects spanning up to 20 km with high bandwidth and low latency as the industry shifts from large-scale facilities to campus-based data centers due to power and space constraints.
+
+## 6. Investor Day 2026
+
+marvell, available 2026-10-06, version `9a48caa6-7e73-48cb-9ed3-d1e47e6ce4f5` [70449, 71362); score 19.9957; terms: share, competitor, source, customer, dsp, tia, driver
+
+> Xi Wang (SVP and General Manager of Connectivity Business, Marvell Technology): Coherent module and DSPs for the longest reach. PAM, TIAs, drivers, and AECs for data center. ACC, NPO, and CPO for the rack. Today, I am also going to share more about what we are doing with optical IO chiplets using next-generation light source as we bring optics inside the package. No other companies cover this entire stack. Our competitors may try a piece of it, but Marvell offers all of it. That is the breadth, exactly, will let us support our customer's architecture with whatever implementation they go with next. In my presentation, I will focus on scale out as well as scale in. Russ will talk about scale across, and Dave will talk about scale up. Before we talk about the product and the business, I want to take a moment to show you the complete connectivity technology portfolio we have built over the past 30 years.
+
+## 7. Marvell Technology, Inc. 10-K filed 2026-03-11
+
+marvell, available 2026-03-11, version `d76df7df-4395-44e9-89a7-7a5c2d133d8e` [21837, 22359); score 19.5956; terms: dsp, tia, driver
+
+> Our coherent TIAs, drivers and DSPs enable optical data transmission over distances of 100s to 1000s of kilometers in telecom carrier networks. Our PAM DSPs along with our accompanying TIAs and drivers deliver low-power and cost-effective solutions for optical connectivity inside cloud data centers. Our data center interconnect solutions enable pluggable transceiver technology to directly interconnect regional cloud data centers, at lower cost, complexity and power compared to traditional optical transport solutions.
+
+## 8. 2026 Evercore Global TMT Conference
+
+marvell, available 2026-06-02, version `73a3364a-916c-4f5b-85da-8a905fc52c27` [31867, 32255); score 19.197; terms: market, share, dsp, tia, driver
+
+> Ashish Saran (SVP of Investor Relations, Marvell): At that point in time, to answer your question, we also said scale-across will also be a billion-dollar business, and then TIAs and drivers will also become a billion-dollar business. The business gets very diversified. Obviously DSPs, given the volume, given our market share position, one would expect will remain kind of the majority.
+
+## 9. 2026 Evercore Global TMT Conference
+
+marvell, available 2026-06-02, version `73a3364a-916c-4f5b-85da-8a905fc52c27` [38509, 39204); score 17.8016; terms: market, second, customer, 1.6t, dsp
+
+> Ashish Saran (SVP of Investor Relations, Marvell): One of the key things you need for scale-across is customers really want to go to 1.6T. Today, most of the market is more like 400, 800. Think of scale-across as just taking an existing scale-out network and just stretching it across a much longer reach. It's the same amount of data, which is what drives our PAM4 DSP business today, just to give you a sense of how large this can be. You want the same bandwidth. This needs to be 1.6T, which is why we pulled up our roadmap, came out with a 1.6T DCI module pretty soon. It's going to be sampling second half of this year with a 2 nm coherent DSP first to market. Pretty unique position there.
+
+## 10. Investor Day 2026
+
+marvell, available 2026-10-06, version `9a48caa6-7e73-48cb-9ed3-d1e47e6ce4f5` [74132, 75128); score 17.7828; terms: market, 1.6t, dsp, tia, driver
+
+> Xi Wang (SVP and General Manager of Connectivity Business, Marvell Technology): On the technology side, we have invested across multiple process nodes, across a wide range of compound semiconductor, developed together with our foundry partners. Because different optics, again, require different requirements on the bandwidth, output swing, and noise characteristics. That multi-foundry, multi-process leadership, combined with our capacity investment, is what keeps us ahead. All of that technology, developed fully in-house, support our flagship DSP portfolio. We have been leading since the inception of PAM4 with a fully co-designed DSP driver TIA solution. We have been leading at 200G, 400G, 800G, and 1.6T. 800G is the workhorse of AI today. It is what is powering all the AI models that you are using right now. There is a strong, continued demand from the market on our 800G solutions. This is what help us to drive this business to multi-billion dollar annually. We are leading at 1.6T.
+
+## 11. Investor Day 2026
+
+marvell, available 2026-10-06, version `9a48caa6-7e73-48cb-9ed3-d1e47e6ce4f5` [78753, 79607); score 17.201; terms: market, 1.6t, dsp, tia, driver
+
+> Xi Wang (SVP and General Manager of Connectivity Business, Marvell Technology): As a matter of fact, we are in volume production and shipment of our first generation 1.6T coherent-lite with open optics for campus application. We are bringing coherent-lite into data center, and our 2 nm approach reflects our long-term understanding of the technology and the market, and the uniqueness of Marvell to support both PAM4 and coherent-lite. This is the same platform leadership story expanded. We build our DSP, TIA, and driver technology with our own leadership IP. It is what carried us from 200G through 1.6T. Where we are first to ship 3 nm in volume, at 3.2T, we are leading with 2 nm coherent-lite and a 2 nm 400G PAM. The roadmap continues on to 6.4T. We have the technology depth and breadth, and we develop it years ahead of when the market need it.
+
+## 12. Q1 2027
+
+marvell, available 2026-05-27, version `6f900386-2718-4fcd-a849-5a89eff3d84b` [11804, 12792); score 16.6894; terms: market, dsp, tia, driver
+
+> Matt Murphy (Chairman and CEO, Marvell Technology): We also expect to maintain leadership into the next PAM4 generation with 400 G per lane technology, which we demonstrated first at the Optical Fiber Conference in April 2025. In addition to our DSP franchise, we have also built a formidable position in broadband, analog, TIAs and drivers. This business is scaling rapidly, and we expect quarterly revenue from TIAs and drivers to exceed a $1 billion annualized run rate in the next few quarters. To support campus-wide data center architectures requiring longer reach than traditional PAM solutions, we were the first to introduce coherent light products to the market. These solutions are optimized for applications spanning 2-20 km within an extremely low power envelope as compared to traditional coherent DSPs. Over time, as speeds continue to rise, we expect coherent light to penetrate deeper inside data centers, complementing PAM-based solutions for shorter reach applications.
+
+## 13. Marvell Technology, Inc. 10-K filed 2026-03-11
+
+marvell, available 2026-03-11, version `d76df7df-4395-44e9-89a7-7a5c2d133d8e` [20396, 20932); score 16.255; terms: dsp, tia, driver
+
+> Interconnects
+> We offer a complete portfolio of high-speed interconnect semiconductor solutions for inside cloud data centers, between cloud data centers and in carrier networks. Our interconnect products include PAM (pulse amplitude modulation), coherent and coherent-lite DSPs (digital signal processors), laser drivers, TIAs (trans-impedance amplifiers), silicon photonics, CPO (co-packaged optics), LPO (linear pluggable optics) chipsets, DCI (data center interconnect), AEC (active electrical cable) DSPs and PCIe retimer solutions.
+
+## 14. Q1 2026
+
+marvell, available 2025-05-29, version `2f8b920e-cc8f-4d9b-b4a3-a81caf7b7435` [9490, 10419); score 15.1987; terms: market, customer, 1.6t, dsp
+
+> Matt Murphy (CEO, Marvell Technology): Silicon photonics light engines scaling up to 6.4T, consolidating hundreds of components into compact modules optimized for both pluggable and CPO applications. 1.6T linear drive pluggable optical modules using Marvell's silicon photonics light engine. The industry's first 3 nm 1.6T PAM4 DSP, featuring 200 gig per lane electrical and optical interfaces, enabling customers to reduce module power consumption by more than 20% compared to its predecessor. Next-generation 800 gig DCI modules supporting data transmission over distances up to 1,000 km. Production-ready 1.6T AEC DSPs for emerging 200 gig per lane accelerated infrastructure. Coherent light DSPs enabling power and performance-optimized solutions for the emerging market of distributed campus data center interconnects, spanning distances up to 20 km. PCIe Gen 6 and PCIe Gen 7 SerDes for end-to-end connectivity over optics.
+
+## 15. Barclays 23rd Annual Global Technology Conference
+
+marvell, available 2025-12-10, version `55ca08a1-8dc5-453d-adf5-c321aeb56e6a` [13688, 13991); score 15.1232; terms: share, 1.6t, shift
+
+> Operator: And then as you shift to new speeds, 1.6T coming more in volume in 2026, still 800G, the vast majority of connections next year. But as you move to 1.6T, what does that share profile look like, and how can you assure that you're in the same kind of position that you were in prior generations?
+
+## 16. Q3 2026
+
+macom, available 2026-08-06, version `592b9a21-d5dd-4830-8bae-2eea9612796b` [36777, 37584); score 15.1074; terms: market, customer, dsp, tia, driver
+
+> Stephen Daly (President and CEO, MACOM): Sure. Thanks for the question. I can tell you we are not going to be building engines and supplying engines to the market. In the case of the data center, we are a chip supplier, not a multi-chip assembly or module supplier. We've seen an evolution go from sort of pluggable transceivers with DSPs to LPO platforms, which is removing the DSP. That is now morphing into, as you sort of pointed out, an engine or a smaller package-less NPO platform. Those architectures still need as you pointed out, drivers and TIAs. What's different here is the density that's required to bring all of this interconnect to bear. As I said in my script, customers want smaller parts. They want more channels. They want lower power. They want these products in different form factors.
+
+## 17. Q4 2025
+
+macom, available 2025-11-06, version `892dac7b-8342-4b27-8452-f32bfd49a8f8` [14525, 15355); score 14.8328; terms: market, share, second, customer, 1.6t
+
+> Steve Daly (President and CEO, MACOM): As we turn our attention to FY2026, our priorities include, first, taking full advantage of the data center growth opportunity and servicing our customers with differentiated solutions. This includes expanding our portfolio into new product areas such as PDs and lasers, where we can add value. In the near term, we will seek to increase market share in 800G and 1.6T high-speed analog solutions, expand our customer base for linear equalizers and PCIe solutions, ramp photonic products, and support customer LPO launches. We will also continue the design work to establish a leadership position in 300 and 400 gig per lane connectivity ICs for future 1.6T and 3.2T systems. Second, we will seek to expand our market share in 5G applications by leveraging our new and improved GaN 4 process.
+
+## 18. Q4 2026
+
+marvell, available 2026-03-05, version `3190fe61-96ad-46c1-86d3-a5f5af35cf44` [10321, 11242); score 14.8083; terms: market, second, customer, 1.6t, dsp
+
+> Matt Murphy (Chairman and CEO, Marvell Technology): To that end, earlier today, we announced our latest innovations in scale across interconnects, including the industry's first secure 1.6T ZR and ZR+ DCI modules powered by our new 2nm coherent DSP. We also introduced a new 2nm 800G DSP, which enables second generation lower power 800G DCI modules. DCI modules powered by these 2nm MACsec-enabled DSPs are expected to begin sampling later this year. This positions Marvell to maintain technology leadership, supported by our proven expertise in large-scale manufacturing of these highly specialized and complex modules. Now let's move to scale up interconnects, which is an entirely new and rapidly emerging market. We are very excited about what we believe to be a massive opportunity unlocked by Celestial AI's Photonic Fabric, or PF technology, as well as growing customer traction for our AEC and retimer solutions.
+
+## 19. Q3 2026 & Acquisition
+
+marvell, available 2025-12-02, version `d908947a-bcc6-436a-9499-1650780b0c6b` [16346, 17341); score 14.6658; terms: market, competitor, second, customer, 1.6t
+
+> Matt Murphy (Chairman and CEO, Marvell Technology): As a result, we are enabling volume production of pluggable 1.6T transceivers across the industry. We began shipping our 1.6T products in the second half of this fiscal year and are seeing exceptionally strong demand heading into next year. This consistent execution enables us to secure qualifications at major customers well ahead of competitors, reinforcing market leadership. While 1.6T has a long lifecycle ahead, we have already demonstrated at the Optical Fiber Conference this past April 400-gig per lane technology to drive the next industry transition to 3.2T. The demonstration was on 3-nanometer technology, but we expect production deployments, which are expected in calendar 2028, to require 2-nanometer solutions to optimize module power. In addition to our PAM portfolio, we are also enabling longer-reach connectivity with our coherent light solutions to support campus-wide data centers in the era of million GPU AI clusters.
+
+## 20. Barclays 23rd Annual Global Technology Conference
+
+marvell, available 2025-12-10, version `55ca08a1-8dc5-453d-adf5-c321aeb56e6a` [13992, 14919); score 14.5996; terms: market, share, qualified, 1.6t, dsp
+
+> Chris Koopmans (President and COO, Marvell): Yeah. I mean, it's sort of piggybacks on what Ashish just said, which is you've got to be first to market with technology that works and has the right power envelopes to deliver these solutions. Marvell's 1.6T, we were first to market with our five nanometer solution to demonstrate and make it work with every accelerator. We were first to market with our three nanometer, which has the right power for this particular growth vector that's coming. And ultimately, we have deep, long-standing partnerships with all these companies. This is not something where you can just come with the DSP and win share. The qualification cycles tended to have happened a year ago. Even if you come to market later with a product that works, getting it qualified across multiple module ecosystems, multiple laser types, and the exact form factor required by all the hyperscalers takes a long time.

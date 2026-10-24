@@ -1,0 +1,475 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "800ZR ZR+ pluggable data center interconnect coherent transceiver",
+  "terms": [
+    "800zr",
+    "zr",
+    "pluggable",
+    "data",
+    "center",
+    "interconnect",
+    "coherent",
+    "transceiver"
+  ],
+  "companies": [
+    "ciena",
+    "lumentum",
+    "coherent"
+  ],
+  "window": {
+    "since": "2025-04-07T14:09:44+00:00",
+    "as_of": "2026-10-07T14:09:44+00:00"
+  },
+  "documents": 132,
+  "documents_skipped": {
+    "not a text document": 3,
+    "outside the window": 495
+  },
+  "requests": 151,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 28.3511,
+      "terms": [
+        "pluggable",
+        "data",
+        "center",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 23573,
+      "char_end": 24274,
+      "text": "Offerings\nLumentum is a leading provider of high-speed optical transceivers and optical components underpinning modern AI and cloud computing applications. Optical transceivers and data interconnect solutions are essential for connecting servers, switches, and routers within data centers. We also manufacture key components used in optical transceivers and data interconnect solutions, including high-speed laser transmitters, photonic integrated circuits, and photodiodes, high-power laser light sources. For data center interconnects, Lumentum offers both its own coherent pluggable transceivers and the underlying ultra-narrow linewidth laser and coherent components used by transceiver customers.",
+      "also_in": [
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 27.2907,
+      "terms": [
+        "zr",
+        "pluggable",
+        "data",
+        "center",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "Q1 2026",
+      "available_at": "2025-11-05T22:00:00Z",
+      "source_version_id": "7c8d28d3-bf0c-4822-9e07-5f5a46d69fb6",
+      "char_start": 11582,
+      "char_end": 12511,
+      "text": "Jim Anderson (CEO, Coherent): Given the multiple growth factors across pluggable transceivers, CPO, and OCS, we are very excited about the opportunities ahead of our data center business. Turning to our communications market, in Q1, revenue grew 11% sequentially and 55% year-over-year. Growth was driven by products for data center interconnect, but we also saw strong growth in traditional telecom applications. We expect our communications business to grow sequentially again in the current quarter and throughout the balance of this fiscal year. In hyperscale DCI, we continue to see strong growth in customer demand for our ZR/ZR+ DCI-focused products. Our product lineup, which includes 100 gig, 400 gig, and 800 gig ZR/ZR+ Coherent transceivers, is growing quickly, and we expect these products to continue to ramp throughout the course of this fiscal year. We also continue to see steady recovery in our telecom business.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 25.6325,
+      "terms": [
+        "pluggable",
+        "data",
+        "center",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-K filed 2025-12-12",
+      "available_at": "2025-12-12T18:42:26Z",
+      "source_version_id": "0d66ab11-2a98-47fb-9839-6eaa98d605e5",
+      "char_start": 25122,
+      "char_end": 25556,
+      "text": "\u2022Coherent Pluggable Transceivers. Footprint-optimized transceivers that utilize our WaveLogic technology, to address next-generation access, metro, regional and data center interconnect network applications, for use within our systems and third-party equipment.\nOur Optical Networking portfolio will also include interconnect products acquired through our acquisition of Nubis, which occurred during the fourth quarter of fiscal 2025.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 24.3089,
+      "terms": [
+        "zr",
+        "data",
+        "center",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "Q4 2025",
+      "available_at": "2025-08-13T21:00:00Z",
+      "source_version_id": "194ee825-6ac7-41cc-a4d5-0b128b4b9de3",
+      "char_start": 46488,
+      "char_end": 47270,
+      "text": "Jim Anderson (CEO, Coherent): In DCI, we actually have two routes to market. We sell, for instance, Coherent ZR/ZR+ transceivers, and we also sell some related systems. We also sell components into other vendors as well. We have both a sale of components and then a sale of things like transceivers. It's kind of a dual path to market. We're seeing strong demand, I would say, in both of those paths to market. In terms of the type of, I think you asked about multi-data center versus inference. I think it's a combination of both, but probably more of the demand being driven by kind of this multi-data center workloads that are spanning multiple data centers and the interconnect that's required between those data centers. I think, Papa, I think I hit each part of your question.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 23.2604,
+      "terms": [
+        "zr",
+        "data",
+        "center",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "Investor Day 2025",
+      "available_at": "2025-05-28T13:00:00Z",
+      "source_version_id": "bb8b007b-0708-4c02-bfcd-6634da34e7ef",
+      "char_start": 57604,
+      "char_end": 58367,
+      "text": "Julie Eng (CTO, Coherent): This is our communications business. Just as a reminder for us, now communications is everything outside the data center. I'm going to focus on two primary topics. One, which is DCI or data center interconnect. The second one is our transport. We'll talk about those real briefly. As Jim mentioned, and as I said, as we start to see data centers become actually power limited, you see people having the need to spread AI workloads over more than one data center. This drives up the need for very high bandwidth connections between data centers. We call that the DCI. These are served by transceivers. Again, you may know them by their standard name, which is ZR and ZR Plus. We see the SAM for that market growing to $4 billion by 2030.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 22.6415,
+      "terms": [
+        "zr",
+        "data",
+        "center",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "Q1 2026",
+      "available_at": "2025-11-05T22:00:00Z",
+      "source_version_id": "7c8d28d3-bf0c-4822-9e07-5f5a46d69fb6",
+      "char_start": 53544,
+      "char_end": 54260,
+      "text": "Jim Anderson (CEO, Coherent): On the second part of the question on the scale-across demand, yeah, I would characterize this demand as exceptionally strong. Obviously, that's driven by these are the optical connections between the data centers where we're seeing these AI workloads that are spanning multiple data centers, and that's driving the need for an expansion and high-speed optical networking between these data centers. Our portfolio of products, our ZR, ZR+ portfolio of products are just a really great match for this application. We're seeing very good demand there. We have 100-gig, 400-gig, and 800-gig ZR, ZR+ transceivers. We're certainly ramping capacity as quickly as we can on those transceivers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 21.63,
+      "terms": [
+        "zr",
+        "data",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-05-28, EX-99.2",
+      "available_at": "2025-05-28T16:06:01Z",
+      "source_version_id": "158d1d90-354c-48d7-8d8b-ab3ccb26527f",
+      "char_start": 11175,
+      "char_end": 11707,
+      "text": "KEY GROWTH DRIVERS: DATACENTER AND COMMUNICATIONS AI Data Transmission Optical Switching Datacenter Interconnect Datacenter Bandwidth Growth SAM Expansion DCI Transceiver Market 10X $2B+ Grows to $4B 1.6T in production this year First revenue this quarter 400G & 800G ZR/ZR+ ramping 3.2T and 6.4T in development Rapid roadmap of new products 1.6T ZR/ZR+ in development Note: 10X (\u201925-\u201930) - LightCounting; OCS $2B+ and DCI $4B in 2030 - Cignal AI and internal estimates. Copyright 2025, Coherent. All rights reserved. NYSE I COHR 14",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 21.4793,
+      "terms": [
+        "data",
+        "center",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "Status update",
+      "available_at": "2026-03-17T20:00:00Z",
+      "source_version_id": "ddc57678-3fcf-4929-98af-a0c8d4768544",
+      "char_start": 46099,
+      "char_end": 46937,
+      "text": "Sanjai Parthasarathi (CMO, Coherent): In parallel, over the last, I would say 4 or 5 years, the optical networks are becoming increasingly disaggregated. From large monolithic systems, they're giving way to smaller, easy to deploy functional elements. Two such critical enablers of scale across are data center interconnect transceivers and transport equipment. Now, data center interconnect transceivers or DCI transceivers, they sit at the edge of a data center. They convert electrical signals to optical signals and then get them ready for transport. Transport is, as the name implies, are systems that take the signal and transport them, carry them from one data center to another. The distances between the data centers can be anywhere from tens of kilometers to thousands of kilometers. Let me first start with our DCI transceiver.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 20.5935,
+      "terms": [
+        "zr",
+        "data",
+        "center",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "Q3 2026",
+      "available_at": "2026-05-06T20:30:00Z",
+      "source_version_id": "0e67bc33-5761-4f8f-aed2-8619916126bc",
+      "char_start": 9883,
+      "char_end": 10942,
+      "text": "Jim Anderson (CEO, Coherent): Turning to our communications business. Revenue growth accelerated significantly in Q3, with revenue increasing 16% sequentially and 60% year-over-year, driven by strong demand across data center interconnect, scale-across, and traditional telecom applications. We expect strong sequential growth again in the current quarter. Demand remains broad-based across customers, products, and end applications. We are seeing strong momentum across our communications portfolio, which spans components, modules, and systems, reflecting both favorable market conditions and Coherent's strong competitive position. In particular, we continue to see robust demand for our DCI solutions, including ZR and ZR+ transceivers, as well as strong demand across our broader transport portfolio. One additional growth driver that we are particularly excited about is Multi-Rail. These solutions address the increasing need for greater bandwidth and connectivity between AI data centers as workloads become more distributed across multiple locations.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 20.3845,
+      "terms": [
+        "zr",
+        "data",
+        "center",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "Q1 2026",
+      "available_at": "2025-11-05T22:00:00Z",
+      "source_version_id": "7c8d28d3-bf0c-4822-9e07-5f5a46d69fb6",
+      "char_start": 24365,
+      "char_end": 25020,
+      "text": "Jim Anderson (CEO, Coherent): Very strong orders in DCI, the data center interconnect portion. This is our ZR/ZR Plus product lineup of transceivers. Also really pleased to see strong orders in what I call kind of traditional telecom as well. In particular, in that communications segment. We've seen now five quarters of sequential growth in that segment. Really good grower last quarter of 11% sequential and 55% year-over-year. We've seen now five sequential quarters of growth, and not just DCI, but also in traditional telecom. We're expecting that communications segment to grow sequentially this quarter and through the balance of this fiscal year.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 20.2743,
+      "terms": [
+        "zr",
+        "data",
+        "center",
+        "interconnect",
+        "coherent"
+      ],
+      "company": "coherent",
+      "title": "Investor Day 2025",
+      "available_at": "2025-05-28T13:00:00Z",
+      "source_version_id": "bb8b007b-0708-4c02-bfcd-6634da34e7ef",
+      "char_start": 17837,
+      "char_end": 18662,
+      "text": "Jim Anderson (CEO, Coherent): I'm actually really happy to announce today that just as of the last week or so, we achieved first revenue on this product line. This product line is now generating revenue for the company. That's actually ahead of schedule, ahead of what I thought the team was going to achieve. They've done an outstanding job of driving this into production. I'm really pleased that this is starting to generate revenue for us. The third area that I would flag is data center interconnect. We see big AI workloads that are spanning now multiple different data centers, and that's driving a lot of increase in traffic between data centers. This part of our market is expected to grow to about $4 billion over the coming years. We're really well positioned in the DCI interconnect with our ZR, ZR Plus products.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 20.1278,
+      "terms": [
+        "zr",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-05-28, EX-99.2",
+      "available_at": "2025-05-28T16:06:01Z",
+      "source_version_id": "158d1d90-354c-48d7-8d8b-ab3ccb26527f",
+      "char_start": 22809,
+      "char_end": 23592,
+      "text": "POWERING DATACENTER AND COMMUNICATIONS NETWORKS Datacenter and Communications Satellite Datacenter Datacenter Communications $32B $12B Submarine Long Haul Transmission Metro $44B 2030 SAM Backbone Transport Copyright 2025, Coherent. All rights reserved. NYSE I COHR 40\nSIGNIFICANT GROWTH IN DATACENTER INTERCONNECT (DCI) TRANSCEIVERS \u2022 Power constraints are forcing AI workloads to be spread across multiple datacenters \u2022 Drives the need for more and higher-speed DCI optical interconnects between datacenters \u2022 100G, 400G, 800G ZR/ZR+ transceivers critical for DCI $5 DCI Transceiver SAM ($B) $4 $3 $2 $4B $1 DCI Transceiver SAM by 2030 $0 2023 2024 2025 2026 2027 2028 2029 2030 Source: Cignal AI and internal estimates Copyright 2025, Coherent. All rights reserved. NYSE I COHR 41",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 19.6901,
+      "terms": [
+        "zr",
+        "pluggable",
+        "interconnect"
+      ],
+      "company": "ciena",
+      "title": "Q4 2025",
+      "available_at": "2025-12-11T13:30:00Z",
+      "source_version_id": "2563eee4-6217-47f9-a2c5-7cb4c61b5e09",
+      "char_start": 10395,
+      "char_end": 10924,
+      "text": "Gary Smith (CEO, Ciena): We have proactively invested in our portfolio to intersect this growing market segment, and with a few notable examples. First is our interconnects portfolio, comprising both our power and space-saving ZR and ZR Plus pluggables and our optical components. We expect interconnects to play a meaningful role in scale-up, scale-out, and in fact, scale-across workloads. In fiscal year 2025, we surpassed our target of more than doubling FY 2024 pluggable revenue, reaching revenue of more than $168 million.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 19.6359,
+      "terms": [
+        "pluggable",
+        "data",
+        "center",
+        "interconnect",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 10-K filed 2025-12-12",
+      "available_at": "2025-12-12T18:42:26Z",
+      "source_version_id": "0d66ab11-2a98-47fb-9839-6eaa98d605e5",
+      "char_start": 19826,
+      "char_end": 20717,
+      "text": "Scale Market Presence with Interconnect Modules. A key element of our growth strategy is to expand our market relevance inside and around the data center. Accordingly, we are increasingly prioritizing technology development that addresses the interconnection of data centers (\u201cDCI\u201d) and data center campuses, as well as scale up, scale out, and scale across solutions that address intra-rack, inter-rack and inter-data center connectivity. This includes products supported by our WaveLogic Nano technology, which supports ultra-high speed connections for AI infrastructure and delivers compact coherent connectivity for metro, regional, and DCI environments. We also offer specialized electrical and optical interconnect pluggables and other components, including new technology solutions from our acquisition of Nubis Communications, Inc. (\u201cNubis\u201d) during the fourth quarter of fiscal 2025.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 19.5972,
+      "terms": [
+        "zr",
+        "data",
+        "center",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "Q2 2026",
+      "available_at": "2026-02-04T21:30:00Z",
+      "source_version_id": "8785156d-77c3-4eee-a3f0-7361f8510d32",
+      "char_start": 11574,
+      "char_end": 12473,
+      "text": "Jim Anderson (CEO, Coherent): The strength we are seeing in communications is broad-based in terms of both products and customers. We continue to see extremely strong demand for our products addressing the data center interconnect market opportunity. These include our ZR and ZR+ coherent transceiver products, as well as lasers and other components that we sell to system OEMs. For example, we recently secured a significant multiyear design win with a leading DCI OEM, which utilizes Coherent's industry-first, uncooled three-pin micro-pump solution. We're also seeing strong demand in our traditional telecom business, driven by ongoing market recovery and new product introductions, such as our new award-winning multi-rail technology platform. We are also experiencing very strong demand across our broader communications product portfolio, including pumps, amplifiers, line cards, and systems.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 19.5423,
+      "terms": [
+        "zr",
+        "data",
+        "center",
+        "interconnect",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "CIENA CORP 8-K filed 2026-03-05, EX-99.2",
+      "available_at": "2026-03-05T12:49:58Z",
+      "source_version_id": "1983c421-53c1-411c-83ac-00304c59180f",
+      "char_start": 7326,
+      "char_end": 8210,
+      "text": "\u00a9 Ciena Corporation 2026. All rights reserved. Proprietary Information. Ciena is positioned for accelerated growth\n\u00a9 Ciena Corporation 2026. All rights reserved. Proprietary Information.12 Our future growth opportunities Long-term growth in core business plus new higher-growth addressable markets provide an opportunity to outpace our traditional revenue CAGR over time In & Around the Data Center Use Cases \u2022 400G ZR, 800G ZR (WL6 Nano) and 1.6T ZR \u2022 Scale Across DC Clusters for AI Infrastructure Connectivity \u2022 Data Center Out-of-band Management (DCOM) \u2022 Coherent Lite (1.6T LR) \u2022 Components / High-speed Interconnects Inside DC \u25e6 Vesta 200 WAN Use Cases \u2022 Subsea, Long Haul, Metro Regional, Metro DCI \u2022 Network upgrades to RLS and 1.6T WL6 Extreme \u2022 Hyper-rail \u2022 Managed Optical Fiber Networks (MOFN)* * FY2026 Growth based on the midpoint of revenue guidance as of March 5, 2026",
+      "also_in": [
+        {
+          "source_version_id": "60f49cb5-f753-49a6-86a6-be6a7bb4de35",
+          "company": "ciena",
+          "title": "CIENA CORP 8-K filed 2025-12-11, EX-99.2",
+          "available_at": "2025-12-11T12:07:39Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 19.5287,
+      "terms": [
+        "zr",
+        "data",
+        "center",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "Morgan Stanley Technology, Media & Telecom Conference 2026",
+      "available_at": "2026-03-03T22:35:00Z",
+      "source_version_id": "d5e0ce31-09ea-418f-abe7-0818bc544622",
+      "char_start": 32100,
+      "char_end": 32576,
+      "text": "Jim Anderson (CEO, Coherent): That's the same thing that we do on our datacom transceivers, is there's perfectly good.\nMeta Marshall (Executive Director and Senior Equity Analyst, Morgan Stanley): Yeah\nJim Anderson (CEO, Coherent): Solutions in the marketplace. We have great suppliers for DSPs in data center, we're using external DSPs for our ZR/ZR+ products as well, right? That allows us to focus on what our differentiation is, which is all the optical technology, right?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 19.21,
+      "terms": [
+        "zr",
+        "data",
+        "center",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "Q4 2026",
+      "available_at": "2026-08-12T20:30:00Z",
+      "source_version_id": "ac230f4b-3f49-4e7f-953d-5e168fd1e0a0",
+      "char_start": 9524,
+      "char_end": 10611,
+      "text": "Jim Anderson (CEO, Coherent): We will share additional details about PhotonLink at our launch event on September 21st. Turning to our communications business, customer demand remained exceptionally strong in Q4. Communications revenue increased approximately 54% for full year fiscal 2026. Q4 revenue increased 11% sequentially, 56% year-over-year, driven by continued strength across data center interconnect, scale-across, and traditional telecom applications. We expect another quarter of strong sequential growth in Q1. Demand remains broad-based across our portfolio, with particular strength in DCI solutions, including ZR and ZR+ transceivers, as well as pump lasers and complex high-end optical subsystems. Multi-Rail is an important new growth opportunity in our communications business, addressing scale-across AI networking as workloads increasingly span multiple data centers and require greater bandwidth between locations. We estimate a more than $2 billion addressable market by calendar 2030, continue to expect initial revenue to ramp in the first half of calendar 2027.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 18.5146,
+      "terms": [
+        "zr",
+        "pluggable",
+        "data",
+        "center",
+        "coherent"
+      ],
+      "company": "ciena",
+      "title": "Q2 2025",
+      "available_at": "2025-06-05T12:30:00Z",
+      "source_version_id": "6d3bbb86-80e7-4193-8c10-481145adb227",
+      "char_start": 5584,
+      "char_end": 6433,
+      "text": "Gary Smith (President and CEO, Ciena): This momentum reflects the growing adoption of and our demand for our 400 ZR and 800 ZR coherent pluggable solutions, as well as our 1.6T coherent light solution, which we will be sampling by the end of calendar 2025, with commercial availability in the first half of calendar 2026. As cloud providers expand their data center architectures with scale-up and scale-out AI-related deployments, we are broadening and deepening our relationships with them. In fact, we're addressing new data center-related applications, a strategy that we've spoken publicly about over the last few months and where we recently secured two wins. The first is a very strategic win, and it's for an application involving the connection of regional GPU clusters, which is something the industry has been talking about for some time.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 18.1433,
+      "terms": [
+        "data",
+        "center",
+        "interconnect",
+        "coherent",
+        "transceiver"
+      ],
+      "company": "coherent",
+      "title": "The Six Five Summit: AI Unleashed 2026",
+      "available_at": "2026-08-26T16:30:00Z",
+      "source_version_id": "22b91300-3dcb-470d-8958-ca2e894a8cfb",
+      "char_start": 4755,
+      "char_end": 5670,
+      "text": "Sanjai Parthasarathi (CMO, Coherent): Let me just start by saying optical networks have been becoming increasingly disaggregated over the years. Large monolithic systems have been sort of giving way to smaller, easy-to-deploy functional elements or functional blocks. There are two important functional blocks for scale across. One is data center interconnect transceivers, or DCI. Just by the definition, these are transceivers that sit at the edge of a data center. They are high bandwidth, high capacity transceivers that take electrical signals, convert them to optical signals, and then shoot it across to the next data center. But equally important is another class of equipment that is called optical transport equipment, and that equipment sits in between the two data centers. And again, as the name implies, optical transport equipment helps transport the optical signal. And you say, what does that mean?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}

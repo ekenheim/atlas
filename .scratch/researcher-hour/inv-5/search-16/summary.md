@@ -1,0 +1,138 @@
+# Archive-search baseline
+
+- **Question:** narrow linewidth laser shipments demand capacity Thailand cannot satisfy
+- **Terms:** narrow, linewidth, laser, shipment, demand, capacity, thailand, cannot, satisfy
+- **Companies:** ciena, lumentum
+- **Window:** 2025-04-07 to 2026-10-07
+- **Documents searched:** 85 (skipped: {'not a text document': 2, 'outside the window': 188})
+- **Repeats:** 1 of 20 hits are also in other documents, word for word or with small edits; each is one hit, and its other documents count as that hit
+
+The reviewer marks each hit on-question or not (at most 10 on-question).
+
+## 1. Q3 2025
+
+lumentum, available 2025-05-06, version `a8e94b34-f56e-4d97-8344-83205d914758` [7970, 8917); score 31.9769; terms: narrow, linewidth, laser, shipment, demand, capacity, thailand, satisfy
+
+> Michael Hurlston (President and CEO, Lumentum): This marks the fifth sequential quarter of shipment growth for narrow linewidth lasers. Even as we ramp additional capacity in Thailand, our shipments will not be able to satisfy demand for the balance of the calendar year. In addition, pump lasers and line subsystems were up sequentially, driven by cloud infrastructure demand. Looking ahead to Q4, we anticipate strong sequential growth in our Cloud and Networking segment, driven by new capacity coming online across our global operations, the continued ramp of customer programs, and strengthening demand from network equipment manufacturers. Now let me move to our Industrial Tech segment. Industrial Tech segment revenue decreased 5% sequentially but was up 14% from the same quarter last year. Industrial laser revenue declined sequentially, but the drop was less than anticipated, while 3D sensing revenue followed expected seasonal trends.
+
+## 2. Q3 2025
+
+lumentum, available 2025-05-06, version `a8e94b34-f56e-4d97-8344-83205d914758` [7014, 7969); score 22.0287; terms: narrow, linewidth, laser, shipment, demand, thailand
+
+> Michael Hurlston (President and CEO, Lumentum): At present, we have beta samples being qualified by multiple hyperscaler customers and expect to see early production volumes at the end of the calendar year. We're accelerating our optical transceiver production at our Thailand manufacturing campus and remain on track to begin shipments to our second announced hyperscale data center customer in June, as previously communicated. At the same time, we continue to ship to our third announced customer, and we are expanding our product offerings and ramping in shipment volume to our largest cloud hyperscale customer. In Q4, we expect our overall cloud transceiver revenue to grow over 50% sequentially. We're also experiencing growing demand for our DCI and long haul transmission solutions. We achieved another sequential increase in shipments of narrow linewidth lasers essential to ZR and ZR+ module deployments and in transponders for cloud customers.
+
+## 3. Q1 2026
+
+lumentum, available 2025-11-04, version `be48ab11-2f5d-4468-b0b2-99871852d4fb` [7750, 8811); score 21.2759; terms: narrow, linewidth, laser, shipment, demand, capacity
+
+> Michael Hurlston (President and CEO, Lumentum Holdings): We still expect a significant increase in shipment volumes in the second half of calendar 2026 as adoption continues to accelerate, and we are seeing opportunities to expand our customer base. We are seeing strong, sustained momentum in our data center interconnect, or DCI, components, which support not only optical links within campuses but also connections spanning up to 100 km in scale across architectures. Shipments of our narrow linewidth laser assemblies for DCI transmission grew for the seventh consecutive quarter, rising over 70% year-over-year, demonstrating both robust market demand and our continued success in scaling manufacturing capacity. Shipments of our line subsystems for data transport also delivered strong sequential and year-over-year growth, benefiting from the same macro trend. We also saw sequential and year-over-year growth in coherent components for long-haul data transmission and achieved a record quarter for pump lasers supporting subsea and terrestrial networks.
+
+## 4. Q1 2026
+
+lumentum, available 2025-11-04, version `be48ab11-2f5d-4468-b0b2-99871852d4fb` [21199, 21612); score 21.0719; terms: narrow, linewidth, laser
+
+> Ryan Koontz (Managing Director and Research Analyst, Needham & Co): That's great. Exactly what I was hoping to hear. And then maybe shifting gears maybe to narrow linewidth lasers for the DCI element. Is that a different set of competitors? Obviously, a different set of customers, but can you kind of educate us a little bit on the competitive environment for the narrow linewidth lasers for coherent? Thank you.
+
+## 5. Q3 2026
+
+lumentum, available 2026-05-05, version `378fc846-5173-4d57-a2d6-f6e5d3b7034a` [4868, 5689); score 19.9246; terms: narrow, linewidth, laser, shipment, demand
+
+> Michael Hurlston (President and CEO, Lumentum Holdings): While we have spent the last few calls detailing our revenue growth drivers, it is important to outline the considerable role the scale-across portfolio will play in our ability to expand gross and operating margins. We expect this part of our business to grow appreciably and with the supply-demand imbalance likely improve profitability at the same time. Let's look closer at the metrics that define our third quarter, starting with the components product category. Components revenue for the quarter was $533 million, reflecting a 20% sequential increase and 77% year-over-year growth. Shipments of our narrow linewidth laser assemblies grew for the ninth consecutive quarter, rising over 120% year-over-year, while pump laser shipments grew 80% year-over-year.
+
+## 6. Q2 2026
+
+lumentum, available 2026-02-03, version `104cebbc-dd2f-499d-b7ae-7f2aa8740036` [10464, 11416); score 19.431; terms: narrow, linewidth, laser, shipment, demand, capacity
+
+> Michael Hurlston (President and CEO, Lumentum Holdings Inc): While not able to size it, we now have line of sight to a significant block of additional capacity starting in the second half of 2026, both through current activities in Sagamihara and better utilization of our Caswell, United Kingdom, and Takao, Japan, fabs. Beyond sheer volume, our Q2 revenue was propelled by a favorable mix shift toward 200 gig lane speeds, which provide a meaningful ASP uplift. While these high-speed devices represented approximately 5% of unit volume, they contributed roughly 10% of data center laser chip revenue. Moving to our scale across business, we continue to see sustained momentum in components supporting optical links, ranging from intra-campus to longer reach topologies. Shipments of our narrow linewidth laser assemblies grew for the eighth consecutive quarter, a clear proof point of robust market demand and our successful manufacturing expansion.
+
+## 7. Q4 2026
+
+lumentum, available 2026-08-11, version `e8e6076f-d0c8-4532-bf4d-88875830e3b3` [7186, 8274); score 19.1153; terms: narrow, linewidth, laser, shipment, capacity
+
+> Michael Hurlston (President and CEO, Lumentum): Looking ahead, CPO continues to be viewed as the natural end state on the technology roadmap, placing optics directly on the substrate or interposer for maximum power efficiency through foundry-level advanced packaging. Now, let's look closer at the metrics that defined our fourth quarter, starting with the components product category. Components revenue for the fourth quarter was $649 million, reflecting 22% sequential and 103% year-over-year growth increases. Our laser portfolio continues to demonstrate strong momentum across every vector. Shipments of our narrow linewidth laser assemblies grew sequentially for the 10th consecutive quarter, and we were up over 130% year-over-year. Pump laser shipments surged more than 80% year-over-year, and we will remain effectively sold out for the foreseeable future despite our rapid capacity expansion. Expanding, inferencing, and training applications are driving full-rate connectivity between data centers, while political and regulatory constraints favor smaller, more modular builds.
+
+## 8. Q4 2025
+
+lumentum, available 2025-08-12, version `c335d479-f416-41b9-86fb-2baa8fb2b371` [4862, 5884); score 18.601; terms: narrow, linewidth, laser, shipment, demand
+
+> Michael Hurlston (President and CEO, Lumentum Holdings Inc): Fourth quarter revenue from our cloud and networking segment increased 16% sequentially and 67% year-over-year, led by exceptional demand from hyperscale cloud customers. The outperformance was largely driven by our cloud-facing components and transceiver product lines. In components, we achieved an all-time high in EML shipments, nearly doubling the revenue compared to our June quarter 2024 baseline. Our wafer fab expansion is progressing on schedule, enabling us to support higher volumes of EMLs and other indium phosphide-based devices, including CW lasers and coherent components. Recently, we received a substantial order for 200 Gb LAN speed EML chips, which we expect to fulfill in the December quarter. Overall, we expect 2026 to be a breakout year for laser chip sales at both 100 Gb and 200 Gb LAN speeds. Shipments of our narrow linewidth lasers, which are critical components for ZR and ZR+ modules, have now grown for six consecutive quarters.
+
+## 9. Raymond James TMT and Consumer Conference
+
+lumentum, available 2025-12-08, version `e4fcd765-1e68-45bb-a80a-b0c39a6145a1` [7071, 7906); score 17.5005; terms: narrow, linewidth, laser
+
+> Michael Hurlston (CEO, Lumentum): It feeds into these ZR and ZR Plus modules, which are coherent light, as you know. One of the key components in coherent light is a narrow linewidth lasers that sits at the front of that module. But then they also involve pump lasers, like amplification for traveling, getting signals to travel over larger distances, coherent components themselves, all of which we make. You know, I think caught both of us by surprise, quite frankly, into our Q2 guide, our December guide, was buoyed very significantly by the scale-across opportunity. Our customers here are primarily the Cienas, the Ciscos, the Nokias, and they're doing phenomenally well, right? You cover Ciena, and they're kicking butt on the scale-across opportunity, and they're dragging us along primarily with these narrow linewidth lasers.
+
+## 10. Lumentum Holdings Inc. 8-K filed 2025-08-12, EX-99.1
+
+lumentum, available 2025-08-12, version `d48d9206-8514-45df-96c5-d68da7466c3f` [672, 1475); score 17.0097; terms: narrow, linewidth, laser, demand
+
+> “In our fiscal fourth quarter, we executed exceptionally well in meeting robust demand across our portfolio of cloud products supporting AI data centers,” said Michael Hurlston, Lumentum President and CEO. “This solid performance, combined with sustained customer demand, drove our Q4 revenue above the high end of the upwardly revised guidance we provided in early June. The outperformance was broad-based across our cloud-focused business, with particular strength in components, specifically EML chips, pump lasers, and narrow linewidth laser assemblies for data center interconnect, as well as 800G modules. Looking ahead, we expect continued strong demand for our AI data center and long-haul solutions, giving us confidence in surpassing $600 million in quarterly revenue by June 2026 or earlier.”
+
+## 11. Morgan Stanley Technology, Media & Telecom Conference 2026
+
+lumentum, available 2026-03-02, version `a9710d35-7f5b-4f56-85cc-0ebd589fe01d` [25041, 25558); score 16.9079; terms: narrow, linewidth, laser, capacity
+
+> Meta Marshall (Executive Director, Morgan Stanley): Right
+> Michael Hurlston (President and CEO, Lumentum): ... bringing in vertical capacity on, for example, narrow linewidth lasers. We feel pretty good about our ability to compete here long term, continue to drive really good gross margins, drive a lot of growth. It's sort of businesses grown for us quite a lot and, you know, we know that our, some of our customers are working on vertical integration, and that's fine. There's still plenty of room for us to play.
+
+## 12. Lumentum Holdings Inc. 8-K filed 2026-05-05, EX-99.1
+
+lumentum, available 2026-05-05, version `bb6a9970-c655-48e0-b8aa-981d8cd0e851` [940, 1409); score 16.82; terms: narrow, linewidth, laser
+
+> “Margin improvement has been driven by many factors including operational rigor, pricing discipline, and product mix. This quarter, mix was aided by strength in laser chips, but also by a less-heralded part of our portfolio, ‘scale-across’ components, which include our pump lasers and narrow linewidth laser assemblies. As our key growth drivers of co-packaged optics and optical circuit switches begin to kick in, we would expect further increases in earnings power.”
+
+## 13. UBS’s 2025 Global Technology and AI Conference
+
+lumentum, available 2025-12-03, version `0b4c7bff-e607-4f02-bc0d-6e04551973f2` [28954, 29651); score 16.5307; terms: narrow, linewidth, laser, demand
+
+> Michael Hurlston (Presdient and CEO, Lumentum): Yeah, I mean, we talked with you and with other people that are involved in the stock in the last earnings call. The other surprise, we had two big surprises. One has been our ability to increment the EML demand. We talked about that. The second is just the broad-based nature of the scale-across opportunity, and that's affecting all of those traditional telecom-type components, our ROADMs, our pump lasers, our narrow linewidth lasers. All of these things are seeing unprecedented levels of demand. It's now our traditional telecom customers, CNS, Cisco, Nokia. These are great customers of ours. Their customer now has gone from AT&T to Verizon.
+
+## 14. Q3 2026
+
+lumentum, available 2026-05-05, version `378fc846-5173-4d57-a2d6-f6e5d3b7034a` [36153, 37107); score 16.3541; terms: narrow, linewidth, laser
+
+> Michael Hurlston (President and CEO, Lumentum Holdings): Thanks, Papa.
+> Kathy Ta (VP of Investor Relations, Lumentum Holdings): Thanks, Papa.
+> Operator: The next question comes from the line of Ruben Roy with Stifel. Your line is now open. Please go ahead.
+> Mohammed Khan (Analyst, Stifel): Hey, guys. This is [Mohammed] sitting in for Ruben Roy. Maybe just, Michael, tagging on to the LTAs that you're mentioning there. You know, even on the scale-across portfolio, you sort of outlined that, you know, it's pump lasers, narrow linewidth lasers, WSS. These are not only supply constrained, but real margin levers for you guys, distinct from the four growth levers. You know, nine consecutive quarter of narrow linewidth at, I think you said 120% year-on-year, and pump lasers at 80%. That's impressive, and you're still describing this as sort of an unanticipated bump up. You know, you're talking about these LTAs. Maybe we can dive a little deeper there.
+
+## 15. Morgan Stanley Technology, Media & Telecom Conference 2026
+
+lumentum, available 2026-03-02, version `a9710d35-7f5b-4f56-85cc-0ebd589fe01d` [9660, 10179); score 16.0963; terms: narrow, linewidth, laser
+
+> Meta Marshall (Executive Director, Morgan Stanley): Mm-hmm.
+> Michael Hurlston (President and CEO, Lumentum): We've taken our telecom assets, and we've repurposed those telecom assets to hyperscaler type of applications. Things like our pump lasers, our WSS, our wavelength selectable switches, our narrow linewidth lasers. We've reapplied all of that now toward the hyperscaler market, and we're seeing a lot of virtue there. We're investing in all of these things and trying to defocus on things like industrial lasers.
+
+## 16. Q3 2025
+
+lumentum, available 2025-05-06, version `a8e94b34-f56e-4d97-8344-83205d914758` [35905, 36286); score 15.948; terms: narrow, linewidth, laser
+
+> Wupen Yuen (President of Cloud and Networking, Lumentum): Yeah, certainly, I think overall, we should think about the AI driving force is not just about data center internal. Data has to be transmitted across data centers. All these actually have the same driving source, right? We see the ZR being growing very strong, and therefore, narrow linewidth lasers are doing really well.
+
+## 17. Citi’s 2026 Global TMT Conference
+
+lumentum, available 2026-09-09, version `70ef2d3f-f69c-432d-99d7-0b2d147ce2a1` [31074, 31855); score 15.9105; terms: narrow, linewidth, laser, capacity
+
+> Kathy Ta (VP of Investor Relations, Lumentum): First thing that comes to my mind is scale across, and this is partly our fault. We don't give it enough air time. We also see scale across really inflecting our pump laser business. We talked about in this last earnings call and the call before that we see a 4x multiplier on our volume of pump lasers that we're expecting over the next five quarters or so. We have signed up all of the major network equipment manufacturers in long-term agreements with us over a multi-year period, and we engage them with higher prices for pump lasers to help us underwrite the CapEx that we need to spend to expand that capacity. We really see scale across in pump lasers as well as narrow linewidth lasers. That really has been a story of growth.
+
+## 18. Lumentum Holdings Inc. 10-K filed 2026-08-17
+
+lumentum, available 2026-08-17, version `e256983e-142b-4427-a17a-2f64cc221b6f` [23573, 24274); score 15.5631; terms: narrow, linewidth, laser
+
+Also in 1 other document: Lumentum Holdings Inc. 10-K filed 2025-08-19
+
+> Offerings
+> Lumentum is a leading provider of high-speed optical transceivers and optical components underpinning modern AI and cloud computing applications. Optical transceivers and data interconnect solutions are essential for connecting servers, switches, and routers within data centers. We also manufacture key components used in optical transceivers and data interconnect solutions, including high-speed laser transmitters, photonic integrated circuits, and photodiodes, high-power laser light sources. For data center interconnects, Lumentum offers both its own coherent pluggable transceivers and the underlying ultra-narrow linewidth laser and coherent components used by transceiver customers.
+
+## 19. Q2 2026
+
+lumentum, available 2026-02-03, version `104cebbc-dd2f-499d-b7ae-7f2aa8740036` [9654, 10463); score 15.5086; terms: laser, shipment, demand, capacity
+
+> Michael Hurlston (President and CEO, Lumentum Holdings Inc): We achieved another quarterly company record in EML laser shipments, led by 100 gig lane speeds and bolstered by a ramp in 200 gig devices. Simultaneously, we expanded our footprint in next-generation architectures, shipping CW lasers for 800 gig manufacturers and increased volumes of ultra-high power laser shipments for CPO applications. Our indium phosphide wafer fab capacity remains at a premium, fully allocated to meet surging customer demand. We have front-loaded our 40% expansion target, delivering on over half of that this past quarter. We are scaling rapidly through precision tool optimization and yield gains. This execution will help to ensure that additional capacity comes online as planned over the next two quarters and beyond.
+
+## 20. Raymond James TMT and Consumer Conference
+
+lumentum, available 2025-12-08, version `e4fcd765-1e68-45bb-a80a-b0c39a6145a1` [9156, 9823); score 15.3874; terms: narrow, linewidth, laser, demand
+
+> Michael Hurlston (CEO, Lumentum): Reportedly, all the guys are working on their own internal solution. We don't think that anybody is particularly close. And even if they were, there's so much demand out there, Simon, we can't fulfill it all. I mean, one of the biggest things that we're getting into right now with the customers is we simply can't fill all the demand. So, it wouldn't surprise me in the asymptote, let's say, you know, sometime in 2027, 2028, I don't know, whenever these guys can get the narrow linewidth lasers to work, that we're splitting the business in some way. And it doesn't worry me all that much because the demand signal is so very high.

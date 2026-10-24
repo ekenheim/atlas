@@ -1,0 +1,482 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "substrate suppliers JX IQE Sumitomo AXT agreement seven-year wafers",
+  "terms": [
+    "substrate",
+    "supplier",
+    "jx",
+    "iqe",
+    "sumitomo",
+    "axt",
+    "agreement",
+    "seven",
+    "year",
+    "wafer"
+  ],
+  "companies": [
+    "lumentum",
+    "coherent"
+  ],
+  "window": {
+    "since": "2025-04-07T12:22:53+00:00",
+    "as_of": "2026-10-07T12:22:53+00:00"
+  },
+  "documents": 98,
+  "documents_skipped": {
+    "not a text document": 2,
+    "outside the window": 481
+  },
+  "requests": 112,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 34.3352,
+      "terms": [
+        "substrate",
+        "supplier",
+        "jx",
+        "iqe"
+      ],
+      "company": "lumentum",
+      "title": "Mizuho Technology Conference 2026",
+      "available_at": "2026-06-09T12:00:00Z",
+      "source_version_id": "8acd2030-d17d-4767-b03f-15113a8a7478",
+      "char_start": 23891,
+      "char_end": 24202,
+      "text": "Vijay Rakesh (Analyst, Mizuho): Beyond the indium phosphide capacity that you're adding, is there a constraint in the supply chain on the substrate side? You get a lot of your substrates from the U.K. and Japan, JX and IQE, can you talk to, is there a supply constraint there? Are you qualifying more suppliers?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 17.946,
+      "terms": [
+        "substrate",
+        "supplier",
+        "axt"
+      ],
+      "company": "lumentum",
+      "title": "Deutsche Bank 2026 Technology Conference",
+      "available_at": "2026-08-27T17:45:00Z",
+      "source_version_id": "8fa77c52-b711-4328-b150-338a049e40ba",
+      "char_start": 29625,
+      "char_end": 30391,
+      "text": "Michael Hurlston (CEO, Lumentum): There is a lot of constraint now in terms of getting reactors, getting e-beam litho tools into these fabs. There is constraint in terms of the substrates. The substrate problem has become very significant. Before you got involved in the company, we said, \"Look, we feel pretty good. We did a massive deal with a Japanese supplier to secure a lot of substrates.\" Now, given the demand signal we see, not enough. We went out and did another deal with AXT. Still, that might not be enough. So we are always in search of substrate supply. But really, I would say that the headline is just time. This is a long cycle process, which makes it one that gives us a competitive moat. People do not want to get into this business for a reason.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 17.2353,
+      "terms": [
+        "substrate",
+        "supplier",
+        "agreement",
+        "year"
+      ],
+      "company": "coherent",
+      "title": "Status update",
+      "available_at": "2026-03-17T20:00:00Z",
+      "source_version_id": "ddc57678-3fcf-4929-98af-a0c8d4768544",
+      "char_start": 67332,
+      "char_end": 67929,
+      "text": "Jim Anderson (CEO, Coherent): We actually have a very diversified supply chain for indium phosphide substrates. We have, and I think I've shared this in the past, we have over five different substrate suppliers today, and we work with those suppliers not just on the next, you mentioned next 12 or 24 months. We don't work on just next 12-24 months. We work on the next one through, you know, like 3-5 years of capacity that we're gonna need. We have, you know, in some cases, very long-term agreements in place, and that includes not just the substrates, but all the key inputs that go into that.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 16.6228,
+      "terms": [
+        "substrate",
+        "supplier",
+        "axt",
+        "year"
+      ],
+      "company": "lumentum",
+      "title": "Q4 2026",
+      "available_at": "2026-08-11T21:00:00Z",
+      "source_version_id": "e8e6076f-d0c8-4532-bf4d-88875830e3b3",
+      "char_start": 42750,
+      "char_end": 43348,
+      "text": "Michael Hurlston (President and CEO, Lumentum): Wupen has worked with them for a good number of years, and we think we are going to need their help just given the surge in demand. So that is what drove that deal. If this vector continues, we are probably going to need to look for more help on substrate. We feel we are good at this moment. We are probably pretty comfortable just given our lead and arrangement with a Japanese supplier and now the announced deal with AXT. But given the rate of change in the demand vector that we are seeing, that may not be true a quarter or two from now either.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 15.5502,
+      "terms": [
+        "substrate",
+        "wafer"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+      "available_at": "2025-12-16T21:05:10Z",
+      "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+      "char_start": 30210,
+      "char_end": 30576,
+      "text": "SiC epitaxial wafers\nContinuous improvement to maintain world-class, high-quality, large-diameter substrates and epitaxial wafers; develop SiC epitaxial wafers.\nThermoelectric materials and devices\nContinue to develop leading Bi2Te3 materials for thermoelectric cooling/heating; focus on thermoelectric power-generation capability in order to introduce new products.",
+      "also_in": [
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 13.6865,
+      "terms": [
+        "substrate",
+        "agreement",
+        "wafer"
+      ],
+      "company": "lumentum",
+      "title": "J.P. Morgan 54th Annual Global Technology, Media and Communications Conference",
+      "available_at": "2026-05-18T12:25:00Z",
+      "source_version_id": "f43eec38-8a09-4386-8392-8e72f5015f40",
+      "char_start": 33219,
+      "char_end": 34057,
+      "text": "Michael Hurlston (President and CEO, Lumentum): I mean, you know, our models show world capacity of indium phosphide going up, you know, somewhere between 2x and 4x. I mean, it depends on where it is that you're talking about. There will be a significant increase from where we are, and obviously, that doesn't scare us at all. We think that that's gonna be necessary, and there's still gonna be a supply-demand imbalance as you start adding all of this capacity. That Our challenge right now is interesting. One, it's been talked about a lot, is substrates, right? We think we have that mostly under control, but any indium phosphide wafer starts with a substrate, and there is definitely a well-documented substrate shortage. We think we've solved for that by virtue of locking up a long-term agreement, but every day the numbers go up.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 13.2591,
+      "terms": [
+        "substrate",
+        "axt"
+      ],
+      "company": "lumentum",
+      "title": "Q4 2026",
+      "available_at": "2026-08-11T21:00:00Z",
+      "source_version_id": "e8e6076f-d0c8-4532-bf4d-88875830e3b3",
+      "char_start": 41063,
+      "char_end": 41985,
+      "text": "Vijay Rakesh (Analyst, Mizuho): Thank you.\nKathy Ta (VP of Investor Relations, Lumentum): Thanks so much, Vijay.\nOperator: Your next question comes from the line of George Notter with Wolfe Research. Your line is now open. Please go ahead.\nGeorge Notter (Analyst, Wolfe Research): Hi, guys. Thanks very much. Congrats on all the success here. I guess I wanted to ask about your indium phosphide substrate supply. I was really intrigued by the deal you guys signed in the quarter with AXT. I think a quarter ago, you actually said that you were doing pretty well on the indium phosphide substrate. It feels like there is a bit of a change here. I guess I am wondering what you guys are seeing longer term here in terms of your need for more indium phosphide substrate. As I extrapolate that, can I look at Greensboro, and are you making more progress towards filling the rest of that facility looking forward? Thanks a lot.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 13.2336,
+      "terms": [
+        "substrate",
+        "supplier"
+      ],
+      "company": "coherent",
+      "title": "Status update",
+      "available_at": "2026-03-17T20:00:00Z",
+      "source_version_id": "ddc57678-3fcf-4929-98af-a0c8d4768544",
+      "char_start": 67930,
+      "char_end": 68265,
+      "text": "Jim Anderson (CEO, Coherent): We believe that we have very good visibility into substrate supply, and that capacity expansion that Beck showed is, you know, we have commitments from our suppliers to supply the necessary indium phosphide substrates to support that.\nSimon Leopold (Managing Director, Raymond James): Next question. Sure.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 12.9926,
+      "terms": [
+        "substrate",
+        "supplier",
+        "year"
+      ],
+      "company": "coherent",
+      "title": "Q2 2026",
+      "available_at": "2026-02-04T21:30:00Z",
+      "source_version_id": "8785156d-77c3-4eee-a3f0-7361f8510d32",
+      "char_start": 7969,
+      "char_end": 8995,
+      "text": "Jim Anderson (CEO, Coherent): Our six-inch yields continue to exceed the yields of our three-inch production lines. In addition, we have multiple six-inch indium phosphide substrate suppliers, and we have secured committed substrate supply that supports our expected doubling of capacity by our December quarter. In short, we are very pleased with our ramp of the world's first six-inch indium phosphide production lines and expect this production ramp to support significant revenue growth and margin expansion of our transceiver products over the coming quarters. We also expect to continue to supplement our internal indium phosphide capacity with continued sourcing from external suppliers. For example, EML supply from our external suppliers increased sequentially in Q2, and we expect it to increase again in the current quarter and during this calendar year through continued long-term partnership with our key external suppliers. We also continue to invest in the expansion of our transceiver module assembly capacity.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 12.7665,
+      "terms": [
+        "substrate",
+        "agreement",
+        "seven",
+        "year"
+      ],
+      "company": "lumentum",
+      "title": "Nokia Oyj Optical Fiber Communication Conference 2026",
+      "available_at": "2026-03-17T17:15:00Z",
+      "source_version_id": "9c4faf91-b774-430d-8408-7e7985020cf6",
+      "char_start": 94744,
+      "char_end": 95566,
+      "text": "Ryan Koontz (Managing Director and Research Analyst, Needham & Company): Great. Maybe a quick follow-up, if I could, on indium phosphide expansion. I know there's long lead times for those reactors. You guys feel comfortable with the, your supply there?\nMichael Hurlston (CEO, Lumentum): Yeah, I think we're in pretty good shape with the reactors. It is. You're 100% right. It's a long lead time item. It's probably not the thing that worries me in Greensboro or as we ramp up in San Jose, right? It's really around substrate supply. I mean, there is still supply tightness. I think we've got that resolved. Kathryn and I had talked to you about the seven-year agreement that we've been able to work out. We feel pretty good about where we're sitting there, but that's probably the thing that keeps me up at night most is.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 12.5962,
+      "terms": [
+        "substrate",
+        "axt"
+      ],
+      "company": "lumentum",
+      "title": "Q4 2026",
+      "available_at": "2026-08-11T21:00:00Z",
+      "source_version_id": "e8e6076f-d0c8-4532-bf4d-88875830e3b3",
+      "char_start": 41986,
+      "char_end": 42749,
+      "text": "Michael Hurlston (President and CEO, Lumentum): Hey, George. Look, I would agree. I think what we tried to hint to in a previous question is the ultra-high-powered laser demand has surprised us, and that cuts across a couple of customers. So what we are trying to do, I think, really in the last three months is secure even more substrate supply. We were doing well. We felt like we had, given the baseline of demand that we were seeing from ultra-high powered, and then, of course, the EMLs and CW lasers that go into our scale-out products, we felt pretty good, as you said. But I think we have seen a pretty big surge in demand, as we said, and in order to respond to that, we went out and we found additional substrate help from AXT. They are a great partner.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 12.3754,
+      "terms": [
+        "substrate",
+        "supplier",
+        "agreement",
+        "year"
+      ],
+      "company": "lumentum",
+      "title": "Morgan Stanley Technology, Media & Telecom Conference 2026",
+      "available_at": "2026-03-02T19:30:00Z",
+      "source_version_id": "a9710d35-7f5b-4f56-85cc-0ebd589fe01d",
+      "char_start": 36556,
+      "char_end": 37473,
+      "text": "Meta Marshall (Executive Director, Morgan Stanley): Any questions? I can repeat it for everyone.\nTom (Analyst, Morgan Stanley): How are you dealing with geopolitics, particularly around China's export restrictions to Japan?\nMichael Hurlston (President and CEO, Lumentum): Good question. Right. As I mentioned a minute ago, we have 2 fabs in Japan. What we've been able to do to sort of skate around that is form a long-term agreement. One of the concerns in the company a couple of weeks ago was around substrates. We buy indium phosphide substrates from a third party. Fortunately for us, that third party is not in China, and we've done a very strategic deal with that particular customer, supplier. A 7-year deal, right, that we think covers us out through mid-2030s that assures us of supply. Again, in the face of all these extreme forecasts and all these numbers going up, we think we're really well-positioned.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 12.2028,
+      "terms": [
+        "substrate",
+        "supplier",
+        "agreement"
+      ],
+      "company": "lumentum",
+      "title": "Mizuho Technology Conference 2026",
+      "available_at": "2026-06-09T12:00:00Z",
+      "source_version_id": "8acd2030-d17d-4767-b03f-15113a8a7478",
+      "char_start": 24203,
+      "char_end": 24699,
+      "text": "Michael Hurlston (President and CEO, Lumentum): Yeah. No. Again, it's the question that we get a lot, I think you asked it of us after the earnings call. We're uncomfortably comfortable right now with our substrate position. For sure. Again, with our numbers escalating like this, we are going to have tension in the system. It's just unavoidable. When we talked after the last earnings call, we felt like we were well covered with our primary supplier. We'd done a long-term agreement with them.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 12.1433,
+      "terms": [
+        "substrate",
+        "wafer"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+      "available_at": "2025-12-16T21:05:10Z",
+      "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+      "char_start": 22726,
+      "char_end": 23403,
+      "text": "In addition to VCSELs, our products for the consumer electronics market include wafer-scale optics, diffraction gratings, thermoelectric coolers, driver ICs, and substrates for sensing and AR/VR applications.\n\u2022Automotive Market Vertical. We are a global leader in SiC substrates for power electronics that improve the energy efficiency of electric and hybrid-electric vehicles. Our industry-leading semiconductor lasers, optics, and materials can be leveraged for LiDAR systems embedded in advanced driver-assistance systems (ADAS) for autonomous vehicles. LiDAR sensors enable ADAS to perform functions such as emergency braking, distance warning, and adaptive cruise control.",
+      "also_in": [
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 12.1209,
+      "terms": [
+        "substrate",
+        "wafer"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 37671,
+      "char_end": 38037,
+      "text": "Our lasers are widely used in various semiconductor processes such as solid-state lasers and excimer lasers for semiconductor inspection tasks, and CO2 lasers for wafer annealing. We also offer a suite of lasers for a variety of advanced packaging applications, ranging from cutting, PCB and substrate drilling, and optical debonding to numerous laser marking tasks.",
+      "also_in": [
+        {
+          "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+          "company": "coherent",
+          "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+          "available_at": "2025-12-16T21:05:10Z"
+        },
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 10.5937,
+      "terms": [
+        "substrate",
+        "wafer"
+      ],
+      "company": "lumentum",
+      "title": "J.P. Morgan 54th Annual Global Technology, Media and Communications Conference",
+      "available_at": "2026-05-18T12:25:00Z",
+      "source_version_id": "f43eec38-8a09-4386-8392-8e72f5015f40",
+      "char_start": 34058,
+      "char_end": 34772,
+      "text": "Michael Hurlston (President and CEO, Lumentum): It certainly puts more pressure on us to find alternate sources for substrates. The other one that's interesting is equipment. I mean, the equipment is affecting us not only on the wafer side, but it's also affecting us in our factories. We have a significant demand now on things like reactors in the fab, on etch in the fab, and then in the factories. I mean, it's surprising that that's ultimately been an inhibitor. It's just our ability to get equipment in there. You know, if I was to point to two things, it would be that. It would be substrates, which again, I think we have under control, but it's certainly tighter than I'd like to see, and then equipment.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 10.2321,
+      "terms": [
+        "year",
+        "wafer"
+      ],
+      "company": "coherent",
+      "title": "Q2 2026",
+      "available_at": "2026-02-04T21:30:00Z",
+      "source_version_id": "8785156d-77c3-4eee-a3f0-7361f8510d32",
+      "char_start": 44592,
+      "char_end": 45322,
+      "text": "Jim Anderson (CEO, Coherent): In terms of the ramp progress, as I shared, in terms of wafer starts, we're already at 80% of that goal to double our capacity this year. We have plans to significantly expand it beyond just doubling capacity in the following years. It's a little too early to talk about that, but as we get moved throughout this year, I'll give some guideposts on future years and the expected continued ramp of indium phosphide. And then I think you asked about cost structure advantage. Yeah, so the basic cost structure advantage is a six-inch wafer compared to a three-inch wafer. You get, you know, over four times as many product out of that wafer at less than half the cost, so it's a tremendous cost savings.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 10.1311,
+      "terms": [
+        "substrate",
+        "supplier"
+      ],
+      "company": "coherent",
+      "title": "COHERENT CORP. 10-K filed 2026-08-14",
+      "available_at": "2026-08-14T12:10:05Z",
+      "source_version_id": "de8239e5-9380-45d4-8b79-f0025315756b",
+      "char_start": 29902,
+      "char_end": 31091,
+      "text": "Sources of Supply\nIn our production processes, we use certain substrates, along with numerous optical, electrical, and mechanical parts that are sourced from third-party suppliers. These include InP substrates, ICs, DSPs, mechanical housings, and optical components, and we commonly refer to them as raw materials. Raw materials or subcomponents required in the manufacturing process are generally available from several sources. However, in the Industrial segment, we currently purchase several key components and materials used in the manufacture of our products, including exotic materials, crystals, and optics, from sole-source or limited-source suppliers. We also purchase assemblies and turnkey solutions from contract manufacturers, based on our proprietary designs. We rely on our own production and design capability to manufacture and specify certain strategic components, crystals, fibers, semiconductor lasers, and laser-based systems. We use rare-earth materials in some of our production processes. Like with other materials, we continuously work to strengthen and diversify our supply chain, including maintaining buffer inventory and developing multiple sources of supply.",
+      "also_in": [
+        {
+          "source_version_id": "8e8c874c-74e0-490e-bd13-908f09cec553",
+          "company": "coherent",
+          "title": "COHERENT CORP. 8-K filed 2025-12-16, EX-99.1",
+          "available_at": "2025-12-16T21:05:10Z"
+        },
+        {
+          "source_version_id": "d21d958e-5268-4afc-b22d-818a71b2eb49",
+          "company": "coherent",
+          "title": "COHERENT CORP. 10-K filed 2025-08-15",
+          "available_at": "2025-08-15T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 10.1228,
+      "terms": [
+        "supplier",
+        "sumitomo",
+        "year"
+      ],
+      "company": "lumentum",
+      "title": "Raymond James TMT and Consumer Conference",
+      "available_at": "2025-12-08T15:40:00Z",
+      "source_version_id": "e4fcd765-1e68-45bb-a80a-b0c39a6145a1",
+      "char_start": 10303,
+      "char_end": 11036,
+      "text": "Michael Hurlston (CEO, Lumentum): Yeah, it's a hard one for me to answer because as we've ramped, and you're right, I think the other folks are ramping as well. The Sumitomos, the Broadcoms, all of these guys have talked about ramping supply. I still think we're getting further behind. So, what we've said to you and to others is, as you entered sort of the end of our fiscal year, we were roughly 20% behind demand. If we look at the forecast we're seeing for the middle of the year and the end of 2026, we expect to fall further behind. We're saying we probably think we're 30% behind. And that, in our own book, we're adding 40% additional capacity on a big number, right? Because we're by far the largest supplier of EMLs today.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 9.8771,
+      "terms": [
+        "supplier",
+        "agreement",
+        "year"
+      ],
+      "company": "lumentum",
+      "title": "Lumentum Holdings Inc. 10-K filed 2026-08-17",
+      "available_at": "2026-08-17T20:03:17Z",
+      "source_version_id": "e256983e-142b-4427-a17a-2f64cc221b6f",
+      "char_start": 471932,
+      "char_end": 472962,
+      "text": "We depend on a limited number of contract manufacturers, subcontractors and suppliers for raw materials, packages and standard components. We generally purchase these single or limited source products through standard purchase orders or one-year supply agreements and have no significant long-term guaranteed supply agreements with these vendors. While we seek to maintain a sufficient safety stock of such products and maintain on-going communications with our suppliers to guard against interruptions or cessation of supply, our business and results of operations could be adversely affected by a stoppage or delay of supply, substitution of more expensive or less reliable products, receipt of defective parts or contaminated materials, increases in the price of such supplies, or our inability to obtain reduced pricing from our suppliers in response to competitive pressures. In addition, the imposition of tariffs on certain imported goods and materials may increase our costs and place upward pressure on the cost of sales.",
+      "also_in": [
+        {
+          "source_version_id": "d2d57918-5a98-459f-9627-e7d02f22fda1",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-05-06",
+          "available_at": "2026-05-06T10:00:00Z"
+        },
+        {
+          "source_version_id": "36c71684-8aec-40ee-b6e2-17347250201b",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2026-02-04",
+          "available_at": "2026-02-04T11:00:00Z"
+        },
+        {
+          "source_version_id": "71b6db21-7a38-412b-a0df-675a23e234d7",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-11-05",
+          "available_at": "2025-11-05T11:00:00Z"
+        },
+        {
+          "source_version_id": "f4cd3b1d-4614-4594-8cd5-1d5405d62c2c",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T21:09:47Z"
+        },
+        {
+          "source_version_id": "c027dd1d-50a0-4d9f-9fbe-122dcb2cf4c0",
+          "company": "lumentum",
+          "title": "Lumentum Holdings Inc. 10-Q filed 2025-05-07",
+          "available_at": "2025-05-07T10:00:00Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}

@@ -1,0 +1,529 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "qualification process customers lengthy qualify products design win",
+  "terms": [
+    "qualification",
+    "process",
+    "customer",
+    "lengthy",
+    "qualify",
+    "product",
+    "design",
+    "win"
+  ],
+  "companies": [
+    "fabrinet",
+    "applied-optoelectronics",
+    "coherent"
+  ],
+  "window": {
+    "since": "2025-04-07T13:22:10+00:00",
+    "as_of": "2026-10-07T13:22:10+00:00"
+  },
+  "documents": 126,
+  "documents_skipped": {
+    "not a text document": 3,
+    "outside the window": 331
+  },
+  "requests": 138,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 34.7712,
+      "terms": [
+        "qualification",
+        "process",
+        "customer",
+        "qualify",
+        "product",
+        "design",
+        "win"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "APPLIED OPTOELECTRONICS, INC. 10-K filed 2026-02-26",
+      "available_at": "2026-02-26T21:24:24Z",
+      "source_version_id": "b9c0cce2-6593-45f4-9d5d-99acb8ab5162",
+      "char_start": 76009,
+      "char_end": 77042,
+      "text": "Prior to the sale of new products, our customers typically require us to \"qualify\" our products for use in their applications. At the successful completion of this qualification process, we refer to the resulting sales opportunity as a \"design win\". Additionally, new customers often audit our manufacturing facilities and perform other evaluations during this qualification process. The qualification process involves product sampling and reliability testing and collaboration with our product management and engineering teams in the design and manufacturing stages. If we are unable to accurately predict the amount of time required to qualify our products with customers, or are unable to qualify our products with certain customers at all, then our ability to generate revenue could be delayed or our revenue would be lower than expected and we may not be able to recover the costs associated with the qualification process or with our product development efforts, which would have an adverse effect on our results of operations.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 32.8478,
+      "terms": [
+        "qualification",
+        "process",
+        "customer",
+        "lengthy",
+        "qualify",
+        "product",
+        "design"
+      ],
+      "company": "fabrinet",
+      "title": "Fabrinet 10-K filed 2026-08-18",
+      "available_at": "2026-08-18T11:12:07Z",
+      "source_version_id": "0c0a74ec-8275-4e6d-a5a1-849e900aba3d",
+      "char_start": 46662,
+      "char_end": 47765,
+      "text": "The production of optical devices is characterized by a lengthy qualification process. In particular, the qualification and field testing of the products that we produce for our customers may take three to six months or longer to complete. Generally, we must qualify our production process with our customers, and the products that we manufacture must also meet the product quality requirements of our customers\u2019 customers. While most of our customers do not purchase our services until they qualify the services and satisfactorily complete factory audits and vendor evaluations, we typically produce a test run of their products to demonstrate that the products we produce will meet their qualification standards in advance of receiving an order. As part of this process, our engineers work closely with the customer\u2019s design and procurement teams. We believe that the rigorous product transfer and qualification processes, and the close relationships that we develop with our customers during those processes, result in greater visibility into product life cycles and longer-term customer engagements.",
+      "also_in": [
+        {
+          "source_version_id": "7808920f-ec35-44fe-99f1-e373bd062c9d",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T11:13:26Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 30.0541,
+      "terms": [
+        "qualification",
+        "process",
+        "customer",
+        "qualify",
+        "design",
+        "win"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "Q1 2025",
+      "available_at": "2025-05-08T20:30:00Z",
+      "source_version_id": "7516fa26-0303-41b2-a9a8-afb2529cc60f",
+      "char_start": 39933,
+      "char_end": 40967,
+      "text": "Dave Kang (Senior Research Analyst, B. Riley FBR): Should we expect similar eight to nine months or any thoughts on that?\nStefan Murry (CFO and Chief Strategy Officer, Applied Optoelectronics): I think the number of qualifications\u2014I do not have the exact number in hand, but it is more than five, less than 10, I would say, somewhere in that range. I would have to get the exact number for you. As Thompson mentioned, it is a multi-stage process. Our process, we are pretty strict about when we qualify a design win or when we report a design win. It requires full qualification, an order from the customer, and a forecast that continued orders will be ongoing, right? We are somewhere in that process between finishing up the qualification, as Thompson mentioned, multi-stage qualification, and actually logging the design win. We will have more to report back once we have those design wins in place.Let's just say we're feeling very, very good about the progress that we're making with the customers on 800G. It's going quite well.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 21.8608,
+      "terms": [
+        "qualification",
+        "process",
+        "customer",
+        "product",
+        "design"
+      ],
+      "company": "fabrinet",
+      "title": "Fabrinet 10-K filed 2026-08-18",
+      "available_at": "2026-08-18T11:12:07Z",
+      "source_version_id": "0c0a74ec-8275-4e6d-a5a1-849e900aba3d",
+      "char_start": 31905,
+      "char_end": 33050,
+      "text": "Service Offerings\nWe offer integrated precision optical, electro-mechanical, and electronic manufacturing services and customized optics and glass fabrication services for our OEM customers.\nPrecision Optical, Electro-Mechanical, and Electronic Manufacturing Services\nProcess Design and Engineering\nWe continuously analyze our customers\u2019 product designs for cost and manufacturability improvements. We perform detailed design for manufacturability studies and design of experiments to assist in optimizing a product\u2019s design for the lowest cost possible without compromising the quality specifications of form, fit and function. In the case of a new product design, we may assist in assembling one or more prototype products using the same production line and the same engineering and manufacturing teams that would be used for product qualification and volume production. We often transfer production from a customer\u2019s internal prototype or production lines to our own facilities, requiring a copy-exact: the setup of a production process identical to the one used by our customer to minimize the number of variables and expedite qualification.",
+      "also_in": [
+        {
+          "source_version_id": "7808920f-ec35-44fe-99f1-e373bd062c9d",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T11:13:26Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 20.4198,
+      "terms": [
+        "customer",
+        "lengthy",
+        "product",
+        "design",
+        "win"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "APPLIED OPTOELECTRONICS, INC. 10-Q filed 2026-08-06",
+      "available_at": "2026-08-06T20:17:30Z",
+      "source_version_id": "1684ddd0-e5a6-4b6e-b0e7-bcbc3d5f13ae",
+      "char_start": 83918,
+      "char_end": 84875,
+      "text": "Our business depends on winning competitive bid selection processes to develop components, systems and equipment for use in our customers\u2019 products. These selection processes are typically lengthy, and as a result our sales cycles will vary based on the level of customization required, market served, whether the design win is with an existing or new customer and whether our solution being designed in our customers\u2019 product is our first generation or subsequent generation product. We do not have any long-term purchase commitments (in excess of one year) with any of our customers, most of whom purchase our products on a purchase order basis. However, once one of our solutions is incorporated into a customer\u2019s design, we believe that our solution is likely to continue to be purchased for that design throughout that product\u2019s life cycle because of the time and expense associated with redesigning the product or substituting an alternative solution.",
+      "also_in": [
+        {
+          "source_version_id": "406c32ea-3b7e-4937-857a-c7c7108dce6d",
+          "company": "applied-optoelectronics",
+          "title": "APPLIED OPTOELECTRONICS, INC. 10-Q filed 2026-05-07",
+          "available_at": "2026-05-07T20:33:09Z"
+        },
+        {
+          "source_version_id": "b9c0cce2-6593-45f4-9d5d-99acb8ab5162",
+          "company": "applied-optoelectronics",
+          "title": "APPLIED OPTOELECTRONICS, INC. 10-K filed 2026-02-26",
+          "available_at": "2026-02-26T21:24:24Z"
+        },
+        {
+          "source_version_id": "0b0bcbe6-1beb-43de-a673-9f49b56b6099",
+          "company": "applied-optoelectronics",
+          "title": "APPLIED OPTOELECTRONICS, INC. 10-Q filed 2025-11-06",
+          "available_at": "2025-11-06T21:34:21Z"
+        },
+        {
+          "source_version_id": "d0d34b07-d1b0-4b59-96a6-e809a71f6531",
+          "company": "applied-optoelectronics",
+          "title": "APPLIED OPTOELECTRONICS, INC. 10-Q filed 2025-08-07",
+          "available_at": "2025-08-07T20:26:48Z"
+        },
+        {
+          "source_version_id": "4a70b0f4-94cc-4a6e-ab08-78f28d388d37",
+          "company": "applied-optoelectronics",
+          "title": "APPLIED OPTOELECTRONICS, INC. 10-Q filed 2025-05-08",
+          "available_at": "2025-05-08T20:25:50Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 20.2463,
+      "terms": [
+        "process",
+        "customer",
+        "qualify",
+        "product",
+        "design"
+      ],
+      "company": "fabrinet",
+      "title": "Fabrinet 10-K filed 2026-08-18",
+      "available_at": "2026-08-18T11:12:07Z",
+      "source_version_id": "0c0a74ec-8275-4e6d-a5a1-849e900aba3d",
+      "char_start": 91380,
+      "char_end": 91931,
+      "text": "Further, due to the difficulty in determining whether a given defect resulted from our customer\u2019s design of the product or our manufacturing process, we may be exposed to product liability or product warranty claims arising from defects that are not attributable to our manufacturing process. In addition, if the number or type of defects exceeds certain percentage limitations contained in our contractual arrangements, we may be required to conduct extensive failure analysis, re-qualify for production or cease production of the specified products.",
+      "also_in": [
+        {
+          "source_version_id": "c5d5e57d-b5fe-489f-99ed-8461d7095ab4",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-Q filed 2026-05-05",
+          "available_at": "2026-05-05T11:14:28Z"
+        },
+        {
+          "source_version_id": "88ab82aa-93cc-4a8c-866c-7f59bfee724d",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-Q filed 2026-02-03",
+          "available_at": "2026-02-03T11:14:39Z"
+        },
+        {
+          "source_version_id": "0f29501a-7d2c-492e-95a0-d499ac76df6d",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-Q filed 2025-11-04",
+          "available_at": "2025-11-04T11:16:42Z"
+        },
+        {
+          "source_version_id": "7808920f-ec35-44fe-99f1-e373bd062c9d",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-K filed 2025-08-19",
+          "available_at": "2025-08-19T11:13:26Z"
+        },
+        {
+          "source_version_id": "44884e01-e60b-4560-b5e0-f7621e896287",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-Q filed 2025-05-06",
+          "available_at": "2025-05-06T11:15:39Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 19.1683,
+      "terms": [
+        "customer",
+        "product",
+        "design",
+        "win"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "APPLIED OPTOELECTRONICS, INC. 10-K filed 2026-02-26",
+      "available_at": "2026-02-26T21:24:24Z",
+      "source_version_id": "b9c0cce2-6593-45f4-9d5d-99acb8ab5162",
+      "char_start": 169033,
+      "char_end": 170440,
+      "text": "In 2025, 2024 and 2023, we had 9, 8 and 6 design wins, respectively. We define a design win as the successful completion of the evaluation stage, where our customer has tested our product, verified that our product meets substantially all of their requirements and has informed us that they intend to purchase the product from us. Although we believe that our ability to obtain design wins is a key strength and can provide meaningful and recurring revenue, an increase or decrease in the mere number of design wins does not necessarily correlate to a likely increase or decrease in revenue, particularly in the short term. As such, the number of design wins we achieve on a quarterly or annual basis and any increase or decrease in design wins will not necessarily result in a corresponding increase or decrease in revenue in the same or immediately succeeding quarter or year. For example, if our total number of design wins in an annual or quarterly period increases or decreases compared to the total number of design wins in a prior period, this does not necessarily mean that our revenue in such period will be higher or lower than our revenue in the prior period. In fact, our experience is that some design wins result in significant revenue and some do not, and the timing of such revenue is difficult to predict as it depends on the success of the end customer\u2019s product that uses our components. ",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 18.2367,
+      "terms": [
+        "qualification",
+        "customer",
+        "qualify",
+        "product",
+        "design"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "APPLIED OPTOELECTRONICS, INC. 10-K filed 2026-02-26",
+      "available_at": "2026-02-26T21:24:24Z",
+      "source_version_id": "b9c0cce2-6593-45f4-9d5d-99acb8ab5162",
+      "char_start": 167282,
+      "char_end": 168074,
+      "text": "Our sales model focuses on direct engagement and close coordination with our customers to determine product design, qualifications, performance and price. Our strategy is to use our direct sales force to sell to key accounts and to expand our use of distributors for increased coverage in certain international markets and certain domestic market segments. We have direct sales personnel that cover the U.S., Taiwan and China focusing primarily on major OEM customers and internet data center operators along with CATV MSOs. Throughout our sales cycle, we work closely with our customers to qualify our products into their product lines. As a result, we strive to build strategic and long-lasting customer relationships and deliver products that are customized to our customers\u2019 requirements.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 17.7925,
+      "terms": [
+        "qualification",
+        "customer",
+        "product",
+        "design",
+        "win"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "Q1 2025",
+      "available_at": "2025-05-08T20:30:00Z",
+      "source_version_id": "7516fa26-0303-41b2-a9a8-afb2529cc60f",
+      "char_start": 35008,
+      "char_end": 35940,
+      "text": "Stefan Murry (CFO and Chief Strategy Officer, Applied Optoelectronics): None of them were 800G.\nTim Savageaux (Managing Director and Senior Research Analyst, Northland Capital Markets): Okay.\nThompson Lin (Founder, Chairman, and CEO, Applied Optoelectronics): We have several other qualifications with the several hyperscale data center. Let me say that. Right now, when we say design win, we need to go through the three phases. Right now, for some products, some customers we are doing in the final phase, that means you need to deliver something like in a few thousand or 10,000. You need to put in data center for final qualification for one month and make sure quality is okay. That is what we call it. You start looking into the volume delivery. For the lab qualification, we have tests already. For a few several customers, several product, we are in the final qualification phase, or you can say it is the final phase. Okay?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 16.6182,
+      "terms": [
+        "qualification",
+        "customer",
+        "product",
+        "design",
+        "win"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "APPLIED OPTOELECTRONICS, INC. 8-K filed 2025-05-08, EX-99.1",
+      "available_at": "2025-05-08T20:10:36Z",
+      "source_version_id": "763c4b1b-2179-4fd2-a897-2fc212fd668f",
+      "char_start": 434,
+      "char_end": 1349,
+      "text": "\u201cWe\u2019re pleased to deliver results that were in line with or better than our expectations,\u201d said Dr. Thompson Lin, AOI\u2019s Founder, President and Chief Executive Officer. \u201cWe continue to see strong demand in the CATV market and achieved the highest quarterly CATV revenue in AOI\u2019s history during the first quarter. In our datacenter business, we continued to engage in meaningful dialogue with our customers and secured three new design wins with an existing hyperscale customer. We have seen and expect to continue to see a growing demand for our 400G and 800G products and we are actively working to build out our capacity to address this demand. Lastly, we began several new qualification efforts while supporting existing qualification efforts on 800G products with multiple large hyperscale customers and based on forecasts we are seeing, we have increased confidence in a second half of 2025 ramp in 800G sales.\u201d",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 15.7519,
+      "terms": [
+        "customer",
+        "design",
+        "win"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "Q1 2025",
+      "available_at": "2025-05-08T20:30:00Z",
+      "source_version_id": "7516fa26-0303-41b2-a9a8-afb2529cc60f",
+      "char_start": 34659,
+      "char_end": 35007,
+      "text": "Tim Savageaux (Managing Director and Senior Research Analyst, Northland Capital Markets): I got it. Going back to the design wins, I think you'd mentioned there were three with one existing hyperscale customer.\nTim Savageaux (Managing Director and Senior Research Analyst, Northland Capital Markets): Can you say whether those are 800G design wins?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 15.7189,
+      "terms": [
+        "qualification",
+        "customer",
+        "qualify",
+        "product"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "Q2 2025",
+      "available_at": "2025-08-07T20:30:00Z",
+      "source_version_id": "dcc56653-a44b-4ed8-8da0-25d18ba4b92d",
+      "char_start": 10919,
+      "char_end": 11871,
+      "text": "Stefan Murry (CFO and Chief Strategy Officer, AOI): As a reminder, the vast majority of our 400G business is for single mode transceivers, which carry higher ASP and gross margin than is typical of short reach transceivers based on multimode optics. We continued to make progress on customer qualifications on our 800G products. During the quarter, one of our major hyperscale customers completed an extensive audit of our factory in Taiwan and approved this factory for 800G production. This was a positive step forward, and we're approaching what we believe are the final stages for securing 800G product qualification, and we believe the factory qualification demonstrates their intent to move forward with our products. We continue to believe that we will produce meaningful shipments of 800G products sometime in the second half of 2025, likely in late Q3 or Q4. The schedule is constrained by our ability to build and qualify production capacity.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 15.2615,
+      "terms": [
+        "qualification",
+        "process",
+        "customer",
+        "win"
+      ],
+      "company": "fabrinet",
+      "title": "Q3 2026",
+      "available_at": "2026-05-04T21:00:00Z",
+      "source_version_id": "a2c99fa6-2df2-48d5-93d4-743d9c859ff5",
+      "char_start": 33939,
+      "char_end": 34784,
+      "text": "Dylan Ollivier (Analyst, Susquehanna): Great. Thank you.\nSeamus Grady (Chairman and CEO, Fabrinet): Thank you.\nOperator: Thank you. Our next question will come from Ryan Koontz from Needham & Co. Your line is open.\nRyan Koontz (Analyst, Needham & Co): Great. Thanks for the question. I'm going to ask a little more generically, regarding your transceiver wins. Can you just expand for us kind of where you would be in your milestone process before you'd announce to us that you have a win? Is it you have a contract, you have qualification, you have sampling? I'm not asking specifics about a single customer, but generically, at what point do you typically disclose, and might we consider these, different programs in the process between, you know, ramping material revenue and, you know, maybe an MOU that's not contractually bound? Thank you.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 15.0065,
+      "terms": [
+        "qualification",
+        "customer",
+        "qualify",
+        "product"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "Q3 2025",
+      "available_at": "2025-11-06T21:30:00Z",
+      "source_version_id": "ff06e6c3-4aa5-47c1-a9a4-c191ec5c9c1c",
+      "char_start": 9130,
+      "char_end": 9910,
+      "text": "Stefan Murray (CFO and Chief Strategy Officer, Applied Optoelectronics): We expect qualification in the near term based on conversations that we are having with our customers, and we continue to believe that we will produce meaningful shipments of 800G products in the fourth quarter. For the third quarter in a row, we did record immaterial revenue for our 800G products related to deliveries for customer qualification activity. As we have mentioned before, our schedule on ramping up our production is largely constrained by our ability to build and qualify production capacity. On that front, we are pleased to report that we made good progress on getting our production ready during the third quarter and remain nearly on track to achieve the targets that we laid out at OFC.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 14.157,
+      "terms": [
+        "qualification",
+        "customer",
+        "product",
+        "design"
+      ],
+      "company": "coherent",
+      "title": "Q3 2025",
+      "available_at": "2025-05-07T21:00:00Z",
+      "source_version_id": "fe2f5a03-a597-484b-8109-79f4db68983a",
+      "char_start": 4541,
+      "char_end": 5529,
+      "text": "Jim Anderson (CEO, Coherent): At the Optical Fiber Communications Conference in March, we introduced many new optical networking products and technologies. For example, six of our products received awards reflecting innovations at the component, module, and system level. At OFC, we showcased three different 1.6T transceiver designs based on three different types of lasers: a design based on our EML technology, a design based on our new 200 gig per lane VCSEL technology, and a third design based on our silicon photonics technology. The three different 1.6T demonstrations illustrate the wide breadth of technology options that we bring to our customers as we partner with them over multiple generations of data rate and architectural transitions. We continue to expect 1.6T to begin ramping during this calendar year. We're making good progress with our lead customers, and we continue to execute well through the typical stages of engineering milestones and customer qualifications.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 13.827,
+      "terms": [
+        "qualification",
+        "process",
+        "customer",
+        "product"
+      ],
+      "company": "fabrinet",
+      "title": "Q1 2026",
+      "available_at": "2025-11-03T22:00:00Z",
+      "source_version_id": "3136a858-a72d-443d-b74e-a620375d2424",
+      "char_start": 13241,
+      "char_end": 14082,
+      "text": "Seamus Grady (Chairman and CEO, Fabrinet): There is a qualification process that has to be gone through. We are working with our customer, making sure we have a very efficient, highly automated process in place. That is going very well. The customer is very happy. The business is growing nicely. We really just got the business kicked off last quarter. We got the qualification builds done and really just started to ship product towards the tail end of the quarter. We will continue to see that category grow for us nicely over the next while. There are certainly other opportunities that we are pursuing there in that area. It is early days yet. We would be optimistic that at some point in the future, we will have more than one customer in that category. We will have multiple growth vectors like we have in all of the markets we serve.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 13.7595,
+      "terms": [
+        "process",
+        "customer",
+        "product",
+        "design"
+      ],
+      "company": "fabrinet",
+      "title": "Fabrinet 10-K filed 2025-08-19",
+      "available_at": "2025-08-19T11:13:26Z",
+      "source_version_id": "7808920f-ec35-44fe-99f1-e373bd062c9d",
+      "char_start": 54862,
+      "char_end": 56249,
+      "text": "We regard our own manufacturing process technologies and customized optics and glass designs as proprietary intellectual property. We own any process engineering technology independently developed in-house by our technical staff. As part of our manufacturing services, to the extent we utilize our own manufacturing process technologies in the manufacture of our customers\u2019 products, we grant our customers a royalty-free license to these process engineering technologies for the purpose of allowing our customers to make their products. Any process engineering or other improvements that we develop in connection with the improvement or optimization of a process for the manufacturing of a customer\u2019s products are immediately assigned to that customer. To protect our proprietary rights, we rely largely upon a combination of trade secrets, non-disclosure agreements and internal security systems. Historically, patents have not played a significant role in the protection of our proprietary rights. Nevertheless, we currently have a relatively small number of solely-owned and jointly-held PRC patents in various customized optic technologies with expiration dates between 2025 and 2040. We believe that both our evolving business practices and industry trends may result in the continued growth of our patent portfolio and its importance to us, particularly as we expand our business.",
+      "also_in": [
+        {
+          "source_version_id": "0c0a74ec-8275-4e6d-a5a1-849e900aba3d",
+          "company": "fabrinet",
+          "title": "Fabrinet 10-K filed 2026-08-18",
+          "available_at": "2026-08-18T11:12:07Z"
+        }
+      ],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 12.9952,
+      "terms": [
+        "qualification",
+        "process",
+        "customer",
+        "product"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "Q4 2025",
+      "available_at": "2026-02-26T21:30:00Z",
+      "source_version_id": "22dfb4e4-8241-480b-87c5-20bcd0eba475",
+      "char_start": 16301,
+      "char_end": 17182,
+      "text": "Stefan Murry (CFO and Chief Strategy Officer, Applied Optoelectronics): Further, we have recently had dialogue with another large hyperscale customer who has been a long-term customer of ours and who is eager to begin qualification efforts for our 1.6 Tb products. This customer has also indicated a desire to purchase potentially significant quantities of 800G products from us in 2026 and 2027. We continue to discuss capacity availability and expect orders for 800G from this customer soon. It's also important to note our 800G and 1.6 Tb products can be manufactured on the same production line with the same process. While our 1.6 Tb products will require a different final testing, our 800G automated manufacturing lines have been developed with an architecture that will allow us to support future higher-speed products as customer demand materializes and evolves over time.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 12.9081,
+      "terms": [
+        "process",
+        "customer",
+        "product",
+        "design"
+      ],
+      "company": "fabrinet",
+      "title": "Rosenblatt\u2019s 5th Annual Technology Summit - The Age of AI 2025",
+      "available_at": "2025-06-10T15:00:00Z",
+      "source_version_id": "50224748-5949-4d0b-ad8f-888b1506f6c1",
+      "char_start": 16314,
+      "char_end": 17180,
+      "text": "Mike Genovese (Senior Research Analyst, Rosenblatt): Yeah. Early, you made the distinction between yourself and some of the optical component players in the transceiver space, the Lumentums, Coherent, Innolights, which do design products for customers. Just from a decision-making process for the hyperscalers\u2014so NVIDIA, we've got NVIDIA, and I guess there are other GPU players out there as well that could decide to design their own transceivers. There are hyperscalers that could decide to design their own transceivers. As somebody who does what you do and you're watching kind of the\u2014I do not know if it's buy versus build or design versus outsource decision for transceivers for these large, large customers. Do you think in the future more are going to design their own? I mean, are things moving in that direction, or do we know yet? What are you looking at?",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 12.8583,
+      "terms": [
+        "process",
+        "product",
+        "design"
+      ],
+      "company": "applied-optoelectronics",
+      "title": "Status update",
+      "available_at": "2026-03-17T23:00:00Z",
+      "source_version_id": "485bb682-2ed1-4619-927b-2b6757e42614",
+      "char_start": 7785,
+      "char_end": 8625,
+      "text": "Stefan Murry (CFO and Chief Strategy Officer, Applied Optoelectronics): I mentioned this earlier, but when it comes to automation, it's not just about having, you know, a particular piece of equipment or a particular design. It's really got, you know, a number of different aspects to it. Having the correct product design for the manufacturing process is very, very important. Being able to implement sensible automated inspection processes. Again, designing the product so that it can be tested and automatically inspected is very important because again, you know, you wanna have the ability to do this production process and test these products in a way that's not involving a lot of manual labor. The online inspection, the in-process material handling, that's the difference between essentially the Phase 3 light and the full Phase 3.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}

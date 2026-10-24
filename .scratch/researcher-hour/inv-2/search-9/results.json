@@ -1,0 +1,442 @@
+{
+  "base_url": "https://atlas.ekenhome.se",
+  "question": "Lumentum supply agreement AXT prepayment capacity reserve customer",
+  "terms": [
+    "lumentum",
+    "supply",
+    "agreement",
+    "axt",
+    "prepayment",
+    "capacity",
+    "reserve",
+    "customer"
+  ],
+  "companies": [
+    "axt",
+    "lumentum",
+    "coherent"
+  ],
+  "window": {
+    "since": "2025-04-07T12:58:42+00:00",
+    "as_of": "2026-10-07T12:58:42+00:00"
+  },
+  "documents": 134,
+  "documents_skipped": {
+    "not a text document": 3,
+    "outside the window": 488
+  },
+  "requests": 152,
+  "investigation": null,
+  "hits": [
+    {
+      "rank": 1,
+      "score": 23.3749,
+      "terms": [
+        "agreement",
+        "axt",
+        "prepayment",
+        "capacity"
+      ],
+      "company": "axt",
+      "title": "AXT INC 8-K filed 2026-07-02",
+      "available_at": "2026-07-02T21:02:47Z",
+      "source_version_id": "20b57cfa-e05b-4aef-a698-5ce65ddb050a",
+      "char_start": 2723,
+      "char_end": 3860,
+      "text": "Under the Agreement, AXT has agreed to increase its manufacturing capacity of the Products at its Beijing, China facility in 2026 through 2028 and has committed to the delivery of an agreed upon Product capacity to Coherent (the \u201cCapacity Commitment\u201d) for a prepayment of US$22,288,500 (the \u201cPrepayment\u201d) from Coherent to AXT. AXT has also agreed to certain prices per wafer substrate and the application of the Prepayment for certain Product purchases under the terms of the Agreement until the full amount of the Prepayment has been allocated. The Prepayment is refundable to Coherent at its sole option if the Prepayment has not been fully applied upon the expiration or termination of the Agreement. However, if Coherent fails to meet its minimum order quantity requirement, the remaining unused portion of the Prepayment shall be nonrefundable and AXT has the right to terminate the Agreement. Subject to any mutually agreed changes, Coherent has the right to terminate the Agreement if AXT fails to meet the Capacity Commitment for more than six (6) successive calendar months, and is entitled to a refund of the unused Prepayment.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 2,
+      "score": 23.3017,
+      "terms": [
+        "lumentum",
+        "supply",
+        "agreement",
+        "axt",
+        "capacity",
+        "reserve"
+      ],
+      "company": "axt",
+      "title": "AXT INC 8-K filed 2026-07-29",
+      "available_at": "2026-07-29T20:17:53Z",
+      "source_version_id": "64ac8849-3667-4afa-a216-3c633674f290",
+      "char_start": 1850,
+      "char_end": 2776,
+      "text": "Title of each class:\nTrading Symbol\nName of each exchange on which registered:\nCommon Stock, $0.001 par value\nAXTI\nThe NASDAQ Stock Market LLC\nItem 1.01 Entry into a Material Definitive Agreement.\nOn July 26, 2026, AXT Inc., a Delaware corporation, (the \u201cRegistrant\u201d, and collectively with its affiliates, \u201cAXT\u201d) and Lumentum Operations LLC, a Delaware limited liability company (collectively with its affiliates, \u201cLumentum\u201d) entered into a Capacity Reservation Agreement (the \u201cAgreement\u201d) for the supply and capacity reservation of indium phosphide (\u201cInP\u201d) wafer substrates (the \u201cProducts\u201d). Under the terms of the Agreement, AXT has agreed to reserve a minimum annual commitment of the Products by Lumentum (the \u201cProduct Capacity\u201d) for a six (6) year period beginning upon entry into the Agreement and to support any additional capacity that may be required. The Agreement may be renewed for additional one (1) year periods.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 3,
+      "score": 20.7561,
+      "terms": [
+        "supply",
+        "agreement",
+        "prepayment",
+        "capacity"
+      ],
+      "company": "axt",
+      "title": "AXT INC 10-Q filed 2026-08-13",
+      "available_at": "2026-08-13T20:16:33Z",
+      "source_version_id": "3364bc17-cd96-4690-9225-4f9def113373",
+      "char_start": 157980,
+      "char_end": 159373,
+      "text": "On June 26, 2026, we entered into a Master Development and Supply Agreement (the \u201cCoherent Agreement\u201d) with Coherent Corp, a Pennsylvania Corporation (\u201cCoherent\u201d), for the development and supply of certain agreed-upon specifications for 6-inch InP wafer substrates (the \u201cCoherent Products\u201d) for an initial term of three (3) years. We agreed to increase the manufacturing capacity of the Products at our Beijing, China facility in 2026 through 2028 and committed to the delivery of an agreed upon product capacity to Coherent (the \u201cCapacity Commitment\u201d) for a prepayment of $22,288,500 (the \u201cPrepayment\u201d), The Prepayment is refundable to Coherent at its sole option if the Prepayment has not been fully applied upon the expiration or termination of the Coherent Agreement. However, if Coherent fails to meet its minimum order quantity requirement, the remaining unused portion of the Prepayment will be nonrefundable and we will have the right to terminate the Coherent Agreement. Subject to any mutually agreed changes, Coherent has the right to terminate the Coherent Agreement if we fail to meet the Capacity Commitment for more than six (6) successive calendar months, and Coherent will be entitled to a refund of the unused Prepayment. To the extent there is additional capacity beyond the committed quantity, we have agreed to offer such additional capacity at the same terms to Coherent.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 4,
+      "score": 18.6742,
+      "terms": [
+        "lumentum",
+        "agreement",
+        "axt",
+        "capacity",
+        "reserve"
+      ],
+      "company": "axt",
+      "title": "AXT INC 8-K filed 2026-07-29, EX-99.1",
+      "available_at": "2026-07-29T20:17:53Z",
+      "source_version_id": "be27f5d0-3918-4b67-96db-75f56e89e79e",
+      "char_start": 574,
+      "char_end": 1502,
+      "text": "\u201cWe are very pleased to announce an agreement with Lumentum and to be a key supplier to their indium phosphide requirements over the coming years,\u201d said Morris Young, chief executive officer of AXT, Inc.\nUnder the terms of the agreement, AXT has agreed to reserve a minimum annual commitment of indium phosphide by Lumentum for a period beginning upon entry into the agreement, running through December 31st, 2031, and to support any additional capacity that may be required. In consideration for the reservation of the product capacity, Lumentum has agreed to pay AXT an initial deposit of $43,500,000, due within thirty business days after entry into the agreement, and a second deposit of $43,500,000, with the timing and terms surrounding payment to be subsequently determined during calendar year 2028. The deposits shall be applied as shipment credits towards the purchase of the products, until such deposit is exhausted.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 5,
+      "score": 18.1001,
+      "terms": [
+        "lumentum",
+        "supply",
+        "agreement",
+        "axt",
+        "capacity"
+      ],
+      "company": "axt",
+      "title": "AXT INC 8-K filed 2026-07-29, EX-99.1",
+      "available_at": "2026-07-29T20:17:53Z",
+      "source_version_id": "be27f5d0-3918-4b67-96db-75f56e89e79e",
+      "char_start": 0,
+      "char_end": 573,
+      "text": "EX-99.1 2 ex_993544.htm EXHIBIT 99.1\nExhibit 99.1\nFOR IMMEDIATE RELEASE\nContacts:\nGary L. Fischer\nChief Financial Officer\ngfischer@axt.com\nLeslie Green\nGreen Communications Consulting, LLC\nleslie@greencommunicationsllc.com\nAXT, Inc. Announces Long-Term Supplier Agreement with Lumentum\nFREMONT, Calif., July 29, 2026 \u2013 AXT, Inc. (Nasdaq: AXTI), a leading manufacturer of compound semiconductor substrates, today announced that it entered into a definitive agreement with Lumentum Operations, LLC for the supply and capacity reservation of indium phosphide wafer substrates.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 6,
+      "score": 18.1001,
+      "terms": [
+        "supply",
+        "agreement",
+        "axt",
+        "capacity",
+        "reserve"
+      ],
+      "company": "axt",
+      "title": "AXT INC 8-K filed 2026-06-17",
+      "available_at": "2026-06-17T20:15:48Z",
+      "source_version_id": "40bb6bdb-2818-4eb7-98f4-b33c31ecf2f6",
+      "char_start": 1850,
+      "char_end": 2662,
+      "text": "Title of each class:\nTrading Symbol\nName of each exchange on which registered:\nCommon Stock, $0.001 par value\nAXTI\nThe NASDAQ Stock Market LLC\nItem 1.01 Entry into a Material Definitive Agreement.\nOn June 11, 2026, Beijing Tongmei Xtal Technology Co., Ltd. (\u201cTongmei\u201d), the subsidiary of AXT, Inc., a Delaware corporation, entered into a Long-term Supply Agreement (the \u201cAgreement\u201d) with Nanjing Casela Technologies Corporation, Ltd. (\u201cCasela\u201d). The Agreement establishes an arrangement under which Tongmei reserves production capacity and raw-material allocation for, and grants supply priority to, Casela in exchange for Caela\u2019s binding commitment to purchase a fixed aggregate quantity of indium phosphide (\u201cInP\u201d) wafer substrates from Tongmei during the period from January 1, 2027 through December 31, 2027.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 7,
+      "score": 17.949,
+      "terms": [
+        "supply",
+        "agreement",
+        "prepayment",
+        "customer"
+      ],
+      "company": "axt",
+      "title": "AXT INC 10-Q filed 2026-08-13",
+      "available_at": "2026-08-13T20:16:33Z",
+      "source_version_id": "3364bc17-cd96-4690-9225-4f9def113373",
+      "char_start": 246352,
+      "char_end": 247890,
+      "text": "We may not achieve the revenues we expect under our long term supply agreement with our customers.\nWe have entered into long-term supply agreements with customers that include customer prepayments or other advance payments. We are currently in discussions with other customers to form similar agreements. Although these arrangements may provide increased visibility into future demand and cash flows, they do not guarantee future revenue or profitability. Our ability to recognize revenue from such arrangements depends on our ability to satisfy our contractual performance obligations, including delivering products or services in accordance with agreed-upon specifications, quantities, and delivery schedules. In addition, customer prepayments received under these arrangements may result in obligations to provide products or services in future periods. If we are unable to fulfill these obligations, including due to production delays, supply constraints, changes in customer requirements, or other factors, we may be required to provide refunds, credits, or other concessions, which could adversely affect our financial condition and results of operations. In addition, customer demand, market conditions, technology changes, pricing pressures, or other circumstances may change after entering into long-term agreements. If customers reduce, delay, or cancel orders, or if we are unable to convert customer prepayments into recognized revenue as anticipated, our revenue, operating results, and liquidity could be adversely affected.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 8,
+      "score": 17.6195,
+      "terms": [
+        "lumentum",
+        "supply",
+        "agreement",
+        "capacity",
+        "reserve"
+      ],
+      "company": "axt",
+      "title": "AXT INC 10-Q filed 2026-08-13",
+      "available_at": "2026-08-13T20:16:33Z",
+      "source_version_id": "3364bc17-cd96-4690-9225-4f9def113373",
+      "char_start": 159374,
+      "char_end": 160780,
+      "text": "On July 26, 2026, we entered into a Capacity Reservation Agreement (\u201cLumentum Agreement\u201d) with Lumentum Operations LLC, a Delaware limited liability company (collectively with its affiliates, \u201cLumentum\u201d) for the supply and capacity reservation of InP wafer substrates (the \u201cLumentum Products\u201d). We agreed to reserve a minimum annual commitment of the Lumentum Products by Lumentum (the \u201cProduct Capacity\u201d) for a six (6) year period and to support any additional capacity that may be required, subject to extension of the term for additional one (1) year periods. In consideration for the reservation of the Product Capacity, Lumentum agreed to pay us (i) an initial deposit of $43,500,000, due within thirty (30) business days after entry into the Lumentum Agreement, and (ii) a second deposit of $43,500,000, with the timing and terms surrounding payment to be subsequently determined during calendar year 2028. The deposits will be applied as shipment credits towards the purchase of the Lumentum Products, until such deposit is exhausted. In the event that Lumentum\u2019s actual purchase quantity during any calendar year falls below the committed Product Capacity for such calendar year (the \u201cAnnual Purchase Commitment\u201d), subject to certain exceptions under the Lumentum Agreement, Lumentum will be responsible for the shortfall between the Annual Purchase Commitment and the quantity actually purchased. ",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 9,
+      "score": 17.6122,
+      "terms": [
+        "supply",
+        "agreement",
+        "axt",
+        "capacity",
+        "customer"
+      ],
+      "company": "axt",
+      "title": "Q1 2026",
+      "available_at": "2026-04-30T20:30:00Z",
+      "source_version_id": "62d67d91-e77d-4012-8dad-4550d2379fcc",
+      "char_start": 18344,
+      "char_end": 18911,
+      "text": "Morris Young (Co-Founder, CEO, and Chairman, AXT): Tim?\nTim Savageaux (Analyst, Northland Securities): I'll follow up.\nTim Bettles (VP of Business Development, Strategic Sales and Marketing, AXT): Yeah. Yeah. Thanks, Tim. Yes, we're talking to a number of customers right now on long-term supply agreements as we build our capacity out and try and understand where their demand is going. Nearly all of the larger customers in this space are talking about long-term supply agreements with us. We expect to come to resolution with some of those in the very near future.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 10,
+      "score": 15.2215,
+      "terms": [
+        "lumentum",
+        "supply",
+        "agreement",
+        "axt",
+        "capacity",
+        "customer"
+      ],
+      "company": "axt",
+      "title": "Q2 2026",
+      "available_at": "2026-07-30T20:30:00Z",
+      "source_version_id": "2592cbda-a8bc-4d3f-a8df-9095fc02a6a5",
+      "char_start": 13619,
+      "char_end": 14547,
+      "text": "Morris Young (CEO, AXT): This week, we're very pleased to announce an agreement with Lumentum. These agreements deepens our relationship with these important customers, working shoulder to shoulder with them to help them deliver on their own vision and roadmaps. In addition, they gave us the even greater sense of conviction that our capacity build-out is merited and necessary. From a geographic perspective, the massive AI infrastructure build-out and the planned capacity, CapEx surround spending by cloud services and AI platform providers in the U.S. is the primary driver for EML and silicon photonics-based optical transceivers, as well as high-speed photodetectors. We believe that today our material are being used in multiple U.S. hyperscalers. We expect that end customer use will continue to broaden. We're also seeing huge growth in China as China moves to accelerate its capability throughout the AI supply chain.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 11,
+      "score": 14.7435,
+      "terms": [
+        "supply",
+        "agreement",
+        "capacity",
+        "customer"
+      ],
+      "company": "coherent",
+      "title": "Q4 2026",
+      "available_at": "2026-08-12T20:30:00Z",
+      "source_version_id": "ac230f4b-3f49-4e7f-953d-5e168fd1e0a0",
+      "char_start": 45968,
+      "char_end": 46731,
+      "text": "Jim Anderson (CEO, Coherent): At the same time, in parallel, a lot of customers putting in place long-term agreements with us, where long-term agreements for supply over a multi-year period, many of those periods extending out through the end of the decade. Generally those agreements have increasing supply each year, because what we are doing is we are expanding capacity to bring on, or to support their demand requirements moving forward. So expanding capacity, expanding demand from them, and then they have pricing-related commitments, and then they also have sort of minimum demand guarantees from our customers, or sometimes you refer to those as take-or-pay agreements. Those LTAs are also really helpful. Those give us great visibility just beyond 2028.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 12,
+      "score": 14.0783,
+      "terms": [
+        "supply",
+        "agreement",
+        "axt",
+        "customer"
+      ],
+      "company": "axt",
+      "title": "Q1 2026",
+      "available_at": "2026-04-30T20:30:00Z",
+      "source_version_id": "62d67d91-e77d-4012-8dad-4550d2379fcc",
+      "char_start": 20861,
+      "char_end": 21710,
+      "text": "Tim Bettles (VP of Business Development, Strategic Sales and Marketing, AXT): Yeah, that's correct, Morris. It's a good point. You know, there's been a lot of press releases out about long-term supply agreements into our customers from the hyperscalers and from the hardware companies. There's been a lot of encouragement from those hyperscalers and hardware companies for their suppliers to enter into long-term supply agreements with AXT. That is actually driving a lot of the discussions, I think, that we're having on long-term supply agreements. Of course, it's given us a lot more visibility into what the market demands are at the hyperscaler side of things, and how that trickles down to demands for AXT. It also gives us a lot of visibility into technical demands as we move forward into high-end lasers and detectors in these new products.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 13,
+      "score": 13.834,
+      "terms": [
+        "supply",
+        "agreement",
+        "axt",
+        "prepayment"
+      ],
+      "company": "axt",
+      "title": "Q2 2026",
+      "available_at": "2026-07-30T20:30:00Z",
+      "source_version_id": "2592cbda-a8bc-4d3f-a8df-9095fc02a6a5",
+      "char_start": 6736,
+      "char_end": 7581,
+      "text": "Gary Fischer (CFO, AXT): Cash, cash equivalents, and investments increased by $625.6 million to $748.8 million as of June 30th. This was primarily the result of our secondary public offering of common stock, which closed on April 22nd and generated approximately $632 million before expenses. By comparison, at March 31st, our cash was $123 million. Accounts receivable increased by $4.7 million. During Q2, we signed long-term supply agreements with Casela and Coherent. Under the terms of these agreements, we received prepayments for wafers of $22.3 million and $25.4 million respectively. These type of agreements with significant upfront cash are an additional signpost regarding the important use of indium phosphide for high-speed optical data transmission required in AI data centers. Morris is going to talk more about this in a moment.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 14,
+      "score": 13.7852,
+      "terms": [
+        "supply",
+        "agreement",
+        "axt"
+      ],
+      "company": "axt",
+      "title": "AXT INC 8-K filed 2026-07-02",
+      "available_at": "2026-07-02T21:02:47Z",
+      "source_version_id": "20b57cfa-e05b-4aef-a698-5ce65ddb050a",
+      "char_start": 1850,
+      "char_end": 2722,
+      "text": "Title of each class:\nTrading Symbol\nName of each exchange on which registered:\nCommon Stock, $0.001 par value\nAXTI\nThe NASDAQ Stock Market LLC\nItem 1.01 Entry into a Material Definitive Agreement.\nOn June 26, 2026, AXT-Tongmei, Inc., a Delaware corporation (\u201cAXT-Tongmei\u201d) and a subsidiary of AXT, Inc., a Delaware corporation (the \u201cRegistrant\u201d, and collectively with AXT-Tongmei and the Registrant\u2019s affiliates, \u201cAXT\u201d) entered into a Master Development and Supply Agreement (the \u201cAgreement\u201d) with Coherent Corp, a Pennsylvania Corporation (\u201cCoherent\u201d), effective as of June 25, 2026 (the \u201cEffective Date\u201d). The Agreement establishes the terms for the mass development and supply of certain agreed-upon specifications for 6-inch indium phosphide (\u201cInP\u201d) wafer substrates (the \u201cProducts\u201d) from AXT to Coherent for an initial term of three (3) years from the Effective Date.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 15,
+      "score": 13.7539,
+      "terms": [
+        "agreement",
+        "axt",
+        "capacity",
+        "customer"
+      ],
+      "company": "axt",
+      "title": "Q4 2025",
+      "available_at": "2026-02-19T21:30:00Z",
+      "source_version_id": "490e0c38-28f6-4a5a-9c5b-e44d11170fe4",
+      "char_start": 39049,
+      "char_end": 39612,
+      "text": "Morris Young (CEO, AXT Inc.): Yes.\nTim Bettles (VP of Business Development, AXT Inc.): You know, long-term agreements, I think, are, in terms of locking up capacity, are easy. We're talking to customers to lock that capacity up. The gating factor, and we've reiterated this a lot today and previously, gating factor with long-term agreements is how much can we actually ship out of the country? What can we get permits for? We're trying to address that through LTAs, but for sure, we can definitely cover this kind of revenue volume with purchase orders and LTAs.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 16,
+      "score": 13.0224,
+      "terms": [
+        "supply",
+        "axt",
+        "capacity",
+        "customer"
+      ],
+      "company": "axt",
+      "title": "Q1 2026",
+      "available_at": "2026-04-30T20:30:00Z",
+      "source_version_id": "62d67d91-e77d-4012-8dad-4550d2379fcc",
+      "char_start": 7831,
+      "char_end": 8726,
+      "text": "Morris Young (Co-Founder, CEO, and Chairman, AXT): Unlike our competitors, AXT designs and builds our own crystal growth furnaces, has our own supply of critical raw materials, and has the manufacturing space in place to achieve our expansion goal this year. As you can imagine, longer-term capacity planning is one of the most important discussions we're having today with customers and major supply chain players in our space. The message we are having for them is this \"AXT is stepping up\". Beyond our 2026 capacity expansion, we're planning to double our Indium Phosphide capacity again in 2027 with a new facility near our current one that we will be dedicated to Indium Phosphide wafer production. Our 2028 planning is also underway, and we expect to expand again meaningfully. This is an industry in which scale matters. The barrier to entry are high, even for most skilled manufacturers.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 17,
+      "score": 12.9962,
+      "terms": [
+        "lumentum",
+        "agreement",
+        "axt",
+        "capacity"
+      ],
+      "company": "axt",
+      "title": "AXT INC 8-K filed 2026-07-29",
+      "available_at": "2026-07-29T20:17:53Z",
+      "source_version_id": "64ac8849-3667-4afa-a216-3c633674f290",
+      "char_start": 2777,
+      "char_end": 4170,
+      "text": "In consideration for the reservation of the Product Capacity, Lumentum has agreed to pay AXT (i) an initial deposit of $43,500,000, due within thirty (30) business days after entry into the Agreement, and (ii) a second deposit of $43,500,000, with the timing and terms surrounding payment to be subsequently determined during calendar year 2028. The deposits shall be applied as shipment credits towards the purchase of the Products, until such deposit is exhausted. In the event that Lumentum\u2019s actual purchase quantity during any calendar year falls below the committed Product Capacity for such calendar year (the \u201cAnnual Purchase Commitment\u201d), subject to certain exceptions relating to force majeure circumstances, and/or Product quality and non-conformance issues, Lumentum shall be responsible for the shortfall between the Annual Purchase Commitment and the quantity actually purchased. In addition, failure to deliver the minimum annual Product Capacity by AXT shall constitute a material breach and should AXT fail to cure such breach, AXT will be required to refund to Lumentum the portion of deposit, as applicable, that has not previously been applied as shipment credits. However, upon termination for convenience or changes in demand, AXT will retain any unallocated deposit amounts. Any modifications to the Product Capacity may only be made in writing executed by both parties.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 18,
+      "score": 12.873,
+      "terms": [
+        "supply",
+        "agreement",
+        "axt",
+        "capacity",
+        "customer"
+      ],
+      "company": "axt",
+      "title": "Q2 2026",
+      "available_at": "2026-07-30T20:30:00Z",
+      "source_version_id": "2592cbda-a8bc-4d3f-a8df-9095fc02a6a5",
+      "char_start": 26592,
+      "char_end": 27478,
+      "text": "Gary Fischer (CFO, AXT): I'm going to let Tim answer that. Go ahead, Tim.\nTim Bettles (VP of Business Development, AXT): Yeah, I don't want to go into a lot of details about how big exactly our backlog is. I can tell you that it is growing, and I can tell you it continues to grow even as we ship more material. Demand just completely outpaces our ability to increase capacity, even though we've increased capacity, or we're about to increase capacity 3x this year. Just simply can't keep up with it. Backlog continues to grow, as I say, beyond $100 million right now. In terms of 2027, yeah, we're covered with backlog going out into 2027. Obviously, a lot of our customers, if we could deliver the majority of that today, they would take it today. That does cover going out into 2027. Of course, we have these Long-Term Supply Agreements that take us out into 2027 and beyond as well.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 19,
+      "score": 12.6733,
+      "terms": [
+        "supply",
+        "agreement",
+        "capacity",
+        "customer"
+      ],
+      "company": "axt",
+      "title": "AXT INC 8-K filed 2026-06-17",
+      "available_at": "2026-06-17T20:15:48Z",
+      "source_version_id": "40bb6bdb-2818-4eb7-98f4-b33c31ecf2f6",
+      "char_start": 3262,
+      "char_end": 3624,
+      "text": "To the extent Casela\u2019s demand during the term exceeds the committed quantity, Tongmei has agreed, subject to available capacity and on terms no less favorable than those offered to similarly situated customers, to prioritize Casela\u2019s excess demand. The pricing and other terms applicable to any such excess supplies will be set forth in a supplemental agreement.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    },
+    {
+      "rank": 20,
+      "score": 12.1926,
+      "terms": [
+        "agreement",
+        "prepayment",
+        "capacity"
+      ],
+      "company": "lumentum",
+      "title": "Q3 2026",
+      "available_at": "2026-05-05T21:00:00Z",
+      "source_version_id": "378fc846-5173-4d57-a2d6-f6e5d3b7034a",
+      "char_start": 37108,
+      "char_end": 37765,
+      "text": "Mohammed Khan (Analyst, Stifel): You mentioned that the long-term agreements being negotiated are helping in some sense to offset CapEx, and I think that was with scale-across, but it sounds like more broadly. Could you maybe give us a sense of the structure? Are these, you know, prepayment style commitments, maybe similar in maybe spirit, I would say, to the NVIDIA agreement, or are they take or pay capacity reservations or are they, you know, volume commitments tied to ASP floors? How should we be thinking about, you know, the CapEx, whether build, buy, offshore, these agreements are effectively underwriting? I'll stop there, and I have one other.",
+      "also_in": [],
+      "covered_by_claims": [],
+      "in_recalled_sections": []
+    }
+  ],
+  "claims_in_no_hit": [],
+  "recall": null
+}
