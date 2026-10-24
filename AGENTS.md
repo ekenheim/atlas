@@ -2,7 +2,7 @@
 
 Evidence-driven investment research platform built around Hindsight. Start with `START_HERE.md`; the authoritative spec is `hindsight_investment_research_build_plan.md` (v1.1).
 
-**Current effort:** Atlas as the record of the scheduled research (ADR 0004, 2026-10-20): the owner's claude.ai scheduled tasks research, Atlas keeps their editions, finds rewrites, checks quotes and settles predictions. Orient at `.scratch/atlas-record/map.md` and take the first open, unblocked ticket. The research pipeline below is frozen and will be deleted (ticket 07); don't extend it.
+**Archived, 2026-10-24 (ADR 0005).** The owner runs the research entirely from the Claude app. Atlas is stopped in the cluster and the repository is read-only. Build nothing here. ADR 0005 says where the data is and how to revive it. The rest of this guide describes Atlas as it was at `v0.6.22`.
 
 **Roadmap planning:** when revisiting priorities or specifying the post-pilot effort, read [the 4 October roadmap proposal](docs/research/proposed-roadmap-2026-10-04.md), preserved at the owner's request. It proposes sequencing changes; the pilot map remains the execution authority until accepted changes are recorded there.
 

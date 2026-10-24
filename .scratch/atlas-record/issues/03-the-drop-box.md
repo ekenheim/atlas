@@ -1,7 +1,7 @@
 # The drop box: a collector task writes, Atlas pulls
 
 Type: research (spike), then task
-Status: ready-for-human
+Status: wontfix
 Blocked by: none
 
 ## Why
@@ -46,3 +46,7 @@ After each Monday's council, starting 2026-10-26, the lead snapshots the eight a
 
 - [ ] The spike's answer is recorded here.
 - [ ] The collector has run on a Monday, and Atlas has pulled its commit on production.
+
+## Comments
+
+- 2026-10-24, lead: closed, because the owner archived Atlas (ADR 0005).

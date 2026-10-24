@@ -1,7 +1,7 @@
 # Freeze the research pipeline
 
 Type: task
-Status: ready-for-human
+Status: resolved
 Blocked by: none
 
 ## Why
@@ -38,3 +38,4 @@ A home-ops PR on `kubernetes/apps/development/atlas/app/`. The owner merges it.
 - 2026-10-20, the lead: home-ops PR https://github.com/ekenheim/home-ops-upgrade/pull/7842 is open for the owner to merge.
 
 - 2026-10-20, lead: the owner merged #7842 at 08:30 UTC. The second box is checked on 2026-10-21.
+- 2026-10-24, lead: resolved. The freeze held until the archive (ADR 0005). Its day-after check no longer matters, since Atlas is stopped.

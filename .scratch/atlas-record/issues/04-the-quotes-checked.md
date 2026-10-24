@@ -1,7 +1,7 @@
 # The quotes checked against their sources
 
 Type: task
-Status: needs-info
+Status: wontfix
 Blocked by: 01, and the owner's answer to the spec's open question 1
 
 ## What to build
@@ -68,3 +68,7 @@ Each unchecked site then needs its terms read once. The job lists the unchecked 
 
 - [ ] The 2026-10-19 editions are checked on production.
 - [ ] The lead has read the quotes found `not_found` and reported them.
+
+## Comments
+
+- 2026-10-24, lead: closed, because the owner archived Atlas (ADR 0005).

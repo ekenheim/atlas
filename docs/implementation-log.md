@@ -4543,3 +4543,10 @@ The owner merged PR #7180. The shared `llm/hindsight` (0.10.2) rolled out with t
 
 - **Release:** `v0.6.22` on `616cbad` (CI run 39395330028; release run 39397722181, `publish` success). Home-ops #7844 (images, agents' kept in step) merged by the owner; production reports `atlas_build_info{version="0.6.22"}` and `/health/ready` all `ok`.
 - **Imports:** the eight 2026-10-19 pages (`tests/fixtures/artifacts/2026-10-19/`) posted to `POST /api/v1/editions?source=manual`: eight 201s, all parsed, 0 rewrites (no previous editions); `GET /api/v1/ledger-predictions` lists 31 (27 theme, 4 council), all `open`, each with a deadline day; a repeat post is 200 `unchanged`.
+
+## Atlas archived (2026-10-24)
+
+- **The decision:** ADR 0005 (`docs/adr/0005-atlas-archived.md`); `AGENTS.md` and `START_HERE.md` point to it; `docs/decisions.md`.
+- **The record effort closed:** `.scratch/atlas-record/map.md` says where it stopped. Tickets 01 and 05 are resolved (live in 0.6.22); 02, 03, 04, 06 and 08 are `wontfix`; 07 is superseded by ADR 0005 (`wontfix`); 00 is resolved (the freeze, #7842).
+- **Kept:** the lead's untracked scratch from the owner's PC on branch `archive/local-scratch`; `ui/round-one` stays as a branch.
+- **Then:** the repository is archived on GitHub, and a home-ops PR sets `replicas: 0`, removes the alerts and the gatus check, and turns the CI runner scale set off (the owner merges).

@@ -2,6 +2,8 @@
 
 Label: wayfinder:map
 
+**Closed on 2026-10-24: Atlas is archived (ADR 0005).** The owner runs the research and its record from the Claude app. Live in 0.6.22 at the stop: the edition store (01), the rewrite check (02) and the prediction record (05), holding the eight 2026-10-19 editions and their 31 predictions. Never built: the drop box (03), quote checks (04) and the pages (06). The rest of this map is as it stood.
+
 ## Destination
 
 Every Monday, Atlas holds that week's eight editions (seven themes and the council) unchanged. For each edition, its pages show:
@@ -40,6 +42,7 @@ The research pipeline is retired. The spec is `spec.md`.
 <!-- one line per closed ticket -->
 - The pivot, 2026-10-20: the scheduled tasks research, and Atlas keeps the record (ADR 0004). The scorecard (ticket 29a) is retired, and the prospective record replaces it.
 - 01 and 05, 2026-10-20: live in 0.6.22 (home-ops #7844). Production holds the eight 2026-10-19 editions and their 31 predictions. 02 is live too: an item leaving the council's board is no finding, decided at integration; its last box waits for 2026-10-26.
+- The archive, 2026-10-24: Atlas is stopped and kept, not deleted (ADR 0005). Every open ticket is `wontfix`.
 
 ## Not yet specified
 

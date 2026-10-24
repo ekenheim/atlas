@@ -1,7 +1,7 @@
 # Retire the pipeline
 
 Type: task
-Status: ready-for-human
+Status: wontfix
 Blocked by: 00, 03, and two Mondays of editions imported and checked on production
 
 ## What
@@ -23,3 +23,7 @@ Blocked by: 00, 03, and two Mondays of editions imported and checked on producti
 ## Done when
 
 - [ ] The release is live, CI is green, and the record pages still render every edition.
+
+## Comments
+
+- 2026-10-24, lead: superseded by ADR 0005. Atlas is archived rather than deleted, so no backup and no deletion are needed.

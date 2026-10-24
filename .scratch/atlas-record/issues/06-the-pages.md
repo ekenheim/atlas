@@ -1,7 +1,7 @@
 # The pages
 
 Type: task
-Status: ready-for-agent
+Status: wontfix
 Blocked by: 01, 02, 04, 05
 
 ## What to build
@@ -32,3 +32,7 @@ No page shows a CLI command.
 ## Done when
 
 - [ ] On production, the pages render the 2026-10-19 and 2026-10-26 editions, checked in a browser at phone width.
+
+## Comments
+
+- 2026-10-24, lead: closed, because the owner archived Atlas (ADR 0005).

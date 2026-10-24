@@ -1912,3 +1912,7 @@ Two bake-offs (robotics, power equipment) against an open session with web tools
 
   The pipeline is frozen by configuration now and deleted after two Mondays and a proven backup. The scorecard (ticket 29a) is retired; the prospective record replaces it as the measure. ADR 0004; spec `.scratch/atlas-record/spec.md`.
 - **Transport.** Atlas stays LAN-only (its one route is `envoy-internal`). A collector task writes the pages and ledgers to a private GitHub repository through its connector, and Atlas pulls from it outbound. Until the collector exists, the lead snapshots the artifacts by hand after each Monday's council. The first snapshot is `tests/fixtures/artifacts/2026-10-19/`.
+
+## 2026-10-24: Atlas archived
+
+The owner archived Atlas: the research, and its record, now run entirely in the Claude app. Atlas is stopped and nothing is deleted: the database, the source archive PVC, the images and the Hindsight banks are kept. ADR 0005 supersedes ADR 0004's record and its deletion plan (record ticket 07) and gives the revival steps.

@@ -1,5 +1,7 @@
 # START HERE: engineering handoff for Atlas Research
 
+> **Archived on 2026-10-24.** Atlas is stopped and this repository is read-only. Read `docs/adr/0005-atlas-archived.md` first: it says where the data is and how to revive Atlas.
+
 You are the lead implementation agent. The complete, authoritative product and engineering specification is `hindsight_investment_research_build_plan.md` (v1.1). Read all of it before modifying code, including the "What changed in 1.1" table and **Appendix A** (the deployment target). Use this handoff to start implementing right away. To learn what has already been tried, how it was measured and what came of it (failures included), read `docs/experiments.md` first.
 
 ## Mission
